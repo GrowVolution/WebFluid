@@ -1,0 +1,101 @@
+from uuid import uuid4
+from datetime import datetime, timedelta, UTC
+from apscheduler.triggers.interval import IntervalTrigger
+from typing import TYPE_CHECKING
+import jwt, secrets
+
+from webfluid.core.ext import cache, scheduler
+from webfluid.utils import enabled
+from webfluid.exceptions import FrameworkException
+
+if TYPE_CHECKING:
+    from webfluid import Fluid
+
+
+class JWTManager:
+    def __init__(self, fluid: "Fluid | None" = None):
+        if not enabled("EXT_SCHEDULING"):
+            raise FrameworkException("EXT_SCHEDULING is required for JWTManager to work.")
+
+        self._current_key = None
+        self._secret_rotary_interval = 15
+        self._token_expiry_days = 30
+        self._token_algorithm = "HS256"
+        self._token_issuer = "WebFluid"
+        self._token_audiences = {
+            "default": "Application"
+        }
+
+        if fluid is not None: self.init_fluid(fluid)
+
+    async def _rotate_secret(self):
+        self._current_key = uuid4().hex
+        await cache.aset(
+            f"jwt:{self._current_key}",
+            secrets.token_hex(64),
+            self._secret_rotary_interval * 24 * 60 * 60
+        )
+
+    def _encode(self, payload: dict, audience: str, secret: str) -> str:
+        if not self._current_key: raise FrameworkException("JWTManager not initialized.")
+        payload = payload.copy()
+        now = datetime.now(UTC)
+        payload.update({
+            "exp": now + timedelta(days=self._token_expiry_days),
+            "iat": now,
+            "nbf": now,
+            "iss": self._token_issuer,
+            "aud": self._token_audiences.get(audience, audience)
+        })
+        return jwt.encode(
+            payload, secret,
+            headers={ "kid": self._current_key },
+            algorithm=self._token_algorithm
+        )
+
+    def _decode(self, token: str, audience: str, secret: str) -> dict:
+        if not self._current_key: raise FrameworkException("JWTManager not initialized.")
+        return jwt.decode(
+            token, secret,
+            algorithms=[self._token_algorithm],
+            issuer=self._token_issuer,
+            audience=self._token_audiences.get(audience, audience),
+            verify=True
+        )
+
+    def init_fluid(self, fluid: "Fluid"):
+        self._secret_rotary_interval = fluid.app.config.get(
+            "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
+        )
+
+        self._rotate_secret()
+        scheduler.add_job(
+            self._rotate_secret,
+            IntervalTrigger(
+                days=self._secret_rotary_interval,
+                start_date=datetime.now(UTC)
+            )
+        )
+
+        self._token_expiry_days = fluid.app.config.get("JWT_EXPIRY_DAYS", self._token_expiry_days)
+        self._token_algorithm = fluid.app.config.get("JWT_ALGORITHM", self._token_algorithm)
+        self._token_issuer = fluid.app.config.get("JWT_ISSUER", self._token_issuer)
+        self._token_audiences = fluid.app.config.get("JWT_AUDIENCES", self._token_audiences)
+
+    def encode(self, payload: dict, audience: str = "default") -> str:
+        secret = cache.get(f"jwt:{self._current_key}")
+        return self._encode(payload, audience, secret)
+
+    async def aencode(self, payload: dict, audience: str = "default") -> str:
+        secret = await cache.aget(f"jwt:{self._current_key}")
+        return self._encode(payload, audience, secret)
+
+    def decode(self, token: str, audience: str = "default") -> dict:
+        kid = jwt.get_unverified_header(token).get("kid", self._current_key)
+        secret = cache.get(f"jwt:{kid}")
+        return self._decode(token, audience, secret)
+
+    async def adecode(self, token: str, audience: str = "default") -> dict:
+        kid = jwt.get_unverified_header(token).get("kid", self._current_key)
+        secret = await cache.aget(f"jwt:{kid}")
+        return self._decode(token, audience, secret)

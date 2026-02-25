@@ -1,0 +1,78 @@
+[project]
+name = "webfluid"
+version = "0.1.0"
+description = "A cli first fullstack framework for fast and easy web development."
+authors = [
+    { name = "Pierre", email = "pierre@growv-mail.org" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "aioflask",
+    "python-socketio",
+
+    "flask-limiter",
+    "flask-sqlalchemy",
+    "flask-migrate",
+    "flask-babelplus",
+    "flask-wtf",
+
+    "psycopg2",
+    "asyncpg",
+    "pymysql",
+    "aiomysql",
+    "aiosqlite",
+    "redis",
+
+    "uvicorn",
+    "asgiref",
+    "requests",
+    "slowapi[redis]",
+    "python-multipart",
+
+    "argon2_cffi",
+    "authlib",
+    "pyjwt",
+
+    "aiosmtplib",
+    "frozendict",
+    "gitpython",
+    "apscheduler",
+    "pytz",
+    "tqdm",
+
+    "typer"
+]
+
+[project.scripts]
+wf = "webfluid.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+webfluid = [
+    "babel.cfg",
+    "app/templates/**/*.html",
+    "app/static/**/*",
+    "app/data/locales.json",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--disable-warnings"

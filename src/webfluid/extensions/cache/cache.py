@@ -1,4 +1,4 @@
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from webfluid.extensions.cache import legacy, redis, base#
 
@@ -14,7 +14,7 @@ class Cache(base.BaseCache):
 
     def init_fluid(self, fluid: "Fluid"):
         super().init_fluid(fluid)
-        self._cache_type = fluid.app.config.get("CACHE_TYPE", self._cache_type)
+        self._cache_type = fluid.config.get("CACHE_TYPE", self._cache_type)
 
         if self._cache_type == "Legacy": self._instance = legacy.LegacyCache(fluid)
         elif self._cache_type == "redis": self._instance = redis.RedisCache(fluid)

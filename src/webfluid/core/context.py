@@ -1,8 +1,6 @@
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
-from webfluid.utils.cross_compat import RawRequest
-
 if TYPE_CHECKING:
     from webfluid import Fluid
 

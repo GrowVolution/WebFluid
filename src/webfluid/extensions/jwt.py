@@ -64,7 +64,7 @@ class JWTManager:
         )
 
     def init_fluid(self, fluid: "Fluid"):
-        self._secret_rotary_interval = fluid.app.config.get(
+        self._secret_rotary_interval = fluid.config.get(
             "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
         )
 
@@ -77,10 +77,10 @@ class JWTManager:
             )
         )
 
-        self._token_expiry_days = fluid.app.config.get("JWT_EXPIRY_DAYS", self._token_expiry_days)
-        self._token_algorithm = fluid.app.config.get("JWT_ALGORITHM", self._token_algorithm)
-        self._token_issuer = fluid.app.config.get("JWT_ISSUER", self._token_issuer)
-        self._token_audiences = fluid.app.config.get("JWT_AUDIENCES", self._token_audiences)
+        self._token_expiry_days = fluid.config.get("JWT_EXPIRY_DAYS", self._token_expiry_days)
+        self._token_algorithm = fluid.config.get("JWT_ALGORITHM", self._token_algorithm)
+        self._token_issuer = fluid.config.get("JWT_ISSUER", self._token_issuer)
+        self._token_audiences = fluid.config.get("JWT_AUDIENCES", self._token_audiences)
 
     def encode(self, payload: dict, audience: str = "default") -> str:
         secret = cache.get(f"jwt:{self._current_key}")

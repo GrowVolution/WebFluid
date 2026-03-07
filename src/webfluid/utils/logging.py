@@ -49,19 +49,12 @@ class LogFactory:
         self.console.setFormatter(self.formatter.simple_formatter)
 
         self.main_logger = "fluid"
-        self.asgi_logger = "fluid.async"
-        self.wsgi_logger = "fluid.sync"
+        self.adtv_logger = "fluid.additives"
 
-    def async_context(self, fn: Callable) -> Callable:
+    def additive_context(self, fn: Callable) -> Callable:
         async def wrapper(*args, **kwargs):
-            async with _LogContext(self.asgi_logger):
+            async with _LogContext(self.adtv_logger):
                 return await async_result(fn(*args, **kwargs))
-        return wrapper
-
-    def sync_context(self, fn: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
-            with _LogContext(self.wsgi_logger):
-                return fn(*args, **kwargs)
         return wrapper
 
     def log(self, message: str, category: int = INFO):
@@ -95,8 +88,7 @@ class LogFactory:
             ]
 
         init_logger(self.main_logger, True)
-        init_logger(self.asgi_logger)
-        init_logger(self.wsgi_logger)
+        init_logger(self.adtv_logger)
 
         self.log("Mixing your WebFluid application.")
 

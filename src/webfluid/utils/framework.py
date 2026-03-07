@@ -1,5 +1,6 @@
-from typing import Callable, Any, TYPE_CHECKING
-import os, inspect, random, string, logging, re, asyncio
+from pathlib import Path
+from typing import TYPE_CHECKING, Callable, Any
+import os, inspect, random, string, logging, re, asyncio, sys, importlib
 
 if TYPE_CHECKING:
     from webfluid import AdditiveVersion
@@ -25,23 +26,35 @@ def sanitize_text(value: str) -> str:
     return value.encode("utf-8", "ignore").decode("utf-8")
 
 
-def database_uris(uri: str) -> tuple[str, str]:
-    if "+" in uri.split("://")[0]:
-        raise ValueError(f"Invalid database URI '{uri}': Please do not define drivers.")
+def get_root_path(import_name: str) -> str:
+    mod = sys.modules.get(import_name)
 
-    if uri.startswith("sqlite:"):
-        sync_uri = uri
-        async_uri = uri.replace("sqlite", "sqlite+aiosqlite")
-    elif uri.startswith("postgresql:"):
-        sync_uri = uri.replace("postgresql", "postgresql+psycopg2")
-        async_uri = uri.replace("postgresql", "postgresql+asyncpg")
-    elif uri.startswith("mysql:"):
-        sync_uri = uri.replace("mysql", "mysql+pymysql")
-        async_uri = uri.replace("mysql", "mysql+aiomysql")
+    if mod and getattr(mod, "__file__", None):
+        return str(Path(mod.__file__).resolve().parent)
+
+    try:
+        spec = importlib.util.find_spec(import_name)
+    except (ImportError, ValueError):
+        spec = None
+
+    loader = getattr(spec, "loader", None)
+
+    if loader is None:
+        return str(Path.cwd())
+
+    if hasattr(loader, "get_filename"):
+        filepath = loader.get_filename(import_name)
     else:
-        raise ValueError(f"Invalid database URI '{uri}': Unsupported database type.")
+        __import__(import_name)
+        mod = sys.modules.get(import_name)
+        filepath = getattr(mod, "__file__", None)
 
-    return sync_uri, async_uri
+        if filepath is None:
+            raise RuntimeError(
+                f"No root path can be found for the provided module {import_name!r}."
+            )
+
+    return str(Path(filepath).resolve().parent)
 
 
 def required_arg_count(fn: Callable) -> int:

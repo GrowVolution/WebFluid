@@ -9,14 +9,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi",
-    "aioflask",
     "python-socketio",
-
-    "flask-limiter",
-    "flask-sqlalchemy",
-    "flask-migrate",
-    "flask-babelplus",
-    "flask-wtf",
+    "jinja2",
 
     "psycopg2",
     "asyncpg",

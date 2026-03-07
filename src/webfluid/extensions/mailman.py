@@ -27,7 +27,7 @@ class Mail:
         if fluid is not None: self.init_fluid(fluid)
 
     def init_fluid(self, fluid: "Fluid"):
-        config = fluid.app.config
+        config = fluid.config
 
         self.host = config.get("MAIL_SERVER", self.host)
         self.port = config.get("MAIL_PORT", self.port)

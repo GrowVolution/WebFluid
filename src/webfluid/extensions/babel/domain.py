@@ -1,5 +1,5 @@
 from babel import support
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import os
 
 from webfluid.core.ext import babel
@@ -21,7 +21,7 @@ class Domain:
         self.cache: dict[str, MergedTranslations] = {}
 
     def get_translations_path(self, fluid: "Fluid | None") -> "PathLike[str] | str":
-        if fluid: return self.dir or os.path.join(str(fluid.app.root_path), "translations")
+        if fluid: return self.dir or os.path.join(str(fluid.root_path), "translations")
         return self.dir or os.path.join(os.getcwd(), "translations")
 
     def get_translations(self) -> MergedTranslations:

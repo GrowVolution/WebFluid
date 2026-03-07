@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, UTC
 from apscheduler.triggers.date import DateTrigger
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from webfluid.core.ext import scheduler
 from webfluid.extensions.cache.base import BaseCache

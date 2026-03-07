@@ -1,46 +1,116 @@
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from socketio import ASGIApp
-import os, uvicorn, asyncio
+from pathlib import Path
+from typing import TYPE_CHECKING, Callable
+import os, uvicorn, asyncio, signal
 
 from webfluid import version
-from webfluid.base import App
-from webfluid.core.api import ApiLiquid
-from webfluid.core.app import AppLiquid
-from webfluid.core.ext import socket, scheduler, cache, mail, jwt
+from webfluid.core.config import Config
+from webfluid.core.context import FluidContext
+from webfluid.core.ext import socket, scheduler, db, babel, cache, mail, jwt
 from webfluid.additives import register_additives
-from webfluid.utils import enabled, disable_uvicorn_logging
-from webfluid.utils.config import init_configs
+from webfluid.utils import (enabled, disable_uvicorn_logging, get_root_path,
+                            safe_string, safe_execute, required_arg_count)
+from webfluid.utils.config import init_configs, build_config
+from webfluid.exceptions import EventHookException
+
+if TYPE_CHECKING:
+    from types import FrameType
 
 
-class Fluid(App):
+class Fluid(FastAPI):
     def __init__(self, import_name: str):
-        super().__init__(import_name)
-        init_configs(self)
+        self.name = safe_string(os.getenv("APP_NAME", import_name)).lower()
 
-        self.api = ApiLiquid(self)
-        self.app = AppLiquid(import_name)
-        self.app.setup(self)
+        init_configs(self)
+        self.config = Config()
+        self.config.from_object(build_config())
+
+        self.app_root = Path(get_root_path(import_name)).resolve()
+        self.additive_root = self.app_root / "additives"
+        self.framework_root = Path(__file__).parent.parent.resolve()
+
+        self.app_static = StaticFiles(
+            directory=(self.app_root / "static")
+        )
+        self.framework_static = StaticFiles(
+            directory=(self.framework_root / "app" / "static")
+        )
+
+        self.jinja_env = Environment(enable_async=True)
+        app_templates = FileSystemLoader(self.app_root / "templates")
+        framework_templates = FileSystemLoader(self.framework_root / "app" / "templates")
+        self.app_loader = ChoiceLoader([
+            app_templates, PrefixLoader({ "app": app_templates })
+        ])
+        self.framework_loader = ChoiceLoader([
+            framework_templates, PrefixLoader({ "fluid": framework_templates })
+        ])
+
+        if self.config.get("RATELIMIT_ENABLED", True):
+            self.state.limiter = Limiter(
+                key_func=get_remote_address,
+                default_limits=self.config.get(
+                    "RATELIMIT_DEFAULT", ["500/day", "100/hour"]
+                ),
+                storage_uri=self.config.get("RATELIMIT_STORAGE_URI", "redis://localhost:6379/1"),
+            )
+            self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+        async def _context_middleware(
+                request: Request, call_next: Callable
+        ) -> Response:
+            async with FluidContext(self, request):
+                return await call_next(request)
+
+        self.middleware("http")(_context_middleware)
 
         if enabled("EXT_SCHEDULER"):
             self.startup_hook(scheduler.start)
 
+        if enabled("EXT_SOCKET"): socket.init_fluid(self)
+        if enabled("EXT_SQLALCHEMY"): db.init_fluid(self)
+        if enabled("EXT_BABEL"): babel.init_fluid(self)
         if enabled("EXT_CACHE"): cache.init_fluid(self)
         if enabled("EXT_MAIL"): mail.init_fluid(self)
         if enabled("EXT_JWT"): jwt.init_fluid(self)
 
-        self.startup_hook(self._prepare_api)
+        self._hooks = {
+            "startup": [],
+            "shutdown": []
+        }
+        self.startup_hook(self._prepare)
         self.startup_hook(
             lambda: register_additives(self)
         )
 
         self._asgi_app = None
+        self._shutdown_flag = asyncio.Event()
+
+        signal.signal(signal.SIGTERM, self._handle_shutdown)
+        signal.signal(signal.SIGINT, self._handle_shutdown)
 
     def __repr__(self) -> str:
         return f"<WebFluid {version()}>"
 
-    def _prepare_api(self):
-        self.api.mount("/app", self.app, "app")
-        self.api.mount("/static", self.app_static, "static")
-        self.api.mount("/wf-static", self.framework_static, "wf_static")
+    def _prepare(self):
+        self.mount("/static", self.app_static, "static")
+        self.mount("/wf-static", self.framework_static, "wf_static")
+
+    async def _startup(self):
+        for hook in self._hooks["startup"]:
+            await safe_execute(hook, EventHookException)
+
+    async def _shutdown(self):
+        for hook in reversed(self._hooks["shutdown"]):
+            await safe_execute(hook, EventHookException)
 
     async def _run_server(self):
         config = uvicorn.Config(
@@ -52,16 +122,27 @@ class Fluid(App):
         disable_uvicorn_logging()
         await server.serve()
 
-    @property
-    def asgi_app(self) -> ASGIApp | ApiLiquid:
-        if self._asgi_app is not None: return self._asgi_app
+    def _handle_shutdown(self, signum: int, frame: "FrameType"):
+        if self._shutdown_flag.is_set():
+            return
+        loop = asyncio.get_event_loop()
+        loop.call_soon_threadsafe(self._shutdown_flag.set)
 
-        if enabled("EXT_SOCKET"):
-            self._asgi_app = ASGIApp(socket, other_asgi_app=self.api.asgi)
-        else:
-            self._asgi_app = self.api.asgi
+    def startup_hook(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Startup hooks must not receive non optional arguments.")
+        self._hooks["startup"].append(fn)
+        return fn
 
-        return self._asgi_app
+    def shutdown_hook(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Shutdown hooks must not receive non optional arguments.")
+        self._hooks["shutdown"].append(fn)
+        return fn
+
+    async def render(self, template: str, **ctx) -> HTMLResponse:
+        html = await self.jinja_env.get_template(template).render_async(**ctx)
+        return HTMLResponse(html)
 
     async def start(self):
         await self._startup()
@@ -74,3 +155,27 @@ class Fluid(App):
             await serve
         except asyncio.CancelledError:
             pass
+
+    def enter(self): asyncio.run(self.start())
+
+    @property
+    def asgi_app(self) -> ASGIApp | Fluid | ProxyHeadersMiddleware:
+        if self._asgi_app is not None: return self._asgi_app
+
+        if self.config.get("PROXY_FIX", False):
+            asgi = ProxyHeadersMiddleware(self)
+        else:
+            asgi = self
+
+        if enabled("EXT_SOCKET"):
+            self._asgi_app = ASGIApp(socket, other_asgi_app=asgi)
+        else:
+            self._asgi_app = asgi
+
+        return self._asgi_app
+
+    @property
+    def limit(self) -> Callable:
+        if self.config.get("RATELIMIT_ENABLED", True):
+            return self.state.limiter.limit
+        return lambda *_, **__: lambda fn: fn

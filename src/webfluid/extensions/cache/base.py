@@ -1,4 +1,4 @@
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from webfluid import Fluid
@@ -10,7 +10,7 @@ class BaseCache:
         if fluid is not None: self.init_fluid(fluid)
 
     def init_fluid(self, fluid: "Fluid"):
-        self._default_timeout = fluid.app.config.get("CACHE_DEFAULT_TIMEOUT", self._default_timeout)
+        self._default_timeout = fluid.config.get("CACHE_DEFAULT_TIMEOUT", self._default_timeout)
 
     def set(self, key: str, value: Any, timeout: int = None): raise NotImplementedError()
     def get(self, key: str): raise NotImplementedError()

@@ -2,7 +2,7 @@ from contextvars import ContextVar
 from contextlib import contextmanager, asynccontextmanager
 from babel import Locale
 from pathlib import Path
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 import sys, subprocess
 
 from webfluid.core.context import BaseContext
@@ -83,19 +83,19 @@ class Babel:
             from webfluid.extensions.babel.domain import Domain
             default_domain = Domain()
         self.default_domain = default_domain
-        self.default_locale = fluid.app.config.get("BABEL_DEFAULT_LOCALE", default_locale)
-        self.default_timezone = fluid.app.config.get("BABEL_DEFAULT_TIMEZONE", default_timezone)
-        supported_locales = fluid.app.config.get("BABEL_SUPPORTED_LOCALES", [default_locale])
+        self.default_locale = fluid.config.get("BABEL_DEFAULT_LOCALE", default_locale)
+        self.default_timezone = fluid.config.get("BABEL_DEFAULT_TIMEZONE", default_timezone)
+        supported_locales = fluid.config.get("BABEL_SUPPORTED_LOCALES", [default_locale])
         self.supported_locales = tuple(supported_locales)
         self.date_formats = date_formats or DEFAULT_DATE_FORMATS.copy()
 
-        db_bind = fluid.app.config.get("BABEL_DATABASE_BIND")
+        db_bind = fluid.config.get("BABEL_DATABASE_BIND")
         if db_bind is not None:
             from webfluid.extensions.babel.translations import I18nMessage
             I18nMessage.set_bind(db_bind)
 
         if configure_jinja:
-            fluid.app.jinja_env.filters.update(
+            fluid.jinja_env.filters.update(
                 datetimeformat=format_datetime,
                 dateformat=format_date,
                 timeformat=format_time,
@@ -106,8 +106,8 @@ class Babel:
                 percentformat=format_percent,
                 scientificformat=format_scientific,
             )
-            fluid.app.jinja_env.add_extension("jinja2.ext.i18n")
-            fluid.app.jinja_env.install_gettext_callables(
+            fluid.jinja_env.add_extension("jinja2.ext.i18n")
+            fluid.jinja_env.install_gettext_callables(
                 lambda x: get_domain().get_translations().ugettext(x),
                 lambda s, p, n: get_domain().get_translations().ungettext(s, p, n),
                 newstyle=True,

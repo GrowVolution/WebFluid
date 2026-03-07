@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Any
 
 from webfluid.core.context import BaseContext
-from webfluid.utils import database_uris, camel_to_snake
+from webfluid.utils import camel_to_snake
+from webfluid.extensions.utils.sqlalchemy import database_uris
 
 if TYPE_CHECKING:
     from webfluid import Fluid
@@ -100,15 +101,15 @@ class SQLAlchemy:
         return self._get_bind(getattr(model, "__bind_key__", "default"))
 
     def init_fluid(self, fluid: "Fluid"):
-        default_uri = fluid.app.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
+        default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
         uris = database_uris(default_uri)
-        fluid.app.config["SQLALCHEMY_DATABASE_URI"] = uris[0]
+        fluid.config["SQLALCHEMY_DATABASE_URI"] = uris[0]
         self.binds["default"] = _Bind("default", uris)
 
-        further_binds = fluid.app.config.get("SQLALCHEMY_BINDS", {})
+        further_binds = fluid.config.get("SQLALCHEMY_BINDS", {})
         for key, uri in further_binds.items():
             uris = database_uris(uri)
-            fluid.app.config["SQLALCHEMY_BINDS"][key] = uris[0]
+            fluid.config["SQLALCHEMY_BINDS"][key] = uris[0]
             self.binds[key] = _Bind(key, uris)
 
     @contextmanager

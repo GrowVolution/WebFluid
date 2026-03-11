@@ -3,7 +3,7 @@ from contextlib import contextmanager, asynccontextmanager
 from babel import Locale
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
-import sys, subprocess
+import sys, subprocess, os
 
 from webfluid.core.context import BaseContext
 from webfluid.extensions.babel.constants import (
@@ -108,8 +108,8 @@ class Babel:
             )
             fluid.jinja_env.add_extension("jinja2.ext.i18n")
             fluid.jinja_env.install_gettext_callables(
-                lambda x: get_domain().get_translations().ugettext(x),
-                lambda s, p, n: get_domain().get_translations().ungettext(s, p, n),
+                lambda x: self.current_domain.get_translations().ugettext(x),
+                lambda s, p, n: self.current_domain.get_translations().ungettext(s, p, n),
                 newstyle=True,
             )
 
@@ -152,7 +152,7 @@ class Babel:
         pot = "messages.pot"
         trans = Path(self.current_domain.get_translations_path(None))
         babel_cli = "babel.messages.frontend"
-        has_catalogs = any(translations.glob("*/LC_MESSAGES/*.po"))
+        has_catalogs = any(trans.glob("*/LC_MESSAGES/*.po"))
 
         subprocess.run(
             [sys.executable, "-m", babel_cli, "extract",

@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 import os, platform, typer, requests, subprocess
 
 from webfluid.surface import dist
@@ -73,7 +73,7 @@ def generate_tailwind_css(fluid: "Fluid"):
         )
 
 
-def setup_tailwind():
+def load_tailwind(download_fn: Callable):
     data = _get_cli_data()
     file_type = ".exe" if data[1] == "windows" else ""
     dest = dist / f"tailwind{file_type}"
@@ -81,19 +81,9 @@ def setup_tailwind():
     if dest.exists():
         return
 
-    typer.echo(typer.style(f"Downloading {data[0]}...", bold=True))
-    with requests.get(data[0], stream=True) as r:
-        r.raise_for_status()
-        total = int(r.headers.get("content-length", 0))
-        with open(dest, "wb") as f, tqdm(
-                total=total, unit="B", unit_scale=True, desc=str(dest)
-        ) as bar:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-                bar.update(len(chunk))
-
+    download_fn(data[0], dest)
     if not dest.exists():
-        raise TailwindError("Failed to load tailwind cli.")
+        raise TailwindError("Failed to download standalone tailwind cli.")
 
     if os.name != "nt":
         os.system(f"chmod +x {str(dest)}")

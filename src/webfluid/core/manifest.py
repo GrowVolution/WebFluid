@@ -3,7 +3,7 @@ from typing import Callable
 import json
 
 from webfluid.utils import check_required_version, enabled
-from webfluid.utils.additive import id_check, version_check, type_check
+from webfluid.utils.additive import id_check, version_check, type_check, frontend_check
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
 
@@ -15,6 +15,7 @@ class Manifest:
         "id": (str, True, id_check),
         "version": (str, True, version_check),
         "type": (str, True, type_check),
+        "frontend": (dict[str, str | bool], True, frontend_check),
         "name": (str, False),
         "description": (str, False),
         "authors": (list[dict[str, str]], False),
@@ -66,7 +67,7 @@ class Manifest:
 
         requirements = self["requires"]
         if not "wf" in requirements:
-            log_factory.warn(f"[{self['name']}] Required WebFluid version of not defined.")
+            log_factory.warning(f"[{self['name']}] Required WebFluid version of not defined.")
         else:
             fulfilled = check_required_version(requirements["wf"])
             if not fulfilled:

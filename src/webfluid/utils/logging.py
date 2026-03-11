@@ -1,5 +1,6 @@
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from contextvars import ContextVar
+from functools import wraps
 from typing import Callable
 import traceback, sys, logging, typer
 
@@ -52,6 +53,7 @@ class LogFactory:
         self.adtv_logger = "fluid.additives"
 
     def additive_context(self, fn: Callable) -> Callable:
+        @wraps(fn)
         async def wrapper(*args, **kwargs):
             async with _LogContext(self.adtv_logger):
                 return await async_result(fn(*args, **kwargs))
@@ -62,13 +64,15 @@ class LogFactory:
         self.logger.log(category, message)
 
     def debug(self, message: str): self.log(message, DEBUG)
-    def warn(self, message: str): self.log(message, WARNING)
+    def warning(self, message: str): self.log(message, WARNING)
     def error(self, message: str): self.log(message, ERROR)
     def critical(self, message: str): self.log(message, CRITICAL)
 
     def exception(self, exc: Exception, message: str = None):
         msg = f"{message.strip()}\n" if message else ""
-        tb_str = "".join(traceback.format_exception(*sys.exc_info()))
+        tb_str = "".join(
+            traceback.format_exception(type(exc), exc, exc.__traceback__)
+        )
         self.error(f"{msg}{type(exc).__name__}: {exc}\n{tb_str.strip()}")
 
     def start_session(self, loglevel: str = "info"):
@@ -82,10 +86,9 @@ class LogFactory:
             logger = logging.getLogger(name)
             logger.setLevel(level)
             logger.propagate = propagate
-            logger.handlers = [
-                self.colored_console,
-                self.console
-            ]
+            logger.handlers.clear()
+            logger.addHandler(self.colored_console)
+            logger.addHandler(self.console)
 
         init_logger(self.main_logger, True)
         init_logger(self.adtv_logger)

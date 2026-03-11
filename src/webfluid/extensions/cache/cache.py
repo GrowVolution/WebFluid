@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 class Cache(base.BaseCache):
     def __init__(self, fluid: "Fluid | None" = None):
-        self._cache_type = "Legacy"
+        self._cache_type = "legacy"
         self._instance = None
         super().__init__(fluid)
 
@@ -16,7 +16,7 @@ class Cache(base.BaseCache):
         super().init_fluid(fluid)
         self._cache_type = fluid.config.get("CACHE_TYPE", self._cache_type)
 
-        if self._cache_type == "Legacy": self._instance = legacy.LegacyCache(fluid)
+        if self._cache_type == "legacy": self._instance = legacy.LegacyCache(fluid)
         elif self._cache_type == "redis": self._instance = redis.RedisCache(fluid)
         else: raise ValueError(f"Unknown cache type: {self._cache_type}")
 

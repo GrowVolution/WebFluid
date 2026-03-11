@@ -1,12 +1,10 @@
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from socketio import ASGIApp
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 import os, uvicorn, asyncio, signal
@@ -14,12 +12,12 @@ import os, uvicorn, asyncio, signal
 from webfluid import version
 from webfluid.core.config import Config
 from webfluid.core.context import FluidContext
-from webfluid.core.ext import socket, scheduler, db, babel, cache, mail, jwt
+from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
 from webfluid.additives import register_additives
 from webfluid.utils import (enabled, disable_uvicorn_logging, get_root_path,
                             safe_string, safe_execute, required_arg_count)
 from webfluid.utils.config import init_configs, build_config
-from webfluid.exceptions import EventHookException
+from webfluid.exceptions import EventHookException, ProcessorException
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -38,14 +36,14 @@ class Fluid(FastAPI):
         self.framework_root = Path(__file__).parent.parent.resolve()
 
         self.app_static = StaticFiles(
-            directory=(self.app_root / "static")
+            directory=(self.app_root / "app" / "static")
         )
         self.framework_static = StaticFiles(
             directory=(self.framework_root / "app" / "static")
         )
 
         self.jinja_env = Environment(enable_async=True)
-        app_templates = FileSystemLoader(self.app_root / "templates")
+        app_templates = FileSystemLoader(self.app_root / "app" / "templates")
         framework_templates = FileSystemLoader(self.framework_root / "app" / "templates")
         self.app_loader = ChoiceLoader([
             app_templates, PrefixLoader({ "app": app_templates })
@@ -53,6 +51,11 @@ class Fluid(FastAPI):
         self.framework_loader = ChoiceLoader([
             framework_templates, PrefixLoader({ "fluid": framework_templates })
         ])
+        self._context_processors = []
+        self._request_processors = {
+            "before": [],
+            "after": []
+        }
 
         if self.config.get("RATELIMIT_ENABLED", True):
             self.state.limiter = Limiter(
@@ -64,18 +67,23 @@ class Fluid(FastAPI):
             )
             self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-        async def _context_middleware(
+        async def middleware(
                 request: Request, call_next: Callable
         ) -> Response:
             async with FluidContext(self, request):
-                return await call_next(request)
+                for processor in self._request_processors["before"]:
+                    response = await safe_execute(processor, ProcessorException, request)
+                    if response is not None: return response
+                response = await call_next(request)
+                for processor in reversed(self._request_processors["after"]):
+                    response = await safe_execute(processor, ProcessorException, response)
+                return response
 
-        self.middleware("http")(_context_middleware)
+        self.middleware("http")(middleware)
 
         if enabled("EXT_SCHEDULER"):
             self.startup_hook(scheduler.start)
 
-        if enabled("EXT_SOCKET"): socket.init_fluid(self)
         if enabled("EXT_SQLALCHEMY"): db.init_fluid(self)
         if enabled("EXT_BABEL"): babel.init_fluid(self)
         if enabled("EXT_CACHE"): cache.init_fluid(self)
@@ -96,6 +104,8 @@ class Fluid(FastAPI):
 
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)
+
+        super().__init__(**self.config.get("API_CONFIG", {}))
 
     def __repr__(self) -> str:
         return f"<WebFluid {version()}>"
@@ -140,9 +150,30 @@ class Fluid(FastAPI):
         self._hooks["shutdown"].append(fn)
         return fn
 
-    async def render(self, template: str, **ctx) -> HTMLResponse:
-        html = await self.jinja_env.get_template(template).render_async(**ctx)
-        return HTMLResponse(html)
+    def context_processor(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Context processors must not receive non optional arguments.")
+        self._context_processors.append(fn)
+        return fn
+
+    def before_request(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) != 1:
+            raise TypeError("Request processors must receive exactly one argument (request).")
+        self._request_processors["before"].append(fn)
+        return fn
+
+    def after_request(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) != 1:
+            raise TypeError("Request processors must receive exactly one argument (response).")
+        self._request_processors["after"].append(fn)
+        return fn
+
+    async def render(self, template: str, **ctx) -> str:
+        for processor in self._context_processors:
+            result = await safe_execute(processor, ProcessorException)
+            if not isinstance(result, dict): continue
+            ctx = result | ctx
+        return await self.jinja_env.get_template(template).render_async(**ctx)
 
     async def start(self):
         await self._startup()
@@ -159,18 +190,13 @@ class Fluid(FastAPI):
     def enter(self): asyncio.run(self.start())
 
     @property
-    def asgi_app(self) -> ASGIApp | Fluid | ProxyHeadersMiddleware:
+    def asgi_app(self) -> Fluid | ProxyHeadersMiddleware:
         if self._asgi_app is not None: return self._asgi_app
 
         if self.config.get("PROXY_FIX", False):
-            asgi = ProxyHeadersMiddleware(self)
+            self._asgi_app = ProxyHeadersMiddleware(self)
         else:
-            asgi = self
-
-        if enabled("EXT_SOCKET"):
-            self._asgi_app = ASGIApp(socket, other_asgi_app=asgi)
-        else:
-            self._asgi_app = asgi
+            self._asgi_app = self
 
         return self._asgi_app
 

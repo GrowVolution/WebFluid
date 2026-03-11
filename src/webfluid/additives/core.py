@@ -14,12 +14,13 @@ from webfluid.exceptions import ManifestError
 if TYPE_CHECKING:
     from webfluid import Fluid
 
-additives_home = Path.cwd() / "additives"
-conf_path = Path.cwd() / "app_configs"
 _additives = {}
 
 
 def setup_additives(app_name: str):
+    additives_home = Path.cwd() / "additives"
+    conf_path = Path.cwd() / "app_configs"
+
     conf = conf_path / f"{app_name}.conf"
     config = ConfigParser()
     config.optionxform = str
@@ -55,10 +56,10 @@ def setup_additives(app_name: str):
         config.write(f)
 
 
-def register_additives(fluid: "Fluid"):
+async def register_additives(fluid: "Fluid"):
     loaders = []
 
-    def register():
+    async def register():
         nonlocal loaders
 
         for additive_info in installed_additives(fluid.additive_root):
@@ -80,14 +81,14 @@ def register_additives(fluid: "Fluid"):
             try:
                 log_factory.log(f"Registering: {additive}")
                 if enabled("DEBUG_MODE"): additive.install()
-                additive.enable(fluid)
+                await additive.enable(fluid)
                 loaders.append(additive.loader)
                 log_factory.log(f"[{additive.additive_name}] Additive successfully registered.")
             except Exception as e:
                log_factory.exception(e, f"[{additive.additive_name}] Failed registering additive.")
 
     loaders.append(fluid.app_loader)
-    if enabled("WF_ADDITIVES"): register()
+    if enabled("WF_ADDITIVES"): await register()
     loaders.append(fluid.framework_loader)
 
     fluid.jinja_env.loader = ChoiceLoader(loaders)
@@ -117,7 +118,7 @@ def installed_additives(package: Path, do_log: bool = False) -> list[tuple[str, 
                 (manifest.get("id", additive.name), version, additive.name)
             )
         except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
-            if do_log: log_factory.warn(f"Invalid module package '{additive.name}' in {package}: {e}.")
+            if do_log: log_factory.warning(f"Invalid module package '{additive.name}' in {package}: {e}.")
             continue
 
     return _additives[package]

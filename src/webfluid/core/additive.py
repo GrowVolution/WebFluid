@@ -1,11 +1,12 @@
 from fastapi import APIRouter, params
 from fastapi.datastructures import Default, DefaultPlaceholder
 from fastapi.routing import APIRoute, BaseRoute
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.utils import generate_unique_id
 from pydantic.main import IncEx
 from jinja2 import PrefixLoader, FileSystemLoader
+from functools import wraps
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Sequence, Any
@@ -13,13 +14,12 @@ import subprocess, sys, typer
 
 from webfluid.core.manifest import Manifest
 from webfluid.core.context import FluidContext
-from webfluid.utils import get_root_path, safe_string
+from webfluid.utils import get_root_path, safe_string, required_arg_count, safe_execute, async_result
 from webfluid.utils.additive import require_extensions
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import AdditiveException, ManifestError
+from webfluid.exceptions import AdditiveException, ManifestError, EventHookException, ProcessorException
 
 if TYPE_CHECKING:
-    from fastapi.responses import HTMLResponse
     from webfluid import Fluid
 
 
@@ -41,10 +41,61 @@ class AdditiveVersion(tuple):
         return f"v{'.'.join(map(str, self[:self.length]))}"
 
 
-class Additive(APIRouter):
+class AdditiveRouter(APIRouter):
+    def __init__(self, *args, **kwargs):
+        self._fake_http_middleware = []
+        super().__init__(*args, **kwargs)
+
+    def http_middleware(self, fn: Callable) -> Callable:
+        self._fake_http_middleware.append(fn)
+        return fn
+
+    def add_api_route(
+            self, path: str, endpoint: Callable[..., Any], *,
+            response_model: Any = Default(None), status_code: int | None = None,
+            tags: list[str | Enum] | None = None, dependencies: Sequence[params.Depends] | None = None,
+            summary: str | None = None, description: str | None = None, response_description: str = "Successful Response",
+            responses: dict[int | str, dict[str, Any]] | None = None, deprecated: bool | None = None,
+            methods: set[str] | list[str] | None = None, operation_id: str | None = None,
+            response_model_include: IncEx | None = None, response_model_exclude: IncEx | None = None,
+            response_model_by_alias: bool = True, response_model_exclude_unset: bool = False,
+            response_model_exclude_defaults: bool = False, response_model_exclude_none: bool = False,
+            include_in_schema: bool = True, response_class: type[Response] | DefaultPlaceholder = Default(JSONResponse),
+            name: str | None = None, route_class_override: type[APIRoute] | None = None,
+            callbacks: list[BaseRoute] | None = None, openapi_extra: dict[str, Any] | None = None,
+            generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder = Default(generate_unique_id)
+    ):
+
+        @wraps(endpoint)
+        async def wrapped(*args, **kwargs):
+            handler = endpoint
+            for middleware in reversed(self._fake_http_middleware):
+                handler = middleware(handler)
+            return await async_result(handler(*args, **kwargs))
+
+        super().add_api_route(
+            path, log_factory.additive_context(wrapped), response_model=response_model, status_code=status_code,
+            tags=tags, dependencies=dependencies, summary=summary, description=description,
+            response_description=response_description, responses=responses, deprecated=deprecated,
+            methods=methods, operation_id=operation_id, response_model_include=response_model_include,
+            response_model_exclude=response_model_exclude, response_model_by_alias=response_model_by_alias,
+            response_model_exclude_unset=response_model_exclude_unset,
+            response_model_exclude_defaults=response_model_exclude_defaults,
+            response_model_exclude_none=response_model_exclude_none, include_in_schema=include_in_schema,
+            response_class=response_class, name=name, route_class_override=route_class_override,
+            callbacks=callbacks, openapi_extra=openapi_extra
+        )
+
+    def add_api_websocket_route(self, path: str, endpoint: Callable[..., Any], name: str | None = None,
+                                *, dependencies: Sequence[params.Depends] | None = None):
+        super().add_api_websocket_route(
+            path, log_factory.additive_context(endpoint), name=name, dependencies=dependencies
+        )
+
+
+class Additive:
     def __init__(self, import_name: str, base: "Additive",
-                 required_extensions: list = None, allow_frontend: bool = True,
-                 **router_kwargs):
+                 required_extensions: list = None):
 
         if not "additives." in import_name:
             raise AdditiveException("Additives have to be created inside the 'additives' package.")
@@ -62,6 +113,7 @@ class Additive(APIRouter):
         else:
             self.additive_name = self.manifest["name"]
         self.name = safe_string(self.additive_name)
+        self.prefix = f"/{self.name.replace('_', '-')}"
 
         self.is_base = self.manifest["type"] == "base"
         self.required_extensions = required_extensions or []
@@ -74,9 +126,14 @@ class Additive(APIRouter):
         self.base = base
         self.parent = None
 
+        async def enable(fluid: "Fluid"):
+            await self._before_enable()
+            self._enable(fluid)
+            await self._after_enable()
+
         if base: self.required_extensions.extend(base.required_extensions or [])
         self.enable = log_factory.additive_context(
-            require_extensions(*self.required_extensions)(self._enable)
+            require_extensions(*self.required_extensions)(enable)
         )
 
         self.static_files = StaticFiles(
@@ -85,15 +142,47 @@ class Additive(APIRouter):
         self.loader = PrefixLoader(
             { self.name: FileSystemLoader(self.root_path / "templates") }
         )
+        self._context_processors = []
+        self._request_processors = {
+            "before": [],
+            "after": []
+        }
 
-        self._allow_frontend = allow_frontend
-        self._handlers = {}
+        self._hooks = {
+            "before": [],
+            "after": []
+        }
 
-        super().__init__(**router_kwargs)
+        if self.is_base:
+            self.api = AdditiveRouter()
+            self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
+            self.ws = AdditiveRouter()
+        else:
+            self.api = AdditiveRouter(prefix="/api")
+            self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
+            self.ws = AdditiveRouter(prefix="/ws")
+
+        def middleware(call_next: Callable):
+            async def wrapper(*args, **kwargs):
+                c = FluidContext.current()
+                for processor in self._request_processors["before"]:
+                    response = await safe_execute(processor, ProcessorException, c.request)
+                    if response is not None: return response
+                response = await call_next(*args, **kwargs)
+                for processor in reversed(self._request_processors["after"]):
+                    response = await safe_execute(processor, ProcessorException, response)
+                return response
+            return wrapper
+
+        self.api.http_middleware(middleware)
+        self.app.http_middleware(middleware)
 
     def __repr__(self) -> str:
         return f"<{self.additive_name} {self.version}> {self.manifest.get('description', '')}"
 
+    async def _before_enable(self):
+        for hook in self._hooks["before"]:
+            await safe_execute(hook, EventHookException)
 
     def _enable(self, fluid: "Fluid"):
         if self.is_base: raise AdditiveException(
@@ -109,18 +198,22 @@ class Additive(APIRouter):
             )
         elif self.base:
             self.base.manifest.check_requirements(fluid.additive_root)
-            self.include_router(self.base, prefix="/base")
+            self.api.include_router(self.base.api)
+            self.app.include_router(self.base.app)
+            self.ws.include_router(self.base.ws)
             self.base.parent = self
 
-        fluid.include_router(self, prefix=self.name)
+        fluid.include_router(self.api, prefix=self.prefix)
+        fluid.include_router(self.app, prefix=self.prefix)
+        fluid.include_router(self.ws, prefix=self.prefix)
         fluid.mount(
-            f"/{self.name.replace('_', '-')}/static",
-            self.static_files, f"{self.name}_static"
+            f"{self.prefix}/static", self.static_files,
+            f"{self.name}_static"
         )
 
-    async def render(self, template: str, **ctx) -> "HTMLResponse":
-        c = FluidContext.current()
-        return await c.fluid.render(f"{self.name}/{template}", **ctx)
+    async def _after_enable(self):
+        for hook in reversed(self._hooks["after"]):
+            await safe_execute(hook, EventHookException)
 
     def _extract(self):
         extract_path = Path(self.root_path) / "extract"
@@ -182,32 +275,43 @@ class Additive(APIRouter):
                     fg=typer.colors.RED, bold=True
                 ))
 
-    def add_api_route(self, path: str, endpoint: Callable[..., Any], *,
-                      response_model: Any = Default(None), status_code: int | None = None,
-                      tags: list[str | Enum] | None = None, dependencies: Sequence[params.Depends] | None = None,
-                      summary: str | None = None, description: str | None = None, response_description: str = "Successful Response",
-                      responses: dict[int | str, dict[str, Any]] | None = None, deprecated: bool | None = None,
-                      methods: set[str] | list[str] | None = None, operation_id: str | None = None,
-                      response_model_include: IncEx | None = None, response_model_exclude: IncEx | None = None,
-                      response_model_by_alias: bool = True, response_model_exclude_unset: bool = False,
-                      response_model_exclude_defaults: bool = False, response_model_exclude_none: bool = False,
-                      include_in_schema: bool = True, response_class: type[Response] | DefaultPlaceholder = Default(JSONResponse),
-                      name: str | None = None, route_class_override: type[APIRoute] | None = None,
-                      callbacks: list[BaseRoute] | None = None, openapi_extra: dict[str, Any] | None = None,
-                      generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder = Default(generate_unique_id)
-                      ):
-        super().add_api_route(
-            path, log_factory.additive_context(endpoint), response_model=response_model, status_code=status_code,
-            tags=tags, dependencies=dependencies, summary=summary, description=description,
-            response_description=response_description, responses=responses, deprecated=deprecated,
-            methods=methods, operation_id=operation_id, response_model_include=response_model_include,
-            response_model_exclude=response_model_exclude, response_model_by_alias=response_model_by_alias,
-            response_model_exclude_unset=response_model_exclude_unset,
-            response_model_exclude_defaults=response_model_exclude_defaults,
-            response_model_exclude_none=response_model_exclude_none, include_in_schema=include_in_schema,
-            response_class=response_class, name=name, route_class_override=route_class_override,
-            callbacks=callbacks, openapi_extra=openapi_extra,
-        )
+    def before_enable(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Enable hooks must not receive non optional arguments.")
+        self._hooks["before"].append(log_factory.additive_context(fn))
+        return fn
+
+    def after_enable(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Enable hooks must not receive non optional arguments.")
+        self._hooks["after"].append(log_factory.additive_context(fn))
+        return fn
+
+    def context_processor(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) > 0:
+            raise TypeError("Context processors must not receive non optional arguments.")
+        self._context_processors.append(fn)
+        return fn
+
+    def before_request(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) != 1:
+            raise TypeError("Request processors must receive exactly one argument (request).")
+        self._request_processors["before"].append(fn)
+        return fn
+
+    def after_request(self, fn: Callable) -> Callable:
+        if required_arg_count(fn) != 1:
+            raise TypeError("Request processors must receive exactly one argument (response).")
+        self._request_processors["after"].append(fn)
+        return fn
+
+    async def render(self, template: str, **ctx) -> str:
+        for processor in self._context_processors:
+            result = await safe_execute(processor, ProcessorException)
+            if not isinstance(result, dict): continue
+            ctx = result | ctx
+        c = FluidContext.current()
+        return await c.fluid.render(f"{self.name}/{template}", **ctx)
 
     def install(self):
         if self.base:

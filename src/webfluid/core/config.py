@@ -1,6 +1,8 @@
 from importlib import import_module
 import os
 
+from webfluid.utils import enabled
+
 
 class Config(dict):
     def from_object(self, obj: object | str):
@@ -38,6 +40,6 @@ class DefaultConfig:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "noreply@example.com")
 
-    CACHE_TYPE = "RedisCache"
+    CACHE_TYPE = "redis"
     CACHE_REDIS_URI = f"{os.getenv('REDIS_URI', 'redis://localhost:6379')}/2"
     CACHE_DEFAULT_TIMEOUT = 300

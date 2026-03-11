@@ -1,4 +1,5 @@
 from tqdm import tqdm
+from typing import Callable
 import os, platform, requests, typer, subprocess
 
 from webfluid.surface import dist
@@ -55,7 +56,7 @@ def _node_env() -> dict:
     return env
 
 
-def load_node():
+def load_node(download_fn: Callable):
     sys_node = _sys_node()
     if sys_node[0]:
         typer.echo(f"Node.js version {sys_node[1]} is already installed... Skipping integration.")
@@ -70,17 +71,7 @@ def load_node():
     if bin_folder.exists():
         return
 
-    typer.echo(typer.style(f"Downloading {data[0]}...", bold=True))
-    with requests.get(data[0], stream=True) as r:
-        r.raise_for_status()
-        total = int(r.headers.get("content-length", 0))
-        with open(dest, "wb") as f, tqdm(
-                total=total, unit="B", unit_scale=True, desc=str(dest)
-        ) as bar:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-                bar.update(len(chunk))
-
+    download_fn(data[0], dest)
     if not dest.exists():
         raise NodeError("Failed to download standalone node bundle.")
 

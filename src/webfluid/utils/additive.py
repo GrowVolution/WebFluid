@@ -1,6 +1,6 @@
 from functools import wraps
 
-from webfluid.utils import safe_string, enabled
+from webfluid.utils import safe_string, enabled, async_result
 from webfluid.utils.logging import factory as log_factory
 
 
@@ -49,19 +49,44 @@ def type_check(t: str) -> tuple[bool, str]:
     return True, t
 
 
-def require_extensions(*extensions):
-    def decorator(func):
+def frontend_check(f: dict) -> tuple[bool, str | dict]:
+    if "type" not in f:
+        return False, "Frontend type not defined."
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
+    t = f["type"]
+    if t == "vite":
+        if "framework" not in f:
+            return False, "Frontend framework not defined."
+        if f["framework"] not in ("lit", "none", "preact", "qwik",
+                                  "react", "solid", "svelte", "vue"):
+            return False, "Invalid frontend framework."
+        if "typescript" in f and not isinstance(f["typescript"], bool):
+            return False, "Invalid typescript value."
+        f.setdefault("typescript", False)
+
+    elif t == "htmx":
+        if "alpine" in f and not isinstance(f["alpine"], bool):
+            return False, "Invalid alpine flag."
+        f.setdefault("alpine", False)
+
+    elif t != "none": return False, "Invalid frontend type."
+
+    return True, f
+
+
+def require_extensions(*extensions):
+    def decorator(fn):
+
+        @wraps(fn)
+        async def wrapper(*args, **kwargs):
             for ext in extensions:
                 if not isinstance(ext, str):
-                    log_factory.warn(f"Invalid extension '{ext}'.")
+                    log_factory.warning(f"Invalid extension '{ext}'.")
                     continue
 
                 if not enabled(f"EXT_{ext.upper()}"):
                     raise RuntimeError(f"Extension '{ext}' is not enabled.")
-            return func(*args, **kwargs)
+            return await async_result(fn(*args, **kwargs))
 
         return wrapper
     return decorator

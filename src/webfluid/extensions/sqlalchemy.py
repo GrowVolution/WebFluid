@@ -47,7 +47,7 @@ class _Bind:
             try:
                 yield session
                 session.commit()
-            except:
+            except Exception:
                 session.rollback()
                 raise
             finally:
@@ -59,7 +59,7 @@ class _Bind:
             try:
                 yield session
                 await session.commit()
-            except:
+            except Exception:
                 await session.rollback()
                 raise
             finally:

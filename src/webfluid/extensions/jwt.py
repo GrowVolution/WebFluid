@@ -68,7 +68,7 @@ class JWTManager:
             "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
         )
 
-        self._rotate_secret()
+        fluid.startup_hook(self._rotate_secret)
         scheduler.add_job(
             self._rotate_secret,
             IntervalTrigger(

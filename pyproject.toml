@@ -21,6 +21,8 @@ dependencies = [
     "uvicorn",
     "asgiref",
     "requests",
+    "httpx",
+    "websockets",
     "slowapi[redis]",
     "python-multipart",
 

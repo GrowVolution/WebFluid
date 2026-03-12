@@ -12,8 +12,11 @@ import os, uvicorn, asyncio, signal
 from webfluid import version
 from webfluid.core.config import Config
 from webfluid.core.context import FluidContext
+from webfluid.core.constants import FRAMEWORK_ROOT, TAILWIND
 from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
 from webfluid.additives import register_additives
+from webfluid.surface.frontend import Frontend
+from webfluid.surface.wf_tailwind import generate_tailwind_css
 from webfluid.utils import (enabled, disable_uvicorn_logging, get_root_path,
                             safe_string, safe_execute, required_arg_count)
 from webfluid.utils.config import init_configs, build_config
@@ -33,18 +36,17 @@ class Fluid(FastAPI):
 
         self.app_root = Path(get_root_path(import_name)).resolve()
         self.additive_root = self.app_root / "additives"
-        self.framework_root = Path(__file__).parent.parent.resolve()
 
         self.app_static = StaticFiles(
             directory=(self.app_root / "app" / "static")
         )
         self.framework_static = StaticFiles(
-            directory=(self.framework_root / "app" / "static")
+            directory=(FRAMEWORK_ROOT / "app" / "static")
         )
 
         self.jinja_env = Environment(enable_async=True)
         app_templates = FileSystemLoader(self.app_root / "app" / "templates")
-        framework_templates = FileSystemLoader(self.framework_root / "app" / "templates")
+        framework_templates = FileSystemLoader(FRAMEWORK_ROOT / "app" / "templates")
         self.app_loader = ChoiceLoader([
             app_templates, PrefixLoader({ "app": app_templates })
         ])
@@ -81,14 +83,15 @@ class Fluid(FastAPI):
 
         self.middleware("http")(middleware)
 
-        if enabled("EXT_SCHEDULER"):
-            self.startup_hook(scheduler.start)
-
+        if enabled("EXT_SCHEDULER"): self.startup_hook(scheduler.start)
         if enabled("EXT_SQLALCHEMY"): db.init_fluid(self)
         if enabled("EXT_BABEL"): babel.init_fluid(self)
         if enabled("EXT_CACHE"): cache.init_fluid(self)
         if enabled("EXT_MAIL"): mail.init_fluid(self)
         if enabled("EXT_JWT"): jwt.init_fluid(self)
+        if TAILWIND: self.startup_hook(lambda: generate_tailwind_css(self))
+
+        Frontend.run(self)
 
         self._hooks = {
             "startup": [],

@@ -62,12 +62,10 @@ def frontend_check(f: dict) -> tuple[bool, str | dict]:
             return False, "Invalid frontend framework."
         if "typescript" in f and not isinstance(f["typescript"], bool):
             return False, "Invalid typescript value."
-        f.setdefault("typescript", False)
 
     elif t == "htmx":
         if "alpine" in f and not isinstance(f["alpine"], bool):
             return False, "Invalid alpine flag."
-        f.setdefault("alpine", False)
 
     elif t != "none": return False, "Invalid frontend type."
 

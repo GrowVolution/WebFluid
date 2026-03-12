@@ -14,6 +14,7 @@ import subprocess, sys, typer
 
 from webfluid.core.manifest import Manifest
 from webfluid.core.context import FluidContext
+from webfluid.surface.frontend import Frontend
 from webfluid.utils import get_root_path, safe_string, required_arg_count, safe_execute, async_result
 from webfluid.utils.additive import require_extensions
 from webfluid.utils.logging import factory as log_factory
@@ -157,10 +158,12 @@ class Additive:
             self.api = AdditiveRouter()
             self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
             self.ws = AdditiveRouter()
+            self.frontend = None
         else:
             self.api = AdditiveRouter(prefix="/api")
             self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
             self.ws = AdditiveRouter(prefix="/ws")
+            self.frontend = Frontend()
 
         def middleware(call_next: Callable):
             async def wrapper(*args, **kwargs):
@@ -202,6 +205,9 @@ class Additive:
             self.app.include_router(self.base.app)
             self.ws.include_router(self.base.ws)
             self.base.parent = self
+
+        if self.frontend is not None:
+            self.frontend.init_additive(self)
 
         fluid.include_router(self.api, prefix=self.prefix)
         fluid.include_router(self.app, prefix=self.prefix)

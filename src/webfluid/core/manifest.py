@@ -49,6 +49,9 @@ class Manifest:
                 raise ManifestError(result[1])
             self[field] = result[1]
 
+        if self["type"] == "base" and self["frontend"]["type"] != "none":
+            raise ManifestError("Base additives cannot have a frontend.")
+
     def __getitem__(self, key):
         return self._data[key]
 

@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Any
-import os, inspect, random, string, logging, re, asyncio, sys, importlib
+import os, inspect, random, string, logging, re,\
+    asyncio, sys, importlib, httpx, websockets
 
 if TYPE_CHECKING:
-    from webfluid import AdditiveVersion
+    from webfluid import Fluid, Additive, AdditiveVersion
 
 
 def enabled(key: str) -> bool:
@@ -95,11 +96,6 @@ async def run_in_executor(fn: Callable, *args, executor=None):
     return await loop.run_in_executor(executor, fn, *args)
 
 
-def decorate(decorator: Callable, handler: Callable | type) -> Callable | type:
-    if handler is None: return decorator
-    return decorator(handler)
-
-
 def check_priority(priority: int):
     if priority not in range(1, 11):
         raise ValueError("Priority must be between 1 and 10.")
@@ -153,6 +149,58 @@ def check_required_version(requirement: str, version_type: str = "wf", additive_
         "<=": current <= target,
         "==": current == target,
     }.get(op, False)
+
+
+def add_proxy(target: "Fluid | Additive", base_url: str, prefix: str = "/"):
+    async def proxy(request: Request, path: str):
+        async with httpx.AsyncClient() as client:
+            resp = await client.request(
+                request.method,
+                f"{base_url}{prefix}{path}",
+                headers=httpx.Headers(request.headers),
+                content=await request.body()
+            )
+
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers)
+        )
+
+    async def websocket_proxy(ws: WebSocket, path: str):
+
+        await ws.accept()
+
+        async with websockets.connect(
+                f"{base_url.replace('http', 'ws')}{prefix}{path}"
+        ) as vite_ws:
+
+            async def client_to_server():
+                try:
+                    while True:
+                        data = await ws.receive_text()
+                        await vite_ws.send(data)
+                except: pass
+
+            async def server_to_client():
+                async for msg in vite_ws:
+                    await ws.send_text(msg)
+
+            await asyncio.gather(client_to_vite(), vite_to_client())
+
+    from webfluid import Fluid
+    if isinstance(target, Fluid):
+        target.api_route(
+            "/{path:path}",
+            methods=["GET","POST","PUT","DELETE","PATCH"]
+        )(proxy)
+        target.websocket("/{path:path}")(websocket_proxy)
+    else:
+        target.app.api_route(
+            "/{path:path}",
+            methods=["GET","POST","PUT","DELETE","PATCH"]
+        )(proxy)
+        target.ws.websocket("/{path:path}")(websocket_proxy)
 
 
 def disable_uvicorn_logging():

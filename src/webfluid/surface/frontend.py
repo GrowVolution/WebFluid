@@ -1,4 +1,3 @@
-from fastapi import Request, Response, WebSocket
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from git import Repo, exc
@@ -6,12 +5,11 @@ from tqdm import tqdm
 from markupsafe import Markup
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional, List, Callable
-import typer, requests, shutil, httpx, websockets, asyncio,\
-    subprocess, os, signal, json
+import typer, requests, shutil, subprocess, os, signal, json
 
-from webfluid.core.constants import DEBUG, TAILWIND
+from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
 from webfluid.surface import dist
-from webfluid.surface.wf_node import load_node, _node_cmd, _node_env
+from webfluid.surface.wf_node import load_node, node_proc
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
 from webfluid.utils import add_proxy, run_in_executor
 from webfluid.exceptions import FrontendException
@@ -27,7 +25,8 @@ package_json = """
     "version": "1.0.0",
     "private": true,
     "workspaces": [
-      "additives/*/frontend"
+      "additives/*/frontend",
+      "fluid/frontend"
     ],
     "scripts": {{
       "dev": "vite"
@@ -43,7 +42,7 @@ import { defineConfig, mergeConfig, loadConfigFromFile } from "vite"
 import fs from "fs"
 import path from "path"
 
-async function loadAdditiveConfigs(command: "serve" | "build") {
+async function loadConfigs(command: "serve" | "build") {
   const additivesDir = path.resolve(__dirname, "additives")
   const configs = []
 
@@ -65,31 +64,54 @@ async function loadAdditiveConfigs(command: "serve" | "build") {
 
     configs.push(injected)
   }
+  
+  const fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.ts")
+  if (fs.existsSync(fluidConfig)) {
+    const loaded = await loadConfigFromFile(
+      { command, mode: "development" },
+      fluidConfig
+    )
+    if (loaded?.config) configs.push(loaded.config)
+  }
 
   return configs
 }
 
 export default defineConfig(async ({ command }) => {
-  const additiveConfigs = await loadAdditiveConfigs(command)
+  const configs = await loadConfigs(command)
 
   let config = {}
 
-  for (const c of additiveConfigs) {
+  for (const c of configs) {
     config = mergeConfig(config, c)
   }
 
   return config
 })
 """
-Manifest = Dict[str, ManifestChunk]
 
 htmx = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
 alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js"
 vite = "https://github.com/vitejs/vite.git"
 
 
+@dataclass
+class ManifestChunk:
+    src: Optional[str] = None
+    file: str = ""
+    css: Optional[List[str]] = None
+    assets: Optional[List[str]] = None
+    isEntry: bool = False
+    name: Optional[str] = None
+    isDynamicEntry: bool = False
+    imports: Optional[List[str]] = None
+    dynamicImports: Optional[List[str]] = None
+
+Manifest = Dict[str, ManifestChunk]
+
+
 def _download_file(url: str, dest: Path):
-    typer.echo(typer.style(f"Downloading '{url}'...", bold=True))
+    typer.secho(f"Downloading '{url}'...", bold=True)
     with requests.get(url, stream=True, timeout=30) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
@@ -120,7 +142,9 @@ def setup_frontend(project: str):
     template_dst = dist / "vite-templates"
 
     if not template_dst.exists() or not any(template_dst.iterdir()):
-        typer.echo(typer.style("Loading create-vite templates...", bold=True))
+        typer.echo(typer.style(
+            "Loading create-vite templates...", bold=True
+        ))
         template_dst.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -160,10 +184,35 @@ def setup_frontend(project: str):
     load_tailwind(_download_file)
 
     package_json_file = Path.cwd() / "package.json"
-    package_json_file.write_text(package_json.format(project=project))
+    package_json_file.write_text(
+        package_json.format(project=project)
+    )
 
     vite_config_file = Path.cwd() / "vite.config.js"
     vite_config_file.write_text(vite_dev)
+
+
+def validate_config(f: dict) -> tuple[bool, str | dict]:
+    if "type" not in f:
+        return False, "Frontend type not defined."
+
+    t = f["type"]
+    if t == "vite":
+        if "framework" not in f:
+            return False, "Frontend framework not defined."
+        if f["framework"] not in ("lit", "none", "preact", "qwik",
+                                  "react", "solid", "svelte", "vue"):
+            return False, "Invalid frontend framework."
+        if "typescript" in f and not isinstance(f["typescript"], bool):
+            return False, "Invalid typescript value."
+
+    elif t == "htmx":
+        if "alpine" in f and not isinstance(f["alpine"], bool):
+            return False, "Invalid alpine flag."
+
+    elif t != "none": return False, "Invalid frontend type."
+
+    return True, f
 
 
 def load_manifest(vite_dist: Path) -> Manifest:
@@ -210,7 +259,7 @@ def resolve_entry(manifest: Manifest, entry: str):
 
 
 class Frontend:
-    _static_js = "/wf-static/js"
+    _static_js = f"{WF_STATIC}/js"
     _proc: subprocess.Popen
     _dev_prefix = "/vite-dev"
     _static_files = {}
@@ -218,7 +267,11 @@ class Frontend:
     htmx = f"{_static_js}/htmx.min.js"
     alpine = f"{_static_js}/alpine.min.js"
 
-    def __init__(self, additive: "Additive | None" = None):
+    def __init__(
+            self,
+            fluid: "Fluid | None" = None,
+            additive: "Additive | None" = None
+    ):
         self.type = "none"
         self.framework = "none"
         self.typescript = False
@@ -229,18 +282,17 @@ class Frontend:
         self.manifest: Manifest
         self.generate_tailwind: Callable
 
-        if additive is not None: self.init_additive(additive)
+        if fluid is not None: self.cover_fluid(fluid)
+        if additive is not None: self.cover_additive(additive)
 
-    def init_additive(self, additive: "Additive"):
-        frontend = additive.manifest["frontend"]
+    def _init(self, frontend: dict, root_path: Path, name: str = "app"):
         self.type = frontend["type"]
         self.framework = frontend.get("framework", self.framework)
         self.typescript = frontend.get("typescript", self.typescript)
         self.alpine = frontend.get("alpine", self.alpine)
-        self.prefix = additive.prefix
 
         if self.type == "vite":
-            self.dist = additive.root_path / "frontend" / "dist"
+            self.dist = root_path / "frontend" / "dist"
             src = self.dist.parent / "src"
             for name in ("main.js","main.jsx","main.ts","main.tsx"):
                 if (src / name).exists():
@@ -257,13 +309,28 @@ class Frontend:
 
             if not DEBUG:
                 self.manifest = load_manifest(self.dist)
-                Frontend._static_files[f"{additive.name}_frontend"] = (
+                Frontend._static_files[f"{name}_frontend"] = (
                     self.prefix, StaticFiles(directory=self.dist)
                 )
 
             if TAILWIND: self.generate_tailwind()
 
-    def scripts(self) -> Markup:
+    def cover_fluid(self, fluid: "Fluid"):
+        self.prefix = ""
+        self._init(
+            fluid.config["APP_FRONTEND"],
+            fluid.app_root
+        )
+
+    def cover_additive(self, additive: "Additive"):
+        self.prefix = additive.prefix
+        self._init(
+            additive.manifest["frontend"],
+            additive.root_path,
+            additive.name
+        )
+
+    def include(self) -> Markup:
         template = ""
         if self.type == "htmx":
             template += f'<script src="{self.htmx}"></script>\n'
@@ -279,8 +346,6 @@ class Frontend:
             template += self.vite(f"src/{self.main}")
 
         if TAILWIND:
-            template += f'<link rel="stylesheet" href="/wf-static/css/tailwind.css">\n'
-            template += f'<link rel="stylesheet" href="/static/css/tailwind.css">\n'
             template += f'<link rel="stylesheet" href="{self.prefix}/static/css/tailwind.css">'
 
         return Markup(template)
@@ -310,27 +375,26 @@ class Frontend:
         return Markup("\n".join(tags))
 
     @classmethod
-    def run(cls, fluid: "Fluid"):
+    def prepare(cls, fluid: "Fluid"):
         if DEBUG:
-            cls._proc = subprocess.Popen(
-                [_node_cmd("npm"), "run", "dev"],
-                cwd=fluid.app_root,
-                env=_node_env(),
+            cls._proc = node_proc(
+                ["npm", "run", "dev"],
+                fluid.app_root,
                 start_new_session=True
             )
             fluid.shutdown_hook(cls.stop)
             add_proxy(
                 fluid, "http://localhost:5173",
-                prefix=self._dev_prefix
+                prefix=cls._dev_prefix
             )
         else:
-            cls._proc = subprocess.Popen(
-                [_node_cmd("npm"), "run", "build", "--workspaces"],
-                cwd=fluid.app_root,
-                env=_node_env(),
+            cls._proc = node_proc(
+                ["npm", "run", "build", "--workspaces"],
+                fluid.app_root,
                 capture_output=True,
                 text=True
             )
+
             async def join_later():
                 code = cls._proc.poll()
                 if code is None:
@@ -338,8 +402,11 @@ class Frontend:
                 if code != 0:
                     raise FrontendException(cls._proc.stderr or cls._proc.stdout)
             fluid.startup_hook(join_later)
-            for name, data in cls._static_files.items():
-                fluid.mount(data[0], data[1], name)
+
+            def mount():
+                for name, data in cls._static_files.items():
+                    fluid.mount(data[0], data[1], name)
+            fluid.startup_hook(mount)
 
     @classmethod
     def stop(cls):
@@ -349,16 +416,3 @@ class Frontend:
             if cls._proc.poll() is None:
                 os.killpg(cls._proc.pid, signal.SIGKILL)
                 cls._proc.wait()
-
-
-@dataclass
-class ManifestChunk:
-    src: Optional[str] = None
-    file: str = ""
-    css: Optional[List[str]] = None
-    assets: Optional[List[str]] = None
-    isEntry: bool = False
-    name: Optional[str] = None
-    isDynamicEntry: bool = False
-    imports: Optional[List[str]] = None
-    dynamicImports: Optional[List[str]] = None

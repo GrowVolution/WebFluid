@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import jwt, secrets
 
 from webfluid.core.ext import cache, scheduler
+from webfluid.core.constants import EXT_SCHEDULING, EXT_CACHE
 from webfluid.utils import enabled
 from webfluid.exceptions import FrameworkException
 
@@ -14,8 +15,10 @@ if TYPE_CHECKING:
 
 class JWTManager:
     def __init__(self, fluid: "Fluid | None" = None):
-        if not enabled("EXT_SCHEDULING"):
+        if not EXT_SCHEDULING:
             raise FrameworkException("EXT_SCHEDULING is required for JWTManager to work.")
+        if not EXT_CACHE:
+            raise FrameworkException("EXT_CACHE is required for JWTManager to work.")
 
         self._current_key = None
         self._secret_rotary_interval = 15
@@ -26,7 +29,7 @@ class JWTManager:
             "default": "Application"
         }
 
-        if fluid is not None: self.init_fluid(fluid)
+        if fluid is not None: self.expand_fluid(fluid)
 
     async def _rotate_secret(self):
         self._current_key = uuid4().hex
@@ -63,7 +66,7 @@ class JWTManager:
             verify=True
         )
 
-    def init_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid"):
         self._secret_rotary_interval = fluid.config.get(
             "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
         )

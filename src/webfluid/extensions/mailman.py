@@ -24,9 +24,9 @@ class Mail:
         self.password = None
         self.default_sender = None
 
-        if fluid is not None: self.init_fluid(fluid)
+        if fluid is not None: self.expand_fluid(fluid)
 
-    def init_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid"):
         config = fluid.config
 
         self.host = config.get("MAIL_SERVER", self.host)

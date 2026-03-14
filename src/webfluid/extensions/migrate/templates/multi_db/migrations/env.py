@@ -1,0 +1,153 @@
+from alembic import context
+from logging.config import fileConfig
+import asyncio, logging
+
+from webfluid.core.ext import db
+
+# -----------------------------------------------------
+# Alembic config
+# -----------------------------------------------------
+
+config = context.config
+fileConfig(config.config_file_name)
+logger = logging.getLogger("alembic.env")
+
+
+# -----------------------------------------------------
+# Load Fluid application
+# -----------------------------------------------------
+
+def get_fluid():
+    from main import create_app
+    return create_app()
+
+fluid = get_fluid()
+
+
+# -----------------------------------------------------
+# Metadata
+# -----------------------------------------------------
+
+target_metadata = db.Model.metadata
+
+
+# -----------------------------------------------------
+# Bind discovery
+# -----------------------------------------------------
+
+def get_bind_names():
+    return list(db.binds.keys())
+
+
+def get_engine(bind_key="default"):
+    return db.binds[bind_key].async_engine
+
+
+def get_engine_url(bind_key="default"):
+    engine = get_engine(bind_key)
+    return str(engine.url).replace("%", "%%")
+
+
+# set default url
+config.set_main_option("sqlalchemy.url", get_engine_url("default"))
+
+# configure sections for each bind
+bind_names = [b for b in get_bind_names() if b != "default"]
+
+for bind in bind_names:
+    context.config.set_section_option(
+        bind,
+        "sqlalchemy.url",
+        get_engine_url(bind)
+    )
+
+
+# -----------------------------------------------------
+# Metadata resolution
+# -----------------------------------------------------
+
+def get_metadata(bind):
+    # TODO: Upgrade to optional Multi-Metadata later
+    return target_metadata
+
+
+# -----------------------------------------------------
+# Offline migrations
+# -----------------------------------------------------
+
+def run_migrations_offline():
+
+    engines = {
+        "default": {
+            "url": config.get_main_option("sqlalchemy.url")
+        }
+    }
+
+    for name in bind_names:
+        engines[name] = {
+            "url": context.config.get_section_option(name, "sqlalchemy.url")
+        }
+
+    for name, rec in engines.items():
+
+        logger.info(f"Migrating database {name}")
+
+        context.configure(
+            url=rec["url"],
+            target_metadata=get_metadata(name),
+            literal_binds=True,
+            compare_type=True
+        )
+
+        with context.begin_transaction():
+            context.run_migrations(engine_name=name)
+
+
+# -----------------------------------------------------
+# Online migrations
+# -----------------------------------------------------
+
+def do_run_migrations(connection, name):
+
+    def process_revision_directives(context_, revision, directives):
+        if getattr(config.cmd_opts, "autogenerate", False):
+            script = directives[0]
+
+            if script.upgrade_ops.is_empty():
+                directives[:] = []
+                logger.info("No schema changes detected.")
+
+    context.configure(
+        connection=connection,
+        target_metadata=get_metadata(name),
+        compare_type=True,
+        process_revision_directives=process_revision_directives,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations(engine_name=name)
+
+
+async def run_migrations_online():
+
+    engines = {
+        "default": get_engine("default")
+    }
+
+    for name in bind_names:
+        engines[name] = get_engine(name)
+
+    for name, engine in engines.items():
+
+        logger.info(f"Migrating database {name}")
+
+        async with engine.connect() as connection:
+            await connection.run_sync(do_run_migrations, name)
+
+
+# -----------------------------------------------------
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    asyncio.run(run_migrations_online())

@@ -95,7 +95,7 @@ class AdditiveRouter(APIRouter):
 
 
 class Additive:
-    def __init__(self, import_name: str, base: "Additive",
+    def __init__(self, import_name: str, base: "Additive | None" = None,
                  required_extensions: list = None):
 
         if not "additives." in import_name:
@@ -128,7 +128,7 @@ class Additive:
         self.parent = None
 
         async def enable(fluid: "Fluid"):
-            await self._before_enable()
+            await self._before_enable(fluid)
             self._enable(fluid)
             await self._after_enable()
 
@@ -148,20 +148,21 @@ class Additive:
             "before": [],
             "after": []
         }
-
         self._hooks = {
             "before": [],
             "after": []
         }
+        self._before_enable_lock = False
+        self._after_enable_lock = False
 
         if self.is_base:
             self.api = AdditiveRouter()
-            self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
+            self.app = AdditiveRouter(default_response_class=HTMLResponse)
             self.ws = AdditiveRouter()
             self.frontend = None
         else:
             self.api = AdditiveRouter(prefix="/api")
-            self.app = AdditiveRouter(default_response_class=Default(HTMLResponse))
+            self.app = AdditiveRouter(default_response_class=HTMLResponse)
             self.ws = AdditiveRouter(prefix="/ws")
             self.frontend = Frontend()
 
@@ -183,9 +184,10 @@ class Additive:
     def __repr__(self) -> str:
         return f"<{self.additive_name} {self.version}> {self.manifest.get('description', '')}"
 
-    async def _before_enable(self):
+    async def _before_enable(self, fluid: "Fluid"):
+        self._before_enable_lock = True
         for hook in self._hooks["before"]:
-            await safe_execute(hook, EventHookException)
+            await safe_execute(hook, EventHookException, fluid)
 
     def _enable(self, fluid: "Fluid"):
         if self.is_base: raise AdditiveException(
@@ -207,7 +209,10 @@ class Additive:
             self.base.parent = self
 
         if self.frontend is not None:
-            self.frontend.init_additive(self)
+            self.frontend.cover_additive(self)
+            self.context_processor(lambda: {
+                "frontend": self.frontend.include,
+            })
 
         fluid.include_router(self.api, prefix=self.prefix)
         fluid.include_router(self.app, prefix=self.prefix)
@@ -218,6 +223,7 @@ class Additive:
         )
 
     async def _after_enable(self):
+        self._after_enable_lock = True
         for hook in reversed(self._hooks["after"]):
             await safe_execute(hook, EventHookException)
 
@@ -230,7 +236,7 @@ class Additive:
                     continue
 
                 rel = file.relative_to(path)
-                dst = Path.cwd() / rel
+                dst = Path.cwd() / "fluid" / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 if dst.exists():
                     typer.echo(typer.style(
@@ -282,14 +288,24 @@ class Additive:
                 ))
 
     def before_enable(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) > 0:
-            raise TypeError("Enable hooks must not receive non optional arguments.")
+        if self._before_enable_lock:
+            raise RuntimeError("Enable hooks cannot be added after the additive was enabled.")
+
+        if required_arg_count(fn) != 1:
+            raise TypeError(
+                "Enable hooks (before) must receive exactly one non optional argument (type Fluid)."
+            )
+
         self._hooks["before"].append(log_factory.additive_context(fn))
         return fn
 
     def after_enable(self, fn: Callable) -> Callable:
+        if self._after_enable_lock:
+            raise RuntimeError("Enable hooks cannot be added after the additive was enabled.")
+
         if required_arg_count(fn) > 0:
-            raise TypeError("Enable hooks must not receive non optional arguments.")
+            raise TypeError("Enable hooks (after) must not receive non optional arguments.")
+
         self._hooks["after"].append(log_factory.additive_context(fn))
         return fn
 

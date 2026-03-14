@@ -49,29 +49,6 @@ def type_check(t: str) -> tuple[bool, str]:
     return True, t
 
 
-def frontend_check(f: dict) -> tuple[bool, str | dict]:
-    if "type" not in f:
-        return False, "Frontend type not defined."
-
-    t = f["type"]
-    if t == "vite":
-        if "framework" not in f:
-            return False, "Frontend framework not defined."
-        if f["framework"] not in ("lit", "none", "preact", "qwik",
-                                  "react", "solid", "svelte", "vue"):
-            return False, "Invalid frontend framework."
-        if "typescript" in f and not isinstance(f["typescript"], bool):
-            return False, "Invalid typescript value."
-
-    elif t == "htmx":
-        if "alpine" in f and not isinstance(f["alpine"], bool):
-            return False, "Invalid alpine flag."
-
-    elif t != "none": return False, "Invalid frontend type."
-
-    return True, f
-
-
 def require_extensions(*extensions):
     def decorator(fn):
 

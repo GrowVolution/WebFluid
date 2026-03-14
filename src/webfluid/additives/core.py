@@ -14,7 +14,27 @@ from webfluid.exceptions import ManifestError
 if TYPE_CHECKING:
     from webfluid import Fluid
 
-_additives = {}
+_additives = {
+    "additives": {},
+    "bases": {}
+}
+
+
+def _load_additives(package: Path, target: str, additive_type: str, do_log: bool):
+    for additive in package.iterdir():
+        if not additive.is_dir(): continue
+
+        try:
+            manifest = Manifest(additive / "manifest.json")
+            if manifest["type"] == additive_type: continue
+
+            version = AdditiveVersion(*map(int, manifest["version"].split(".")))
+            _additives[target][package].append(
+                (manifest.get("id", additive.name), version, additive.name)
+            )
+        except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
+            if do_log: log_factory.warning(f"Invalid additive package '{additive.name}' in {package}: {e}.")
+            continue
 
 
 def setup_additives(app_name: str):
@@ -95,38 +115,35 @@ async def register_additives(fluid: "Fluid"):
 
 
 def installed_additives(package: Path, do_log: bool = False) -> list[tuple[str, str, str]]:
-    if _additives.get(package):
-        return _additives[package]
+    if _additives["additives"].get(package):
+        return _additives["additives"][package]
 
     if not package.name == "additives":
         raise ValueError(f"Invalid package name '{package.name}'.")
 
-    _additives[package] = []
+    _additives["additives"][package] = []
+    _load_additives(
+        package, "additives", "default", do_log
+    )
 
-    for additive in package.iterdir():
-        if not additive.is_dir():
-            continue
-
-        try:
-            manifest = Manifest(additive / "manifest.json")
-            version = AdditiveVersion(*map(int, manifest["version"].split(".")))
-
-            if "type" in manifest and manifest["type"] == "base":
-                continue
-
-            _additives[package].append(
-                (manifest.get("id", additive.name), version, additive.name)
-            )
-        except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
-            if do_log: log_factory.warning(f"Invalid module package '{additive.name}' in {package}: {e}.")
-            continue
-
-    return _additives[package]
+    return _additives["additives"][package]
 
 
-def import_base(module_id: str) -> Additive | None:
+def installed_bases(package: Path, do_log: bool = False) -> list[tuple[str, str, str]]:
+    if _additives["bases"].get(package):
+        return _additives["bases"][package]
+
+    _additives["bases"][package] = []
+    _load_additives(
+        package, "bases", "base", do_log
+    )
+
+    return _additives["bases"][package]
+
+
+def import_base(additive_id: str) -> Additive | None:
     try:
-        mod = import_module(f"additives.{module_id}")
+        mod = import_module(f"additives.{additive_id}")
         additive = getattr(mod, "additive", None)
         if not additive or not additive.is_base:
             return None

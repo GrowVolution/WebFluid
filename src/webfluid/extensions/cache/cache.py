@@ -12,8 +12,8 @@ class Cache(base.BaseCache):
         self._instance = None
         super().__init__(fluid)
 
-    def init_fluid(self, fluid: "Fluid"):
-        super().init_fluid(fluid)
+    def expand_fluid(self, fluid: "Fluid"):
+        super().expand_fluid(fluid)
         self._cache_type = fluid.config.get("CACHE_TYPE", self._cache_type)
 
         if self._cache_type == "legacy": self._instance = legacy.LegacyCache(fluid)

@@ -1,0 +1,199 @@
+###################################################
+#               Project Templates                 #
+###################################################
+
+api_router_py = """from fastapi import APIRouter
+
+api_router = APIRouter(prefix="/api")
+
+from fluid.api.v1 import v1
+api_router.include_router(v1)
+"""
+
+
+app_index_html = """{% extends "base_example.html" %}
+{# The base example is natively provided by WebFluid. #}
+
+{% block title %}{{ _('Home') }}{% endblock %}
+
+{% block head %}
+    {{ frontend() if frontend else "" }}
+{% endblock %}
+
+{% block content %}
+    <div class="flex flex-col min-h-[100dvh] items-center justify-center px-6 py-8">
+        <h2 class="text-2xl font-semibold">{{ _('My liquified Application') }}</h2>
+        <p class="mt-2">{{ _('This is my brand new, super cool WebFluid project.') }}</p>
+    </div>
+{% endblock %}"""
+
+app_index_py = """from webfluid.core.context import FluidContext
+
+
+async def handle_request():
+    ctx = FluidContext.current()
+    return await ctx.fluid.render("index.html")
+"""
+
+app_router_py = """from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+app_router = APIRouter(
+    prefix="/app", default_response_class=HTMLResponse
+)
+
+from fluid.app.index import handle_request as index
+app_router.get("/index")(index)
+"""
+
+
+app_config_py = """from webfluid.utils.config import register_config
+
+
+@register_config(10)
+class Config:
+    APP_CONFIG = {{
+        "title": "{name}",
+        "version": "1.0.0"
+    }}
+    APP_FRONTEND = {frontend}
+"""
+
+
+main_py = """from webfluid import Fluid
+
+
+def create_app() -> Fluid:
+    app = Fluid(__name__)
+
+    from fluid.api import api_router
+    app.include_router(api_router)
+
+    from fluid.app import app_router
+    app.include_router(app_router)
+
+    return app
+
+
+if __name__ == "__main__":
+    fluid = create_app()
+    fluid.mix()
+"""
+
+
+gitignore = """[folders]
+.vscode/
+.idea/
+.venv/
+__pycache__/
+app_configs/
+services/
+additives/
+instance/
+migrations/
+translations/
+dist/
+logs/
+
+[files]
+messages.pot
+tailwind.css"""
+
+
+###################################################
+#               Additive Templates                #
+###################################################
+
+api_py = """from .v1 import v1
+
+__all__ = ["v1"]
+"""
+
+adtv_index1_html = """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{{{ _('{name}') }}}}</title>
+    {{{{ frontend() if frontend else "" }}}}
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>"""
+
+adtv_index2_html = """{{% extends "base_example.html" %}}
+{{# The base example is natively provided by WebFluid. #}}
+
+{{% block title %}}{{{{ _('{name}') }}}}{{% endblock %}}
+
+{{% block head %}}
+    {{{{ frontend() if frontend else "" }}}}
+{{% endblock %}}
+
+{{% block content %}}
+    <div class="flex flex-col min-h-[100dvh] items-center justify-center px-6 py-8">
+        <h2 class="text-2xl font-semibold">{{{{ _('Adding a new Liquid') }}}}</h2>
+        <p class="mt-2">{{{{ _('Experimenting with spicy Additives.') }}}}</p>
+    </div>
+{{% endblock %}}"""
+
+adtv_index_py = """
+
+async def handle_request():
+    from .. import additive
+    return await additive.render("index.html")
+"""
+
+app_py = """from .index import handle_request as index
+
+__all__ = ["index"]
+"""
+
+init_py = """from webfluid import Additive
+{import_base}
+additive = Additive(
+    __name__,{base}{requirements}
+)
+
+
+@additive.before_enable
+def before_enable(_):
+    from .api import v1
+    additive.api.include_router(v1)
+
+    from .app import index
+    additive.app.get("/")(index)
+"""
+
+
+###################################################
+#               Shared Templates                  #
+###################################################
+
+health_py = """from webfluid.utils import async_result
+from datetime import datetime, UTC
+
+
+async def handle_request():
+    return await async_result({
+        "status": "ok",
+        "timestamp": datetime.now(UTC).isoformat()
+    })
+"""
+
+v1_py = """from fastapi import APIRouter
+
+v1 = APIRouter(prefix="/v1")
+
+from .health import handle_request as health
+v1.get("/health")(health)
+"""
+
+
+tailwind_raw = """@import "tailwindcss" source("../../");
+
+@theme {
+    /* ... */
+}"""

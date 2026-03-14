@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable
 import sys, subprocess, os
 
 from webfluid.core.context import BaseContext
+from webfluid.core.constants import FRAMEWORK_ROOT, EXT_SQLALCHEMY
 from webfluid.extensions.babel.constants import (
     DEFAULT_DATE_FORMATS,
     DEFAULT_LOCALE,
@@ -47,12 +48,17 @@ class SelectorContext(BaseContext):
 
 
 class Babel:
+    _instance = None
+
     def __init__(self, fluid: "Fluid | None" = None,
                  default_locale: str = DEFAULT_LOCALE,
                  default_timezone: str = DEFAULT_TIMEZONE,
                  date_formats: dict[DateFormatKey, DateFormat] | None = None,
                  configure_jinja: bool = True,
                  default_domain: "Domain | None" = None):
+        if Babel._instance is not None:
+            return Babel._instance
+
         self.default_domain = None
         self.default_locale = None
         self.default_timezone = None
@@ -67,17 +73,20 @@ class Babel:
         self.initialized = False
 
         if fluid is not None:
-            self.init_fluid(fluid, default_locale,
+            self.expand_fluid(fluid, default_locale,
                             default_timezone, date_formats,
                             configure_jinja, default_domain)
 
-    def init_fluid(self, fluid: "Fluid",
+    def expand_fluid(self, fluid: "Fluid",
                    default_locale: str = DEFAULT_LOCALE,
                    default_timezone: str = DEFAULT_TIMEZONE,
                    date_formats: dict[DateFormatKey, DateFormat] | None = None,
                    configure_jinja: bool = True,
                    default_domain: "Domain | None" = None):
-        if self.initialized: raise FrameworkException("Extension has already been initialized.")
+        if not EXT_SQLALCHEMY:
+            raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
+        if Babel._instance:
+            raise FrameworkException("Babel has already been initialized.")
 
         if default_domain is None:
             from webfluid.extensions.babel.domain import Domain
@@ -113,7 +122,7 @@ class Babel:
                 newstyle=True,
             )
 
-        self.initialized = True
+        Babel._instance = self
 
     def register_additive(self): pass
 
@@ -147,43 +156,6 @@ class Babel:
                     ): return fn(*args, **kwargs)
             return wrapper
         return decorator
-
-    def extract_fallback(self):
-        pot = "messages.pot"
-        trans = Path(self.current_domain.get_translations_path(None))
-        babel_cli = "babel.messages.frontend"
-        has_catalogs = any(trans.glob("*/LC_MESSAGES/*.po"))
-
-        subprocess.run(
-            [sys.executable, "-m", babel_cli, "extract",
-            "-F", str(Path(__file__).parent / "babel.cfg"),
-            "-o", pot,
-            os.getcwd()],
-            check=True
-        )
-
-        if has_catalogs:
-            subprocess.run(
-                [sys.executable, "-m", babel_cli, "update",
-                "-i", pot,
-                "-d", trans],
-                check=True
-            )
-
-        else:
-            subprocess.run(
-                [sys.executable, "-m", babel_cli, "init",
-                "-i", pot,
-                "-d", trans,
-                "-l", "en"],
-                check=True
-            )
-
-        subprocess.run(
-            [sys.executable, "-m", babel_cli, "compile",
-            "-d", trans],
-            check=True
-        )
 
     @property
     def current_domain(self) -> "Domain":
@@ -221,3 +193,41 @@ class Babel:
                 (lambda: locale) if locale is not None else None,
                 (lambda: timezone) if timezone is not None else None
         ): yield
+
+    @staticmethod
+    def extract_fallback(project_root: Path):
+        pot = "messages.pot"
+        trans = project_root / "fluid/translations"
+        babel_cli = "babel.messages.frontend"
+        has_catalogs = any(trans.glob("*/LC_MESSAGES/*.po"))
+
+        subprocess.run(
+            [sys.executable, "-m", babel_cli, "extract",
+             "-F", str(Path(__file__).parent / "babel.cfg"),
+             "-o", pot,
+             str(project_root), str(FRAMEWORK_ROOT)],
+            check=True
+        )
+
+        if has_catalogs:
+            subprocess.run(
+                [sys.executable, "-m", babel_cli, "update",
+                 "-i", pot,
+                 "-d", trans],
+                check=True
+            )
+
+        else:
+            subprocess.run(
+                [sys.executable, "-m", babel_cli, "init",
+                 "-i", pot,
+                 "-d", trans,
+                 "-l", "en"],
+                check=True
+            )
+
+        subprocess.run(
+            [sys.executable, "-m", babel_cli, "compile",
+             "-d", trans],
+            check=True
+        )

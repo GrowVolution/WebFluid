@@ -79,13 +79,15 @@ class Model(DeclarativeBase):
 
 
 class SQLAlchemy:
+    # TODO: Add optional Multi-Metadata later
+
     def __init__(self,
                  fluid: "Fluid | None" = None,
                  base: type[DeclarativeBase] = Model):
         self.Model = base
         self.binds = {}
 
-        if fluid is not None: self.init_fluid(fluid)
+        if fluid is not None: self.expand_fluid(fluid)
 
     def _get_bind(self, bind_key: str) -> _Bind:
         try: return self.binds[bind_key]
@@ -100,7 +102,7 @@ class SQLAlchemy:
     def get_bind_for_model(self, model: type[Model]) -> _Bind:
         return self._get_bind(getattr(model, "__bind_key__", "default"))
 
-    def init_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid"):
         default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
         uris = database_uris(default_uri)
         fluid.config["SQLALCHEMY_DATABASE_URI"] = uris[0]

@@ -28,7 +28,7 @@ class BaseContext:
         return self.__exit__(*args)
 
     @classmethod
-    def current(cls):
+    def current(cls) -> "BaseContext":
         try: return cls.CTX.get()
         except LookupError:
             raise RuntimeError(f"No active {cls.__name__}.")

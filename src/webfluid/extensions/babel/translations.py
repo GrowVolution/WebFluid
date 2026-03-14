@@ -45,7 +45,7 @@ class MergedTranslations(Translations):
         self._locale = locale
 
     def _db_get(self, message: str, num: int = 1, ctx: str = None) -> str | None:
-        with db.executor(I18nMessage) as e:
+        with db.executor(model=I18nMessage) as e:
             row = e.exec(
                 select(I18nMessage)
                 .where(
@@ -59,7 +59,7 @@ class MergedTranslations(Translations):
         return row.text if row else None
 
     async def _db_aget(self, message: str, num: int = 1, ctx: str = None) -> str | None:
-        async with db.async_executor(I18nMessage) as e:
+        async with db.async_executor(model=I18nMessage) as e:
             row = await e.exec_async(
                 select(I18nMessage)
                 .where(

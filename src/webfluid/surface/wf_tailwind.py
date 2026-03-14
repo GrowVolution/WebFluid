@@ -1,6 +1,5 @@
-from tqdm import tqdm
 from typing import TYPE_CHECKING, Callable
-import os, platform, typer, requests, subprocess
+import os, platform, typer, subprocess
 
 from webfluid.surface import dist
 from webfluid.exceptions import TailwindError
@@ -41,17 +40,32 @@ def _tailwind_cmd() -> str:
     return str(executable)
 
 
-def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
+def tailwind_cmd(args: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
+    default_kwargs = {
+        "cwd": cwd,
+        "capture_output": True,
+        "text": True
+    }
+
     result = subprocess.run(
-        [_tailwind_cmd(),
-         "-i", str(in_file),
-         "-o", str(out_file),
-         "--cwd", str(cwd),
-         "--minify"],
-        cwd=cwd
+        [_tailwind_cmd(), *args],
+        **(kwargs | default_kwargs)
     )
+
     if result.returncode != 0:
-        raise TailwindError(f"Failed to generate {out_file}")
+        raise TailwindError(result.stderr or result.stdout)
+
+
+def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
+    tailwind_cmd(
+        [
+            "-i", str(in_file),
+            "-o", str(out_file),
+            "--cwd", str(cwd),
+            "--minify"
+        ],
+        cwd
+    )
 
 
 def generate_tailwind_css(fluid: "Fluid"):
@@ -96,17 +110,7 @@ def tailwind(ctx: typer.Context):
         typer.echo(typer.style("Usage: wf tailwind -- [args]", bold=True))
         raise typer.Exit(1)
 
-    args = ctx.args[0:]
-
-    result = subprocess.run(
-        [_tailwind_cmd(), *args],
-        cwd=os.getcwd()
-    )
-
-    if result.returncode != 0:
-        raise TailwindError("Tailwind command failed.")
-
-    typer.echo(result.stdout)
+    tailwind_cmd(ctx.args)
 
 
 def cli_entry(app: typer.Typer):

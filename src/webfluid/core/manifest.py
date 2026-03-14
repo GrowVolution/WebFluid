@@ -3,8 +3,9 @@ from typing import Callable
 import json
 
 from webfluid.utils import check_required_version, enabled
-from webfluid.utils.additive import id_check, version_check, type_check, frontend_check
+from webfluid.utils.additive import id_check, version_check, type_check
 from webfluid.utils.logging import factory as log_factory
+from webfluid.surface import validate_frontend_config as frontend_check
 from webfluid.exceptions import AdditiveException, ManifestError
 
 
@@ -79,8 +80,6 @@ class Manifest:
                 )
 
         if "additives" in requirements:
-            from webfluid.additives import installed_additives, import_base
-            additives = installed_additives(additive_root)
             requirement = requirements["additives"]
 
             if isinstance(requirement, list):
@@ -100,29 +99,33 @@ class Manifest:
             if not isinstance(requirement, dict):
                 raise ManifestError(f"[{self['name']}] Invalid additives requirement type: {type(requirement)}")
 
-            requirement_copy = requirement.copy()
+            from webfluid.additives import installed_additives, installed_bases
 
+            additives = installed_additives(additive_root)
             for additive in additives:
                 a, v, _ = additive
-                if a not in requirement:
-                    continue
+                if a not in requirement: continue
+                if not enabled(a): continue
 
-                if not enabled(a):
-                    continue
+                if check_required_version(
+                        requirement.get(a, "*"),
+                        "additive", v
+                ): requirement.pop(a)
 
-                if check_required_version(requirement.get(a, "*"), "additive", v):
-                    requirement_copy.pop(a)
+            if len(requirement) > 0:
+                bases = installed_bases(additive_root)
+                for base in bases:
+                    b, v, _ = base
+                    if b not in requirement: continue
 
-            requirement = requirement_copy.copy()
+                    if check_required_version(
+                            requirement.get(b, "*"),
+                            "additive", v
+                    ): requirement.pop(b)
 
-            for a, v in requirement.items():
-                base = import_base(a)
-                if base and check_required_version(v, "additive", base.version):
-                    requirement_copy.pop(a)
-
-            if len(requirement_copy) > 0:
+            if len(requirement) > 0:
                 raise AdditiveException(
-                    f"[{self['name']}] Missing or mismatching additive requirements: {[a for a in requirement_copy]}"
+                    f"[{self['name']}] Missing or mismatching additive requirements: {[a for a in requirement]}"
                 )
 
     @property

@@ -23,10 +23,6 @@ def camel_to_snake(text: str) -> str:
     return re.sub(r'(?<!^)(?=[A-Z])', '_', text).lower()
 
 
-def sanitize_text(value: str) -> str:
-    return value.encode("utf-8", "ignore").decode("utf-8")
-
-
 def get_root_path(import_name: str) -> str:
     mod = sys.modules.get(import_name)
 

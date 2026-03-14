@@ -1,9 +1,11 @@
-from tqdm import tqdm
-from typing import Callable
-import os, platform, requests, typer, subprocess
+from typing import TYPE_CHECKING, Callable
+import os, platform, typer, subprocess
 
 from webfluid.surface import dist
 from webfluid.exceptions import NodeError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 node_standalone = {
     "linux": "https://nodejs.org/dist/v24.13.1/node-v24.13.1-linux-{architecture}.tar.xz",
@@ -56,6 +58,34 @@ def _node_env() -> dict:
     return env
 
 
+def node_cmd(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
+    default_kwargs = {
+        "cwd": cwd,
+        "env": _node_env(),
+        "capture_output": True,
+        "text": True
+    }
+
+    result = subprocess.run(
+        [_node_cmd(cmd[0]), *cmd[1:]],
+        **(kwargs | default_kwargs)
+    )
+
+    if result.returncode != 0:
+        raise NodeError(result.stderr or result.stdout)
+
+
+def node_proc(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs) -> subprocess.Popen:
+    default_kwargs = {
+        "cwd": cwd,
+        "env": _node_env()
+    }
+    return subprocess.Popen(
+        [_node_cmd(cmd[0]), *cmd[1:]],
+        **(kwargs | default_kwargs)
+    )
+
+
 def load_node(download_fn: Callable):
     sys_node = _sys_node()
     if sys_node[0]:
@@ -97,17 +127,7 @@ def node(ctx: typer.Context):
         typer.echo(typer.style("Usage: wf node <command> [args]", bold=True, fg=typer.colors.YELLOW))
         raise typer.Exit(1)
 
-    command = ctx.args[0]
-    args = ctx.args[1:]
-
-    result = subprocess.run(
-        [_node_cmd(command), *args],
-        cwd=os.getcwd(),
-        env=_node_env()
-    )
-
-    if result.returncode != 0:
-        raise NodeError("Node command execution failed.")
+    node_cmd(ctx.args)
 
 
 def cli_entry(app: typer.Typer):

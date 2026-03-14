@@ -2,19 +2,11 @@
 .venv/
 .idea/
 __pycache__/
-instance/
-migrations/
-translations/
-app_configs/
-services/
-logs/
 webfluid.egg-info/
 dist/
 
 [files]
 .env
 .coverage
-alembic.ini
-messages.pot
 tailwind.exe
 tailwind.css

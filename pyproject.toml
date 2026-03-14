@@ -37,11 +37,12 @@ dependencies = [
     "pytz",
     "tqdm",
 
-    "typer"
+    "typer",
+    "questionary"
 ]
 
 [project.scripts]
-wf = "webfluid.cli:main"
+wf = "webfluid:cli"
 
 [build-system]
 requires = ["setuptools>=61.0"]

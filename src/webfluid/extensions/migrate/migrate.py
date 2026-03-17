@@ -1,10 +1,11 @@
 from pathlib import Path
 import subprocess, shutil, typer
 
-from webfluid.utils.config import init_configs, build_config
+from webfluid.extensions.base import FluidExtension
+from webfluid.core.config import Config, init_configs, build_config
 
 
-class Migrate:
+class Migrate(FluidExtension):
     _cli = typer.Typer(help="WebFluid Migrate CLI")
     _templates = Path(__file__).parent / "templates"
 
@@ -26,7 +27,8 @@ class Migrate:
 
         class Dummy: app_root = project_root
         init_configs(Dummy)
-        config = build_config()
+        config = Config()
+        config.from_object(build_config())
 
         binds = config.get("SQLALCHEMY_BINDS", {})
         template = "multi_db" if binds else "single_db"
@@ -80,5 +82,5 @@ class Migrate:
         )
 
     @classmethod
-    def cli_entry(cls, app: typer.Typer):
-        app.add_typer(cls._cli, name="migrate")
+    def cli_entry(cls, app: typer.Typer, name: str):
+        app.add_typer(cls._cli, name=name)

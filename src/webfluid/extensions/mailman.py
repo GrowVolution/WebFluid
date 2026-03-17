@@ -6,13 +6,14 @@ from threading import Thread
 from typing import TYPE_CHECKING
 import aiosmtplib, smtplib
 
+from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
     from webfluid import Fluid
 
 
-class Mail:
+class Mail(FluidExtension):
     def __init__(self, fluid: "Fluid | None" = None):
         self.host = "localhost"
         self.port = 587
@@ -22,12 +23,19 @@ class Mail:
 
         self.user = None
         self.password = None
-        self.default_sender = None
+        self.default_sender = "noreply@example.com"
 
-        if fluid is not None: self.expand_fluid(fluid)
+        super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid", *_, **__):
         config = fluid.config
+
+        self.user = config.get("MAIL_USERNAME")
+        self.password = config.get("MAIL_PASSWORD")
+        if self.user and not self.password:
+            raise FrameworkException("Missing MAIL_PASSWORD for MAIL_USERNAME.")
+        if self.password and not self.user:
+            raise FrameworkException("Missing MAIL_USERNAME for MAIL_PASSWORD.")
 
         self.host = config.get("MAIL_SERVER", self.host)
         self.port = config.get("MAIL_PORT", self.port)
@@ -35,12 +43,7 @@ class Mail:
         self.start_tls = config.get("MAIL_USE_STARTTLS", self.start_tls)
         self.timeout = config.get("MAIL_TIMEOUT", self.timeout)
 
-        try:
-            self.user = config["MAIL_USERNAME"]
-            self.password = config["MAIL_PASSWORD"]
-            self.default_sender = config.get("MAIL_DEFAULT_SENDER", self.user)
-        except KeyError as e:
-            raise FrameworkException(f"Failed to setup async mailman: {e}")
+        self.default_sender = config.get("MAIL_DEFAULT_SENDER", self.default_sender)
 
     def make_message(self, to: str, subject: str, body: list[dict[str, str]],
                      attachments: list[dict[str, bytes | str]] = None,
@@ -103,8 +106,11 @@ class Mail:
             port=self.port,
             timeout=self.timeout
         )
+
         if self.start_tls: smtp.starttls()
-        smtp.login(self.user, self.password)
+        if self.user and self.password:
+            smtp.login(self.user, self.password)
+
         try: yield smtp
         except (
             smtplib.SMTPConnectError,
@@ -126,8 +132,11 @@ class Mail:
             start_tls=self.start_tls,
             timeout=self.timeout
         )
+
         await smtp.connect()
-        await smtp.login(self.user, self.password)
+        if self.user and self.password:
+            await smtp.login(self.user, self.password)
+
         try: yield smtp
         except (
             aiosmtplib.SMTPConnectError,

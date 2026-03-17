@@ -4,22 +4,16 @@ from apscheduler.triggers.interval import IntervalTrigger
 from typing import TYPE_CHECKING
 import jwt, secrets
 
-from webfluid.core.ext import cache, scheduler
+from webfluid.extensions.base import FluidExtension
 from webfluid.core.constants import EXT_SCHEDULING, EXT_CACHE
-from webfluid.utils import enabled
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
     from webfluid import Fluid
 
 
-class JWTManager:
+class JWTManager(FluidExtension):
     def __init__(self, fluid: "Fluid | None" = None):
-        if not EXT_SCHEDULING:
-            raise FrameworkException("EXT_SCHEDULING is required for JWTManager to work.")
-        if not EXT_CACHE:
-            raise FrameworkException("EXT_CACHE is required for JWTManager to work.")
-
         self._current_key = None
         self._secret_rotary_interval = 15
         self._token_expiry_days = 30
@@ -29,9 +23,10 @@ class JWTManager:
             "default": "Application"
         }
 
-        if fluid is not None: self.expand_fluid(fluid)
+        super().__init__(fluid)
 
     async def _rotate_secret(self):
+        from webfluid.core.ext import cache
         self._current_key = uuid4().hex
         await cache.aset(
             f"jwt:{self._current_key}",
@@ -66,11 +61,17 @@ class JWTManager:
             verify=True
         )
 
-    def expand_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid", *_, **__):
+        if not EXT_SCHEDULING:
+            raise FrameworkException("EXT_SCHEDULING is required for JWTManager to work.")
+        if not EXT_CACHE:
+            raise FrameworkException("EXT_CACHE is required for JWTManager to work.")
+
         self._secret_rotary_interval = fluid.config.get(
             "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
         )
 
+        from webfluid.core.ext import scheduler
         fluid.startup_hook(self._rotate_secret)
         scheduler.add_job(
             self._rotate_secret,
@@ -86,19 +87,23 @@ class JWTManager:
         self._token_audiences = fluid.config.get("JWT_AUDIENCES", self._token_audiences)
 
     def encode(self, payload: dict, audience: str = "default") -> str:
+        from webfluid.core.ext import cache
         secret = cache.get(f"jwt:{self._current_key}")
         return self._encode(payload, audience, secret)
 
     async def aencode(self, payload: dict, audience: str = "default") -> str:
+        from webfluid.core.ext import cache
         secret = await cache.aget(f"jwt:{self._current_key}")
         return self._encode(payload, audience, secret)
 
     def decode(self, token: str, audience: str = "default") -> dict:
+        from webfluid.core.ext import cache
         kid = jwt.get_unverified_header(token).get("kid", self._current_key)
         secret = cache.get(f"jwt:{kid}")
         return self._decode(token, audience, secret)
 
     async def adecode(self, token: str, audience: str = "default") -> dict:
+        from webfluid.core.ext import cache
         kid = jwt.get_unverified_header(token).get("kid", self._current_key)
         secret = await cache.aget(f"jwt:{kid}")
         return self._decode(token, audience, secret)

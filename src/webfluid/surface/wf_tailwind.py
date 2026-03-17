@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
-from webfluid.surface import dist
 from webfluid.exceptions import TailwindError
 
 if TYPE_CHECKING:
@@ -33,6 +32,7 @@ def _tailwind_cmd() -> str:
     if os.name == "nt":
         tw += ".exe"
 
+    from webfluid.surface import dist
     executable = dist / tw
     if not executable.exists():
         raise TailwindError("Missing tailwind cli executable.")
@@ -57,6 +57,8 @@ def tailwind_cmd(args: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
 
 
 def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
+    if not in_file.exists(): return
+
     tailwind_cmd(
         [
             "-i", str(in_file),
@@ -69,12 +71,13 @@ def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
 
 
 def generate_tailwind_css(fluid: "Fluid"):
-    out =  (dist.parent / "app" / "static" / "css" / "tailwind.css")
+    from webfluid.core.constants import FRAMEWORK_ROOT
+    out =  (FRAMEWORK_ROOT / "fluid" / "static" / "css" / "tailwind.css")
 
     generate_asset(
         out.parent / "tailwind_raw.css",
         out,
-        dist.parent
+        FRAMEWORK_ROOT
     )
 
     for d in fluid.app_root.rglob("static/css"):
@@ -90,19 +93,17 @@ def generate_tailwind_css(fluid: "Fluid"):
 def load_tailwind(download_fn: Callable):
     data = _get_cli_data()
     file_type = ".exe" if data[1] == "windows" else ""
+
+    from webfluid.surface import dist
     dest = dist / f"tailwind{file_type}"
 
-    if dest.exists():
-        return
+    if dest.exists(): return
 
     download_fn(data[0], dest)
     if not dest.exists():
         raise TailwindError("Failed to download standalone tailwind cli.")
 
-    if os.name != "nt":
-        os.system(f"chmod +x {str(dest)}")
-
-    typer.echo(typer.style(f"Tailwind successfully setup.", fg=typer.colors.GREEN, bold=True))
+    if os.name != "nt": os.system(f"chmod +x {str(dest)}")
 
 
 def tailwind(ctx: typer.Context):

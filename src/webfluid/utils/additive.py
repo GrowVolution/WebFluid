@@ -1,7 +1,6 @@
 from functools import wraps
 
 from webfluid.utils import safe_string, enabled, async_result
-from webfluid.utils.logging import factory as log_factory
 
 
 def id_check(additive_id: str) -> tuple[bool, str]:
@@ -51,6 +50,7 @@ def type_check(t: str) -> tuple[bool, str]:
 
 def require_extensions(*extensions):
     def decorator(fn):
+        from webfluid.utils.logging import factory as log_factory
 
         @wraps(fn)
         async def wrapper(*args, **kwargs):

@@ -7,12 +7,9 @@ from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from pathlib import Path
-from functools import wraps
-from importlib import import_module
-from typing import TYPE_CHECKING, Callable
-import os, uvicorn, asyncio, signal, weakref
+from typing import Callable
+import os, asyncio, uvicorn, signal
 
-from webfluid import version
 from webfluid.core.config import Config, init_configs, build_config
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import (
@@ -27,41 +24,23 @@ from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
 from webfluid.additives import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
 from webfluid.surface.wf_tailwind import generate_tailwind_css
-from webfluid.utils import (
-    disable_uvicorn_logging, get_root_path,
-    safe_string, safe_execute, required_arg_count
-)
+from webfluid.utils import (get_root_path, safe_string, safe_execute,
+                            required_arg_count, close_proxy_client)
+from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import EventHookException, ProcessorException
-
-if TYPE_CHECKING:
-    from types import FrameType
-
-
-def _on_init(__init__: Callable) -> Callable:
-    @wraps(__init__)
-    def wrapper(import_name: str):
-        for hook in Fluid._object_hooks["before_construction"]:
-            hook()
-        return __init__(import_name)
-    return wrapper
 
 
 class Fluid(FastAPI):
-    _object_hooks = {
-        "before_construction": [],
-        "after_deconstruction": []
-    }
-
-    @_on_init
     def __init__(self, import_name: str):
         self.name = safe_string(os.getenv("APP_NAME", import_name)).lower()
+
+        self.app_root = Path(get_root_path(import_name)).resolve()
+        self.additive_root = self.app_root / "additives"
 
         init_configs(self)
         self.config = Config()
         self.config.from_object(build_config())
-
-        self.app_root = Path(get_root_path(import_name)).resolve()
-        self.additive_root = self.app_root / "additives"
+        super().__init__(**self.config.get("APP_CONFIG", {}))
 
         static_path = "fluid/static"
         self.app_static = StaticFiles(
@@ -112,6 +91,7 @@ class Fluid(FastAPI):
             )
             self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+        @self.middleware("http")
         async def middleware(
                 request: Request, call_next: Callable
         ) -> Response:
@@ -121,10 +101,8 @@ class Fluid(FastAPI):
                     if response is not None: return response
                 response = await call_next(request)
                 for processor in reversed(self._request_processors["after"]):
-                    response = await safe_execute(processor, ProcessorException, response)
+                    response = await safe_execute(processor, ProcessorException, request, response)
                 return response
-
-        self.middleware("http")(middleware)
 
         if EXT_SCHEDULING: self.startup_hook(scheduler.start)
         if EXT_SQLALCHEMY: db.expand_fluid(self)
@@ -147,15 +125,23 @@ class Fluid(FastAPI):
         Frontend.prepare(self)
 
         self._asgi_app = None
+        self._server = None
         self._shutdown_flag = asyncio.Event()
 
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
-        signal.signal(signal.SIGINT, self._handle_shutdown)
-        weakref.finalize(self, self._finalize)
+        def add_shutdown_handlers():
+            if os.name == "nt":
+                signal.signal(signal.SIGINT, self._handle_shutdown)
+                signal.signal(signal.SIGTERM, self._handle_shutdown)
+            else:
+                loop = asyncio.get_running_loop()
+                loop.add_signal_handler(signal.SIGINT, self._handle_shutdown)
+                loop.add_signal_handler(signal.SIGTERM, self._handle_shutdown)
 
-        super().__init__(**self.config.get("APP_CONFIG", {}))
+        self.startup_hook(add_shutdown_handlers)
+        self.shutdown_hook(close_proxy_client)
 
     def __repr__(self) -> str:
+        from webfluid import version
         return f"<WebFluid {version()}>"
 
     def _prepare(self):
@@ -164,29 +150,40 @@ class Fluid(FastAPI):
 
     async def _startup(self):
         self._startup_lock = True
+
+        log_factory.log("Running startup hooks...")
         for hook in self._hooks["startup"]:
             await safe_execute(hook, EventHookException)
 
     async def _shutdown(self):
         self._shutdown_lock = True
+
+        log_factory.log("Running shutdown hooks...")
         for hook in reversed(self._hooks["shutdown"]):
             await safe_execute(hook, EventHookException)
 
     async def _run_server(self):
+        host = os.getenv("SERVER_HOST", "127.0.0.1")
+        port = int(os.getenv("SERVER_PORT", "8000"))
+
         config = uvicorn.Config(
             self.asgi_app,
-            host="0.0.0.0",
-            port=int(os.getenv("SERVER_PORT", "5000"))
+            host=host,
+            port=port,
+            loop="asyncio",
+            log_config=None,
+            access_log=False
         )
-        server = uvicorn.Server(config)
-        disable_uvicorn_logging()
-        await server.serve()
 
-    def _handle_shutdown(self, signum: int, frame: "FrameType"):
-        if self._shutdown_flag.is_set():
-            return
-        loop = asyncio.get_event_loop()
-        loop.call_soon_threadsafe(self._shutdown_flag.set)
+        self._server = uvicorn.Server(config)
+        self._server.install_signal_handlers = False
+
+        log_factory.log(f"Server is listening on {host}:{port}.")
+        await self._server.serve()
+
+    def _handle_shutdown(self, *_):
+        if self._shutdown_flag.is_set(): return
+        self._shutdown_flag.set()
 
     def startup_hook(self, fn: Callable) -> Callable:
         if self._startup_lock:
@@ -216,13 +213,13 @@ class Fluid(FastAPI):
 
     def before_request(self, fn: Callable) -> Callable:
         if required_arg_count(fn) != 1:
-            raise TypeError("Request processors must receive exactly one argument (request).")
+            raise TypeError("Before request processors must receive exactly one argument (request).")
         self._request_processors["before"].append(fn)
         return fn
 
     def after_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 1:
-            raise TypeError("Request processors must receive exactly one argument (response).")
+        if required_arg_count(fn) != 2:
+            raise TypeError("After request processors must receive exactly one argument (request, response).")
         self._request_processors["after"].append(fn)
         return fn
 
@@ -234,16 +231,18 @@ class Fluid(FastAPI):
         return await self.jinja_env.get_template(template).render_async(**ctx)
 
     async def start(self):
+        log_factory.start_session()
+
         await self._startup()
         serve = asyncio.create_task(self._run_server())
         await self._shutdown_flag.wait()
-        await self._shutdown()
 
-        try:
-            serve.cancel()
+        if self._server:
+            self._server.should_exit = True
             await serve
-        except asyncio.CancelledError:
-            pass
+
+        await self._shutdown()
+        log_factory.log("Server stopped.")
 
     def mix(self): asyncio.run(self.start())
 
@@ -263,18 +262,3 @@ class Fluid(FastAPI):
         if self.config.get("RATELIMIT_ENABLED", True):
             return self.state.limiter.limit
         return lambda *_, **__: lambda fn: fn
-
-    @classmethod
-    def _finalize(cls):
-        for hook in cls._object_hooks["after_deconstruction"]:
-            hook()
-
-    @classmethod
-    def on_init(cls, fn: Callable) -> Callable:
-        cls._object_hooks["before_construction"].append(fn)
-        return fn
-
-    @classmethod
-    def on_delete(cls, fn: Callable) -> Callable:
-        cls._object_hooks["after_deconstruction"].append(fn)
-        return fn

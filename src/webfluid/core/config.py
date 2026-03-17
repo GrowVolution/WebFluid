@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Callable
 import os
 
 from webfluid.additives import installed_additives
-from webfluid.utils import enabled, check_priority, build_sorted_tuple
+from webfluid.utils import enabled, check_priority, build_sorted_tuple, try_import
 
 if TYPE_CHECKING:
     from webfluid import Fluid
@@ -31,26 +31,26 @@ class DefaultConfig:
         "type": "htmx",
         "alpine": True
     }
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+    BASE_URL = f"http://localhost:8000"
     SECRET_KEY = os.getenv("SECRET_KEY", "151ca2beba81560d3fd5d16a38275236")
 
     PROXY_FIX = False
 
     RATELIMIT_ENABLED = True
-    RATELIMIT_STORAGE_URI = f"{os.getenv('REDIS_URL', 'redis://localhost:6379')}/1"
+    RATELIMIT_STORAGE_URI = f"{os.getenv('REDIS_URI', 'redis://localhost:6379')}/1"
     RATELIMIT_DEFAULT = ["500/day", "100/hour"]
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", "sqlite:///app.db")
 
     OAUTH_CLIENTS = {}
 
-    MAIL_SERVER = os.getenv("MAIL_SERVER", "localhost")
-    MAIL_PORT = int(os.getenv("MAIL_PORT", 25))
-    MAIL_USE_TLS = enabled("MAIL_USE_TLS")
-    MAIL_USE_STARTTLS = enabled("MAIL_USE_STARTTLS")
+    MAIL_SERVER = "localhost"
+    MAIL_PORT = 587
+    MAIL_USE_TLS = True
+    MAIL_USE_STARTTLS = False
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
-    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "noreply@example.com")
+    MAIL_DEFAULT_SENDER = MAIL_USERNAME if MAIL_USERNAME else "noreply@example.com"
 
     CACHE_TYPE = "redis"
     CACHE_REDIS_URI = f"{os.getenv('REDIS_URI', 'redis://localhost:6379')}/2"
@@ -58,16 +58,14 @@ class DefaultConfig:
 
 
 def init_configs(fluid: "Fluid"):
-    try: import_module("fluid.config")
-    except ModuleNotFoundError: pass
+    try_import("fluid.config")
 
     additives = fluid.app_root / "additives"
     if not additives.exists() or not additives.is_dir(): return
     for additive in installed_additives(additives, True):
         a, _, p = additive
         if not enabled(a): continue
-        try: import_module(f"additives.{p}.config")
-        except ModuleNotFoundError: pass
+        try_import(f"additives.{p}.config")
 
 
 def register_config(priority: int = 1) -> Callable:

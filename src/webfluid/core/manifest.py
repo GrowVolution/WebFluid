@@ -12,15 +12,14 @@ from webfluid.exceptions import AdditiveException, ManifestError
 class Manifest:
 
     structure = {
-        # field: (type, required, Optional[check_fn])
         "id": (str, True, id_check),
         "version": (str, True, version_check),
         "type": (str, True, type_check),
-        "frontend": (dict[str, str | bool], True, frontend_check),
+        "frontend": (dict, True, frontend_check),
         "name": (str, False),
         "description": (str, False),
-        "authors": (list[dict[str, str]], False),
-        "requires": (dict[str, str | list[str] | dict[str, str]], False)
+        "authors": (list, False),
+        "requires": (dict, False)
     }
 
     def __init__(self, manifest_file: Path):
@@ -64,6 +63,12 @@ class Manifest:
 
     def __len__(self):
         return len(self._data)
+
+    def __repr__(self):
+        return f"<Manifest {self['id']}>"
+
+    def __str__(self):
+        return str(self._data)
 
     def check_requirements(self, additive_root: Path):
         if not "requires" in self:

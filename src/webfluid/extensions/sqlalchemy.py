@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Optional, Any
 
+from webfluid.extensions.base import FluidExtension
 from webfluid.core.context import BaseContext
 from webfluid.utils import camel_to_snake
 from webfluid.extensions.utils.sqlalchemy import database_uris
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class _Executor(BaseContext):
-    ctx = ContextVar("sqlalchemy.executor")
+    CTX = ContextVar("sqlalchemy.executor")
     def __init__(self, session: Session | AsyncSession):
         self.session = session
 
@@ -78,7 +79,7 @@ class Model(DeclarativeBase):
         return camel_to_snake(cls.__name__)
 
 
-class SQLAlchemy:
+class SQLAlchemy(FluidExtension):
     # TODO: Add optional Multi-Metadata later
 
     def __init__(self,
@@ -87,7 +88,7 @@ class SQLAlchemy:
         self.Model = base
         self.binds = {}
 
-        if fluid is not None: self.expand_fluid(fluid)
+        super().__init__(fluid)
 
     def _get_bind(self, bind_key: str) -> _Bind:
         try: return self.binds[bind_key]
@@ -102,7 +103,7 @@ class SQLAlchemy:
     def get_bind_for_model(self, model: type[Model]) -> _Bind:
         return self._get_bind(getattr(model, "__bind_key__", "default"))
 
-    def expand_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid", *_, **__):
         default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
         uris = database_uris(default_uri)
         fluid.config["SQLALCHEMY_DATABASE_URI"] = uris[0]

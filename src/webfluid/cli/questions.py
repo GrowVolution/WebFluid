@@ -1,4 +1,5 @@
 from prompt_toolkit.formatted_text import HTML
+from html import escape
 from pathlib import Path
 import questionary
 
@@ -29,9 +30,16 @@ qmark = ">"
 pointer = "•"
 
 
-def choice(title: str, value: str) -> questionary.Choice:
+def choice(title: str, value: str | int) -> questionary.Choice:
     return questionary.Choice(
-        HTML(f"<{value}>{title}</{value}>").formatted_text,
+        HTML(f"<{value}>{escape(title)}</{value}>").formatted_text,
+        value=value
+    )
+
+
+def fixed_choice(title: str, value: str | int) -> questionary.Choice:
+    return questionary.Choice(
+        HTML(f"<choice>{escape(title)}</choice>").formatted_text,
         value=value
     )
 
@@ -43,9 +51,9 @@ def choice(title: str, value: str) -> questionary.Choice:
 frontend_type = questionary.select(
     "Select your frontend type:",
     choices=[
-        choice("🚫 None", "none"),
+        choice("🚫  None", "none"),
         choice("</> HTMX", "htmx"),
-        choice("⚡ Vite", "vite"),
+        choice(" ⚡ Vite", "vite"),
     ],
     default="none",
     qmark=qmark,
@@ -56,14 +64,14 @@ frontend_type = questionary.select(
 frontend_framework = questionary.select(
     "Select your frontend framework:",
     choices=[
-        choice("🚫 None", "none"),
-        choice("⚛ React", "react"),
-        choice("🟢 Vue", "vue"),
-        choice("🔥 Svelte", "svelte"),
-        choice("◆ Solid", "solid"),
-        choice("📦 Preact", "preact"),
-        choice("💡 Lit", "lit"),
-        choice("⚡ Qwik", "qwik"),
+        choice("🚫  None", "none"),
+        choice("⚛️  React", "react"),
+        choice("🟢  Vue", "vue"),
+        choice("🔥  Svelte", "svelte"),
+        choice(" ◆ Solid", "solid"),
+        choice("📦  Preact", "preact"),
+        choice("💡  Lit", "lit"),
+        choice(" ⚡ Qwik", "qwik"),
     ],
     default="none",
     qmark=qmark,
@@ -121,9 +129,10 @@ def additive_name(additive_id: str) -> str:
     parts = additive_id.split("_")
     for i, part in enumerate(parts):
         parts[i] = part.capitalize()
+
     default = " ".join(parts)
     return questionary.text(
-        f"Enter your additive name ({default}):",
+        "Enter your additive name:",
         default=default,
         qmark=qmark,
         style=style
@@ -177,10 +186,110 @@ requirements = questionary.checkbox(
         "scheduling",
         questionary.Choice("sqlalchemy", checked=True),
         questionary.Choice("babel", checked=True),
-        "oauth",
         "cache",
         "mail",
         "jwt"
+    ],
+    qmark=qmark,
+    style=style
+)
+
+#------------------ app config -------------------#
+
+
+def database_uri(name: str) -> str:
+    return questionary.text(
+        "DATABASE_URI: ",
+        default=f"sqlite:///{name}.db",
+        qmark=qmark,
+        style=style
+    ).ask()
+
+
+redis_uri = questionary.text(
+    "REDIS_URI:    ",
+    default="redis://localhost:6379",
+    qmark=qmark,
+    style=style
+)
+
+mail_username = questionary.text(
+    "MAIL_USERNAME:",
+    default="",
+    qmark=qmark,
+    style=style
+)
+
+mail_password = questionary.text(
+    "MAIL_PASSWORD:",
+    default="",
+    qmark=qmark,
+    style=style
+)
+
+extensions = questionary.checkbox(
+    "Enable your app extensions:",
+    choices=[
+        "EXT_SCHEDULING",
+        questionary.Choice("EXT_SQLALCHEMY", checked=True),
+        questionary.Choice("EXT_BABEL", checked=True),
+        "EXT_CACHE",
+        "EXT_MAIL",
+        "EXT_JWT"
+    ],
+    qmark=qmark,
+    style=style
+)
+
+features = questionary.checkbox(
+    "Enable your app features:  ",
+    choices=[
+        questionary.Choice("WF_TAILWIND", checked=True),
+        questionary.Choice("WF_PROCESSING", checked=True)
+    ],
+    qmark=qmark,
+    style=style
+)
+
+###################################################
+#                    wf run                       #
+###################################################
+
+host = questionary.text(
+    "Enter the host address:",
+    default="127.0.0.1",
+    qmark=qmark,
+    style=style
+)
+
+port = questionary.text(
+    "Enter the port number: ",
+    default="8000",
+    validate=lambda x: x.isdigit(),
+    qmark=qmark,
+    style=style
+)
+
+debug_mode = questionary.confirm(
+    "Run in debug mode?     ",
+    default=False,
+    qmark=qmark,
+    style=style
+)
+
+menu = questionary.select(
+    "What do you want to do:",
+    choices=[
+        fixed_choice("🔄  Restart", 0),
+        fixed_choice(" ⏹ Stop", 1),
+        fixed_choice(" ▶ Start (if stopped)", 2),
+
+        fixed_choice("📜  Join log (console)", 3),
+        fixed_choice(" 🗑 Clear log folder", 4),
+
+        fixed_choice("🧹  Clear console", 5),
+
+        fixed_choice("🚪  Exit", 6)
     ],
     qmark=qmark,
     style=style

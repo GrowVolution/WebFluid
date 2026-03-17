@@ -5,9 +5,8 @@ from configparser import ConfigParser
 from typing import TYPE_CHECKING
 import typer, json
 
-from webfluid.core.manifest import Manifest
 from webfluid.core.additive import Additive, AdditiveVersion
-from webfluid.utils import enabled
+from webfluid.utils import enabled, try_import
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import ManifestError
 
@@ -21,12 +20,14 @@ _additives = {
 
 
 def _load_additives(package: Path, target: str, additive_type: str, do_log: bool):
+    from webfluid.core.manifest import Manifest
+
     for additive in package.iterdir():
         if not additive.is_dir(): continue
 
         try:
             manifest = Manifest(additive / "manifest.json")
-            if manifest["type"] == additive_type: continue
+            if manifest["type"] != additive_type: continue
 
             version = AdditiveVersion(*map(int, manifest["version"].split(".")))
             _additives[target][package].append(
@@ -142,11 +143,11 @@ def installed_bases(package: Path, do_log: bool = False) -> list[tuple[str, str,
 
 
 def import_base(additive_id: str) -> Additive | None:
-    try:
-        mod = import_module(f"additives.{additive_id}")
-        additive = getattr(mod, "additive", None)
-        if not additive or not additive.is_base:
-            return None
-        return additive
-    except ModuleNotFoundError:
+    mod = try_import(f"additives.{additive_id}")
+    if not mod: return None
+
+    additive = getattr(mod, "additive", None)
+    if not additive or not additive.is_base:
         return None
+
+    return additive

@@ -12,11 +12,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Sequence, Any
 import subprocess, sys, typer
 
-from webfluid.core.manifest import Manifest
 from webfluid.core.context import FluidContext
 from webfluid.surface.frontend import Frontend
 from webfluid.utils import get_root_path, safe_string, required_arg_count, safe_execute, async_result
-from webfluid.utils.additive import require_extensions
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError, EventHookException, ProcessorException
 
@@ -52,20 +50,23 @@ class AdditiveRouter(APIRouter):
         return fn
 
     def add_api_route(
-            self, path: str, endpoint: Callable[..., Any], *,
-            response_model: Any = Default(None), status_code: int | None = None,
-            tags: list[str | Enum] | None = None, dependencies: Sequence[params.Depends] | None = None,
-            summary: str | None = None, description: str | None = None, response_description: str = "Successful Response",
-            responses: dict[int | str, dict[str, Any]] | None = None, deprecated: bool | None = None,
-            methods: set[str] | list[str] | None = None, operation_id: str | None = None,
-            response_model_include: IncEx | None = None, response_model_exclude: IncEx | None = None,
-            response_model_by_alias: bool = True, response_model_exclude_unset: bool = False,
-            response_model_exclude_defaults: bool = False, response_model_exclude_none: bool = False,
-            include_in_schema: bool = True, response_class: type[Response] | DefaultPlaceholder = Default(JSONResponse),
-            name: str | None = None, route_class_override: type[APIRoute] | None = None,
-            callbacks: list[BaseRoute] | None = None, openapi_extra: dict[str, Any] | None = None,
-            generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder = Default(generate_unique_id)
-    ):
+        self, path: str, endpoint: Callable[..., Any],
+        *,
+        response_model: Any = Default(None), status_code: int | None = None,
+        tags: list[str | Enum] | None = None, dependencies: Sequence[params.Depends] | None = None,
+        summary: str | None = None,  description: str | None = None,
+        response_description: str = "Successful Response",
+        responses: dict[int | str, dict[str, Any]] | None = None, deprecated: bool | None = None,
+        methods: set[str] | list[str] | None = None, operation_id: str | None = None,
+        response_model_include: IncEx | None = None, response_model_exclude: IncEx | None = None,
+        response_model_by_alias: bool = True,  response_model_exclude_unset: bool = False,
+        response_model_exclude_defaults: bool = False, response_model_exclude_none: bool = False,
+        include_in_schema: bool = True, response_class: type[Response] | DefaultPlaceholder = Default(JSONResponse),
+        name: str | None = None, route_class_override: type[APIRoute] | None = None,
+        callbacks: list[BaseRoute] | None = None, openapi_extra: dict[str, Any] | None = None,
+        generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder = Default(generate_unique_id),
+        strict_content_type: bool | DefaultPlaceholder = Default(True),
+    ) -> None:
 
         @wraps(endpoint)
         async def wrapped(*args, **kwargs):
@@ -75,8 +76,8 @@ class AdditiveRouter(APIRouter):
             return await async_result(handler(*args, **kwargs))
 
         super().add_api_route(
-            path, log_factory.additive_context(wrapped), response_model=response_model, status_code=status_code,
-            tags=tags, dependencies=dependencies, summary=summary, description=description,
+            path, wrapped, response_model=response_model, status_code=status_code, tags=tags,
+            dependencies=dependencies, summary=summary, description=description,
             response_description=response_description, responses=responses, deprecated=deprecated,
             methods=methods, operation_id=operation_id, response_model_include=response_model_include,
             response_model_exclude=response_model_exclude, response_model_by_alias=response_model_by_alias,
@@ -84,7 +85,8 @@ class AdditiveRouter(APIRouter):
             response_model_exclude_defaults=response_model_exclude_defaults,
             response_model_exclude_none=response_model_exclude_none, include_in_schema=include_in_schema,
             response_class=response_class, name=name, route_class_override=route_class_override,
-            callbacks=callbacks, openapi_extra=openapi_extra
+            callbacks=callbacks, openapi_extra=openapi_extra, generate_unique_id_function=generate_unique_id_function,
+            strict_content_type=strict_content_type
         )
 
     def add_api_websocket_route(self, path: str, endpoint: Callable[..., Any], name: str | None = None,
@@ -105,6 +107,7 @@ class Additive:
         self.import_name = import_name
         self.root_path = Path(get_root_path(import_name)).resolve()
 
+        from webfluid.core.manifest import Manifest
         try: self.manifest = Manifest(self.root_path / "manifest.json")
         except (FileNotFoundError, ManifestError) as e:
             raise AdditiveException(f"[{self.additive_name}] Failed to load manifest: {e}")
@@ -113,7 +116,7 @@ class Additive:
             self.manifest["name"] = self.additive_name
         else:
             self.additive_name = self.manifest["name"]
-        self.name = safe_string(self.additive_name)
+        self.name = self.manifest["id"]
         self.prefix = f"/{self.name.replace('_', '-')}"
 
         self.is_base = self.manifest["type"] == "base"
@@ -132,6 +135,7 @@ class Additive:
             self._enable(fluid)
             await self._after_enable()
 
+        from webfluid.utils.additive import require_extensions
         if base: self.required_extensions.extend(base.required_extensions or [])
         self.enable = log_factory.additive_context(
             require_extensions(*self.required_extensions)(enable)

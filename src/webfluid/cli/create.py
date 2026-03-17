@@ -1,5 +1,8 @@
 from pathlib import Path
-import typer, json, shutil
+from configparser import ConfigParser
+from secrets import token_hex
+from selectolax.parser import HTMLParser, create_tag
+import typer, json, shutil, re
 
 from webfluid.cli import templates, questions
 from webfluid.surface import node_cmd, dist
@@ -62,6 +65,20 @@ def _frontend_conf() -> dict:
     return conf
 
 
+def _inject_base(code: str, prefix: str = "") -> str:
+    code = re.sub(
+        r"defineConfig\(\s*{",
+        (
+            "defineConfig(({ command }) => ({\n"
+            f"  base: command === 'build' ? '{prefix}/frontend/' : '/vite-dev/',"
+        ),
+        code,
+        count=1
+    )
+    code = re.sub(r"\}\)\s*$", "}))", code)
+    return code
+
+
 def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
     if conf["type"] != "vite": return False
 
@@ -76,14 +93,41 @@ def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
         template_dst
     )
 
-    node_cmd(
-        ["npm", "pkg", "set", f"name='@{space}/{name}-frontend'"],
-        template_dst
+    if template.endswith("ts"):
+        config_file = template_dst / "vite.config.ts"
+    else:
+        config_file = template_dst / "vite.config.js"
+
+    config = config_file.read_text() \
+        if config_file.exists() \
+        else templates.vite_base
+
+    if space == "fluid":
+        config_file.write_text(_inject_base(config))
+        namespace = "fluid/frontend"
+    else:
+        prefix = f"/{name}"
+        config_file.write_text(_inject_base(config, prefix))
+        namespace = f"additives/{name}/frontend"
+
+    index_file = template_dst / "index.html"
+    index = HTMLParser(index_file.read_text())
+    cookie = create_tag("script")
+    cookie.insert_child(
+        f"document.cookie = `vite_ns={namespace}; path=/`"
     )
-    node_cmd(
-        ["npm", "pkg", "delete", "scripts.dev"],
-        template_dst
-    )
+    index.head.insert_child(cookie)
+    index_file.write_text(index.html)
+
+    package_json = template_dst / "package.json"
+    package = json.loads(package_json.read_text())
+    package["name"] = f"@{space}/{name}-frontend"
+    package["scripts"].pop("dev")
+    if "&&" in package["scripts"]["build"]:
+        tsc, build = package["scripts"]["build"].split(" && ")
+        package["scripts"]["typecheck"] = tsc
+        package["scripts"]["build"] = build
+    package_json.write_text(json.dumps(package, indent=2, ensure_ascii=False))
 
     return True
 
@@ -133,6 +177,7 @@ def project(
             templates.app_index_html
         )
 
+        (project_root / "additives").mkdir(exist_ok=True)
         (project_root / "main.py").write_text(
             templates.main_py
         )
@@ -151,18 +196,25 @@ def project(
         conf = _frontend_conf()
         if _create_frontend(app_dir, conf, "fluid", name):
             node_cmd(
+                ["npm", "install"],
+                project_root
+            )
+            node_cmd(
                 ["npm", "install", "-w", "fluid/frontend"],
                 project_root
             )
+            (app_dir / "templates/index.html").write_text(
+                "{{ frontend() }}"
+            )
 
+        conf_list = str(conf).strip("{}").split(", ")
+        conf_str = ("{\n\t\t"
+                   f"{',\n\t\t'.join(conf_list)}"
+                    "\n\t}")
         (app_dir / "config.py").write_text(
             templates.app_config_py.format(
                 name=name,
-                frontend=json.dumps(
-                    conf,
-                    indent=2,
-                    ensure_ascii=False
-                )
+                frontend=conf_str
             )
         )
 
@@ -204,7 +256,7 @@ def additive(additive_id: str):
         "description": questions.description.ask(),
         "authors": [],
         "requires": {
-            "wf": f">={version()}",
+            "wf": f">={str(version()).lstrip('v')}",
             "additives": {},
             "packages": []
         }
@@ -226,7 +278,7 @@ def additive(additive_id: str):
         import_base_fn = "from webfluid.additives import import_base\n"
         base_import = f'\n\timport_base("{selected_base}"),'
         manifest["frontend"] = "none"
-        index_html = templates.adtv_index1_html.format(
+        index_html = templates.adtv_index_html.format(
             name=manifest["name"]
         )
     else:
@@ -238,15 +290,13 @@ def additive(additive_id: str):
                 "additive",
                 safe_id.replace("_", "-")
         ):
-            index_html = templates.adtv_index2_html.format(
-                name=manifest["name"]
-            )
+            index_html = "{{ frontend() }}"
             node_cmd(
                 ["npm", "install", "-w", f"additives/{safe_id}/frontend"],
                 Path.cwd()
             )
         else:
-            index_html = templates.adtv_index1_html.format(
+            index_html = templates.adtv_index_html.format(
                 name=manifest["name"]
             )
 
@@ -283,6 +333,73 @@ def additive(additive_id: str):
             requirements=requirements
         )
     )
+
+
+@create.command("app")
+def create_app(
+        name: str,
+        secret_length: int = typer.Option(
+            32,
+            "--secret-length", "-sl",
+            help="Length of the secret key."
+        )
+):
+    config_root = Path("app_configs").resolve()
+    config_root.mkdir(exist_ok=True)
+
+    config_file = config_root / f"{name}.ini"
+    if config_file.exists():
+        typer.secho(
+            f"Config file '{name}.ini' already exists.",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(1)
+
+    config = ConfigParser()
+    config.optionxform = str
+
+    config["general"] = {
+        "SECRET_KEY": token_hex(secret_length)
+    }
+
+    config["data"] = {
+        "DATABASE_URI": questions.database_uri(name),
+        "REDIS_URI": questions.redis_uri.ask()
+    }
+
+    print()
+    config["extensions"] = {}
+    extensions = (
+        "EXT_SCHEDULING",
+        "EXT_SQLALCHEMY",
+        "EXT_BABEL",
+        "EXT_CACHE",
+        "EXT_MAIL",
+        "EXT_JWT"
+    )
+    enable_extensions = questions.extensions.ask()
+    for ext in extensions:
+        enabled = ext in enable_extensions
+        config["extensions"][ext] = "1" if enabled else "0"
+
+    config["features"] = {}
+    features = (
+        "WF_TAILWIND",
+        "WF_PROCESSING"
+    )
+    enable_features = questions.features.ask()
+    for feat in features:
+        enabled = feat in enable_features
+        config["features"][feat] = "1" if enabled else "0"
+
+    print()
+    if "EXT_MAIL" in enable_extensions:
+        config["mail"] = {
+            "MAIL_USERNAME": questions.mail_username.ask(),
+            "MAIL_PASSWORD": questions.mail_password.ask()
+        }
+
+    with open(config_file, "w") as f: config.write(f)
 
 
 def cli_entry(app: typer.Typer):

@@ -1,14 +1,20 @@
+from fastapi import Request, Response, WebSocket
+from starlette.websockets import WebSocketDisconnect
 from pathlib import Path
+from importlib import import_module
 from typing import TYPE_CHECKING, Callable, Any
 import os, inspect, random, string, logging, re,\
     asyncio, sys, importlib, httpx, websockets
 
 if TYPE_CHECKING:
+    from types import ModuleType
     from webfluid import Fluid, Additive, AdditiveVersion
+
+_proxy_client = httpx.AsyncClient()
 
 
 def enabled(key: str) -> bool:
-    return os.getenv(key, "false").lower() in ["true", "1", "yes"]
+    return os.getenv(key, "").lower() in ["true", "1", "yes"]
 
 
 def random_code(length: int = 6) -> str:
@@ -105,6 +111,12 @@ def build_sorted_tuple(data: dict[int, Any], defaults: tuple = None) -> tuple:
     return result
 
 
+def try_import(name: str) -> "ModuleType | None":
+    try: return import_module(name)
+    except ModuleNotFoundError as e:
+        if e.name != name: raise
+
+
 def check_required_version(requirement: str, version_type: str = "wf", additive_version: "AdditiveVersion | str" = None) -> bool:
     version_type = version_type.lower()
     if version_type not in ["wf", "additive"]:
@@ -147,60 +159,106 @@ def check_required_version(requirement: str, version_type: str = "wf", additive_
     }.get(op, False)
 
 
-def add_proxy(target: "Fluid | Additive", base_url: str, prefix: str = "/"):
+def get_proxy(base_url: str, prefix: str = "",
+              pass_prefix: bool = False,
+              proxy_plugin: Callable = None) -> Callable:
     async def proxy(request: Request, path: str):
-        async with httpx.AsyncClient() as client:
-            resp = await client.request(
-                request.method,
-                f"{base_url}{prefix}{path}",
-                headers=httpx.Headers(request.headers),
-                content=await request.body()
+        async def handler(r, p):
+            query = request.url.query
+            if query: p = f"{p}?{query}"
+
+            if pass_prefix: url = f"{base_url}{prefix}/{p}"
+            else: url = f"{base_url}/{p}"
+
+            resp = await _proxy_client.request(
+                r.method,
+                url,
+                headers=httpx.Headers(r.headers),
+                content=await r.body()
             )
 
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers)
-        )
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                headers=dict(resp.headers)
+            )
 
-    async def websocket_proxy(ws: WebSocket, path: str):
+        if proxy_plugin:
+            return await proxy_plugin(request, path, handler)
+        return await handler(request, path)
+    return proxy
 
-        await ws.accept()
 
-        async with websockets.connect(
-                f"{base_url.replace('http', 'ws')}{prefix}{path}"
-        ) as vite_ws:
+def get_websocket_proxy(base_url: str, prefix: str = "",
+                        pass_prefix: bool = False,
+                        proxy_plugin: Callable = None) -> Callable:
+    async def websocket_proxy(websocket: WebSocket, path: str):
+        async def handler(ws, p):
+            query = ws.url.query
+            if query: p = f"{p}?{query}"
 
-            async def client_to_server():
-                try:
-                    while True:
-                        data = await ws.receive_text()
-                        await vite_ws.send(data)
-                except: pass
+            if pass_prefix: url = f"{base_url}{prefix}/{p}"
+            else: url = f"{base_url}/{p}"
 
-            async def server_to_client():
-                async for msg in vite_ws:
-                    await ws.send_text(msg)
+            ws_url = url.replace("http", "ws")
 
-            await asyncio.gather(client_to_vite(), vite_to_client())
+            subprotocol = ws.headers.get("sec-websocket-protocol")
+            await ws.accept(subprotocol=subprotocol)
+
+            async with websockets.connect(
+                    ws_url, subprotocols=[
+                        prot.strip() for prot in subprotocol.split(",")
+                    ] if subprotocol else None
+            ) as proxy_ws:
+
+                async def client_to_server():
+                    try:
+                        while True:
+                            msg = await ws.receive_text()
+                            await proxy_ws.send(msg)
+                    except (WebSocketDisconnect, asyncio.CancelledError):
+                        pass
+
+                async def server_to_client():
+                    async for msg in proxy_ws:
+                        await ws.send_text(msg)
+
+                task1 = asyncio.create_task(client_to_server())
+                task2 = asyncio.create_task(server_to_client())
+
+                done, pending = await asyncio.wait(
+                    [task1, task2],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+
+                for task in pending: task.cancel()
+
+        if proxy_plugin:
+            return await proxy_plugin(websocket, path, handler)
+        return await handler(websocket, path)
+    return websocket_proxy
+
+
+def add_proxy(target: "Fluid | Additive", base_url: str,
+              prefix: str = "", pass_prefix: bool = False,
+              proxy_plugin: Callable = None):
+    proxy = get_proxy(base_url, prefix, pass_prefix, proxy_plugin)
+    websocket_proxy = get_websocket_proxy(base_url, prefix, pass_prefix, proxy_plugin)
 
     from webfluid import Fluid
     if isinstance(target, Fluid):
         target.api_route(
-            "/{path:path}",
+            f"{prefix}/{{path:path}}",
             methods=["GET","POST","PUT","DELETE","PATCH"]
         )(proxy)
-        target.websocket("/{path:path}")(websocket_proxy)
+        target.websocket(f"{prefix}/{{path:path}}")(websocket_proxy)
     else:
         target.app.api_route(
-            "/{path:path}",
+            f"{prefix}/{{path:path}}",
             methods=["GET","POST","PUT","DELETE","PATCH"]
         )(proxy)
-        target.ws.websocket("/{path:path}")(websocket_proxy)
+        target.ws.websocket(f"{prefix}/{{path:path}}")(websocket_proxy)
 
 
-def disable_uvicorn_logging():
-    logging.getLogger("uvicorn").disabled = True
-    logging.getLogger("uvicorn.error").disabled = True
-    logging.getLogger("uvicorn.access").disabled = True
-    logging.getLogger("uvicorn.asgi").disabled = True
+async def close_proxy_client():
+    await _proxy_client.aclose()

@@ -1,9 +1,6 @@
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from types import SimpleNamespace
 from zoneinfo import ZoneInfo
-from werkzeug.http import parse_accept_header
-from werkzeug.datastructures import LanguageAccept
 from babel import Locale, dates, numbers
 from typing import TYPE_CHECKING, Callable, Literal, Any
 
@@ -11,6 +8,42 @@ from webfluid.core.context import FluidContext
 
 if TYPE_CHECKING:
     from webfluid.extensions.babel.constants import DateFormat, DateFormatKey
+
+
+def parse_best_match(accept_header: str, available: list[str]) -> str | None:
+    if not accept_header: return available[0] if available else None
+
+    parsed = []
+
+    for part in accept_header.split(","):
+        part = part.strip()
+        media, *params = part.split(";")
+
+        q = 1.0
+        for p in params:
+            p = p.strip()
+            if p.startswith("q="):
+                try: q = float(p[2:])
+                except ValueError: pass
+
+        parsed.append((media.strip(), q))
+
+    parsed.sort(key=lambda x: x[1], reverse=True)
+
+    for media, _ in parsed:
+        mtype, msub = media.split("/", 1)
+
+        for candidate in available:
+            ctype, csub = candidate.split("/", 1)
+
+            if (
+                    (mtype == "*" or mtype == ctype)
+                    and
+                    (msub == "*" or msub == csub)
+            ):
+                return candidate
+
+    return None
 
 
 def get_locale() -> Locale:
@@ -24,11 +57,12 @@ def get_locale() -> Locale:
         return babel.load_locale(babel.locale_selector_fn())
 
     locale = (
-        ctx.request.cookies.get("lang") or
-        LanguageAccept(
-            parse_accept_header(ctx.request.headers.get("Accept-Language"))
-        ).best_match(babel.supported_locales) or
-        babel.default_locale
+        ctx.request.cookies.get("lang")
+        or parse_best_match(
+            ctx.request.headers.get("Accept-Language"),
+            babel.supported_locales
+        )
+        or babel.default_locale
     )
     return babel.load_locale(locale)
 

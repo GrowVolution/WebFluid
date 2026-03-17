@@ -6,17 +6,21 @@ authors = [
     { name = "Pierre", email = "pierre@growv-mail.org" }
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
 dependencies = [
     "fastapi",
     "jinja2",
+    "babel",
 
+    "sqlalchemy",
     "psycopg2",
     "asyncpg",
     "pymysql",
     "aiomysql",
     "aiosqlite",
-    "redis",
+    "redis>=7.3.0",
 
     "uvicorn",
     "asgiref",
@@ -25,24 +29,29 @@ dependencies = [
     "websockets",
     "slowapi[redis]",
     "python-multipart",
+    "apscheduler",
+    "aiosmtplib",
+    "gitpython",
+    "frozendict",
+    "selectolax",
+    "pytz",
 
     "argon2_cffi",
+    "itsdangerous",
     "authlib",
     "pyjwt",
 
-    "aiosmtplib",
-    "frozendict",
-    "gitpython",
-    "apscheduler",
-    "pytz",
-    "tqdm",
-
     "typer",
+    "tqdm",
     "questionary"
 ]
 
 [project.scripts]
-wf = "webfluid:cli"
+wf = "webfluid.cli:cli"
+
+[project.entry-points."webfluid.extensions"]
+babel = "webfluid.extensions.babel:Babel"
+migrate = "webfluid.extensions.migrate:Migrate"
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -56,10 +65,9 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 webfluid = [
-    "babel.cfg",
+    "extensions/babel/babel.cfg",
     "app/templates/**/*.html",
     "app/static/**/*",
-    "app/data/locales.json",
 ]
 
 [project.optional-dependencies]

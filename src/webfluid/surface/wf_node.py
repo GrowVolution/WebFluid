@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
-from webfluid.surface import dist
 from webfluid.exceptions import NodeError
 
 if TYPE_CHECKING:
@@ -36,18 +35,23 @@ def _get_node_data():
 
 
 def _node_cmd(cmd: str) -> str:
+    from webfluid.surface import dist
     node = dist / "node"
     if not node.exists():
         if not _sys_node()[0]:
-            raise NodeError("Missing node installation / integration... Try running 'fpp init' inside a project directory.")
+            raise NodeError("Missing node installation / integration... "
+                            "Try running 'wf init' inside a project directory.")
         return cmd
 
     if os.name == "nt":
-        return str(node / f"{cmd}.cmd")
+        if cmd != "node":
+            return str(node / f"{cmd}.cmd")
+        return str(node / f"{cmd}.exe")
     return str(node / "bin" / cmd)
 
 
 def _node_env() -> dict:
+    from webfluid.surface import dist
     env = os.environ.copy()
     if os.name != "nt":
         node_bin = str(dist / "node" / "bin")
@@ -76,9 +80,17 @@ def node_cmd(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
 
 
 def node_proc(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs) -> subprocess.Popen:
+    flags = 0
+    if os.name == "nt":
+        flags = (
+            subprocess.CREATE_NEW_PROCESS_GROUP |
+            subprocess.CREATE_NO_WINDOW
+        )
     default_kwargs = {
         "cwd": cwd,
-        "env": _node_env()
+        "env": _node_env(),
+        "stdin": subprocess.DEVNULL,
+        "creationflags": flags
     }
     return subprocess.Popen(
         [_node_cmd(cmd[0]), *cmd[1:]],
@@ -95,6 +107,8 @@ def load_node(download_fn: Callable):
     data = _get_node_data()
     file_type = "zip" if data[1] == "windows" else (
         "tar.xz" if data[1] == "linux" else "tar.gz")
+
+    from webfluid.surface import dist
     dest = dist / f"node.{file_type}"
     bin_folder = dist / "node"
 

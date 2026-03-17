@@ -1,15 +1,17 @@
 from typing import TYPE_CHECKING, Any
 
+from webfluid.extensions.base import FluidExtension
+
 if TYPE_CHECKING:
     from webfluid import Fluid
 
 
-class BaseCache:
+class BaseCache(FluidExtension):
     def __init__(self, fluid: "Fluid | None" = None):
         self._default_timeout = 300
-        if fluid is not None: self.expand_fluid(fluid)
+        super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid"):
+    def expand_fluid(self, fluid: "Fluid", *_, **__):
         self._default_timeout = fluid.config.get("CACHE_DEFAULT_TIMEOUT", self._default_timeout)
 
     def set(self, key: str, value: Any, timeout: int = None): raise NotImplementedError()

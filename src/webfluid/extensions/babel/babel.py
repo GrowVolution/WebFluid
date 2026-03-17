@@ -3,10 +3,9 @@ from contextlib import contextmanager, asynccontextmanager
 from babel import Locale
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
-import sys, subprocess, os
+import sys, subprocess, typer
 
-from webfluid.core.context import BaseContext
-from webfluid.core.constants import FRAMEWORK_ROOT, EXT_SQLALCHEMY
+from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.babel.constants import (
     DEFAULT_DATE_FORMATS,
     DEFAULT_LOCALE,
@@ -25,6 +24,8 @@ from webfluid.extensions.utils.babel import (
     format_time,
     format_timedelta
 )
+from webfluid.core.context import BaseContext
+from webfluid.core.constants import FRAMEWORK_ROOT, EXT_SQLALCHEMY
 from webfluid.utils import is_async_function
 from webfluid.exceptions import FrameworkException
 
@@ -47,7 +48,8 @@ class SelectorContext(BaseContext):
         self.timezone_selector = timezone_selector
 
 
-class Babel:
+class Babel(FluidExtension):
+    _cli = typer.Typer(help="WebFluid Babel CLI")
     _instance = None
 
     def __init__(self, fluid: "Fluid | None" = None,
@@ -57,7 +59,7 @@ class Babel:
                  configure_jinja: bool = True,
                  default_domain: "Domain | None" = None):
         if Babel._instance is not None:
-            return Babel._instance
+            raise FrameworkException("A Babel instance has already been created.")
 
         self.default_domain = None
         self.default_locale = None
@@ -72,17 +74,19 @@ class Babel:
 
         self.initialized = False
 
-        if fluid is not None:
-            self.expand_fluid(fluid, default_locale,
-                            default_timezone, date_formats,
-                            configure_jinja, default_domain)
+        super().__init__(
+            fluid,
+            default_locale, default_timezone,
+            date_formats, configure_jinja,
+            default_domain
+        )
 
     def expand_fluid(self, fluid: "Fluid",
-                   default_locale: str = DEFAULT_LOCALE,
-                   default_timezone: str = DEFAULT_TIMEZONE,
-                   date_formats: dict[DateFormatKey, DateFormat] | None = None,
-                   configure_jinja: bool = True,
-                   default_domain: "Domain | None" = None):
+                     default_locale: str = DEFAULT_LOCALE,
+                     default_timezone: str = DEFAULT_TIMEZONE,
+                     date_formats: dict[DateFormatKey, DateFormat] | None = None,
+                     configure_jinja: bool = True,
+                     default_domain: "Domain | None" = None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
         if Babel._instance:
@@ -231,3 +235,7 @@ class Babel:
              "-d", trans],
             check=True
         )
+
+    @staticmethod
+    @_cli.command()
+    def extract(): Babel.extract_fallback(Path.cwd())

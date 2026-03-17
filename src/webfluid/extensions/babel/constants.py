@@ -11,8 +11,7 @@ extension.
 """
 
 from typing import Literal, TypeAlias
-
-from werkzeug.datastructures import ImmutableDict
+from frozendict import frozendict
 
 DateFormat: TypeAlias = Literal["short", "medium", "long", "full"] | str | None
 
@@ -37,7 +36,7 @@ DateFormatKey: TypeAlias = Literal[
 
 DEFAULT_LOCALE: str = "en"
 DEFAULT_TIMEZONE: str = "UTC"
-DEFAULT_DATE_FORMATS: dict[DateFormatKey, DateFormat] = ImmutableDict(
+DEFAULT_DATE_FORMATS: dict[DateFormatKey, DateFormat] = frozendict(
     {
         "time": "medium",
         "date": "medium",

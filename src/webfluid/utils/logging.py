@@ -2,14 +2,14 @@ from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from contextvars import ContextVar
 from functools import wraps
 from typing import Callable
-import traceback, sys, logging, typer
+import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
 from webfluid.utils import enabled, async_result
 
 
 class _LogContext(BaseContext):
-    ctx = ContextVar("utils.logging")
+    CTX = ContextVar("utils.logging")
     def __init__(self, logger_name: str):
         self.logger = logger_name
 
@@ -49,8 +49,8 @@ class LogFactory:
         self.console.setLevel(logging.NOTSET)
         self.console.setFormatter(self.formatter.simple_formatter)
 
-        self.main_logger = "fluid"
-        self.adtv_logger = "fluid.additives"
+        self.main_logger = "webfluid"
+        self.adtv_logger = "webfluid.additives"
 
     def additive_context(self, fn: Callable) -> Callable:
         @wraps(fn)
@@ -75,29 +75,31 @@ class LogFactory:
         )
         self.error(f"{msg}{type(exc).__name__}: {exc}\n{tb_str.strip()}")
 
-    def start_session(self, loglevel: str = "info"):
+    def start_session(self):
         self._execution = enabled("IN_EXECUTION")
         if not self._execution: return
 
+        loglevel = os.environ.get("LOG_LEVEL", "info")
         loglevel = loglevel.upper()
         level = getattr(logging, loglevel, INFO)
 
-        def init_logger(name: str, propagate: bool = False):
+        def init_logger(name: str | None):
             logger = logging.getLogger(name)
             logger.setLevel(level)
-            logger.propagate = propagate
+            logger.propagate = False
             logger.handlers.clear()
             logger.addHandler(self.colored_console)
             logger.addHandler(self.console)
 
-        init_logger(self.main_logger, True)
+        init_logger(self.main_logger)
         init_logger(self.adtv_logger)
 
         self.log("Mixing your WebFluid application.")
 
     @property
     def logger(self):
-        ctx = _LogContext.current()
+        try: ctx = _LogContext.current()
+        except RuntimeError: ctx = None
         logger = ctx.logger if ctx else self.main_logger
         return logging.getLogger(logger)
 

@@ -2,6 +2,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from fastapi import Request
     from webfluid import Fluid
 
 
@@ -20,6 +21,7 @@ class BaseContext:
             raise RuntimeError("Context not entered")
         self.CTX.reset(self._tokens.pop())
         if not self._tokens: object.__delattr__(self, "_tokens")
+        return False
 
     async def __aenter__(self):
         return self.__enter__()
@@ -38,10 +40,10 @@ class FluidContext(BaseContext):
     _INTERNAL_KEYS = ("_data", "fluid", "request", "_tokens")
     CTX = ContextVar("fluid.context")
 
-    def __init__(self, fluid: "Fluid", request: FastAPIRequest | FlaskRequest,
+    def __init__(self, fluid: "Fluid", request: "Request",
                  *args, **kwargs):
         object.__setattr__(self, "fluid", fluid)
-        object.__setattr__(self, "request", RawRequest(request))
+        object.__setattr__(self, "request", request)
         object.__setattr__(self, "_data", {})
 
         self._data.update(kwargs)

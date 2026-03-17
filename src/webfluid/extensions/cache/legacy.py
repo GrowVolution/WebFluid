@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, UTC
 from apscheduler.triggers.date import DateTrigger
 from typing import TYPE_CHECKING, Any
 
-from webfluid.core.ext import scheduler
 from webfluid.extensions.cache.base import BaseCache
 from webfluid.utils import async_result, enabled
 from webfluid.exceptions import FrameworkException
@@ -20,6 +19,7 @@ class LegacyCache(BaseCache):
         self._cache = {}
 
     def set(self, key: str, value: Any, timeout: int = None):
+        from webfluid.core.ext import scheduler
         timeout = timeout or self._default_timeout
         self._cache[key] = value
         scheduler.add_job(

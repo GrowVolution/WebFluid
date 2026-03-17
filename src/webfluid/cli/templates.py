@@ -39,15 +39,15 @@ app_router_py = """from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 app_router = APIRouter(
-    prefix="/app", default_response_class=HTMLResponse
+    default_response_class=HTMLResponse
 )
 
 from fluid.app.index import handle_request as index
-app_router.get("/index")(index)
+app_router.get("/")(index)
 """
 
 
-app_config_py = """from webfluid.utils.config import register_config
+app_config_py = """from webfluid.core.config import register_config
 
 
 @register_config(10)
@@ -109,21 +109,7 @@ api_py = """from .v1 import v1
 __all__ = ["v1"]
 """
 
-adtv_index1_html = """<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{{{ _('{name}') }}}}</title>
-    {{{{ frontend() if frontend else "" }}}}
-  </head>
-  <body>
-    <div id="app"></div>
-  </body>
-</html>"""
-
-adtv_index2_html = """{{% extends "base_example.html" %}}
+adtv_index_html = """{{% extends "base_example.html" %}}
 {{# The base example is natively provided by WebFluid. #}}
 
 {{% block title %}}{{{{ _('{name}') }}}}{{% endblock %}}
@@ -197,3 +183,12 @@ tailwind_raw = """@import "tailwindcss" source("../../");
 @theme {
     /* ... */
 }"""
+
+
+vite_base = """
+import { defineConfig } from 'vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+})
+"""

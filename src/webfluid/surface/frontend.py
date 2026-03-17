@@ -1,23 +1,25 @@
+from fastapi import Request, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pathlib import Path
 from git import Repo, exc
 from tqdm import tqdm
 from markupsafe import Markup
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional, List, Callable
-import typer, requests, shutil, subprocess, os, signal, json
+from selectolax.parser import HTMLParser, create_tag
+from mimetypes import guess_type
+from typing import TYPE_CHECKING, Callable
+import typer, requests, shutil, subprocess, os, signal
 
 from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
-from webfluid.surface import dist
-from webfluid.surface.wf_node import load_node, node_proc
+from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
-from webfluid.utils import add_proxy, run_in_executor
+from webfluid.utils import add_proxy, run_in_executor, get_proxy
 from webfluid.exceptions import FrontendException
 
 if TYPE_CHECKING:
     from webfluid import Fluid, Additive
 
-_static_js = (Path(__file__).parent.parent / "app" / "static" / "js").resolve()
+_static_js = (Path(__file__).parent.parent / "fluid" / "static" / "js").resolve()
 
 package_json = """
 {{
@@ -29,47 +31,45 @@ package_json = """
       "fluid/frontend"
     ],
     "scripts": {{
-      "dev": "vite"
+      "dev": "vite dev"
     }},
     "devDependencies": {{
-      "vite": "^7.3.1"
+      "vite": "^8.0.0"
     }}
 }}
 """
 
-vite_dev = """
-import { defineConfig, mergeConfig, loadConfigFromFile } from "vite"
+vite_dev = r"""
+import {defineConfig, loadConfigFromFile, mergeConfig} from "vite"
 import fs from "fs"
 import path from "path"
 
-async function loadConfigs(command: "serve" | "build") {
+async function loadConfigs(command) {
   const additivesDir = path.resolve(__dirname, "additives")
   const configs = []
 
   for (const name of fs.readdirSync(additivesDir)) {
-    const configPath = path.join(additivesDir, name, "frontend", "vite.config.ts")
+    let configPath = path.join(additivesDir, name, "frontend", "vite.config.ts")
 
+    if (!fs.existsSync(configPath))
+      configPath = path.join(additivesDir, name, "frontend", "vite.config.js")
     if (!fs.existsSync(configPath)) continue
 
     const loaded = await loadConfigFromFile(
-      { command, mode: "development" },
-      configPath
+        { command, mode: "development" },
+        configPath
     )
 
-    if (!loaded?.config) continue
-
-    const injected = mergeConfig(loaded.config, {
-      base: `/${name}/`
-    })
-
-    configs.push(injected)
+    if (loaded?.config) configs.push(loaded.config)
   }
-  
-  const fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.ts")
+
+  let fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.ts")
+  if (!fs.existsSync(fluidConfig))
+    fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.js")
   if (fs.existsSync(fluidConfig)) {
     const loaded = await loadConfigFromFile(
-      { command, mode: "development" },
-      fluidConfig
+        { command, mode: "development" },
+        fluidConfig
     )
     if (loaded?.config) configs.push(loaded.config)
   }
@@ -77,15 +77,100 @@ async function loadConfigs(command: "serve" | "build") {
   return configs
 }
 
+function mergeConfigs(configs) {
+  let merged = {}
+
+  for (const config of configs) {
+    merged = mergeConfig(merged, config)
+
+    if (config.plugins) {
+      merged.plugins = [
+        ...(merged.plugins ?? []),
+        ...config.plugins
+      ]
+    }
+  }
+
+  if (merged.plugins) {
+    const seen = new Set()
+    merged.plugins = merged.plugins.filter(p => {
+      const name = p?.name || p
+      if (seen.has(name)) return false
+      seen.add(name)
+      return true
+    })
+  }
+
+  return merged
+}
+
+function wfDevPlugin() {
+
+  const namespaceRegex = /(fluid\/frontend|additives\/[^/]+\/frontend)/
+
+  return {
+
+    name: "wf-dev-plugin",
+    enforce: "pre",
+
+    resolveId(id, importer) {
+
+      if (!id.startsWith("/")) return null
+
+      if (
+          id.startsWith("/@") ||
+          id.startsWith("/node_modules")
+      ) {
+        return null
+      }
+
+      if (!importer) return null
+
+      const match = importer.match(namespaceRegex)
+      if (!match) return null
+
+      const namespace = match[1]
+      const projectRoot = process.cwd()
+
+      const asset = id.slice(1)
+
+      const publicPath = path.resolve(
+          projectRoot,
+          namespace,
+          "public",
+          asset
+      )
+
+      if (fs.existsSync(publicPath)) return publicPath
+
+      const normalPath = path.resolve(
+          projectRoot,
+          namespace,
+          asset
+      )
+
+      if (fs.existsSync(normalPath)) return normalPath
+
+      return null
+    },
+  }
+}
+
 export default defineConfig(async ({ command }) => {
   const configs = await loadConfigs(command)
 
-  let config = {}
-
-  for (const c of configs) {
-    config = mergeConfig(config, c)
+  let config = {
+    server: {
+      fs: {
+        allow: ["."]
+      }
+    },
+    plugins: []
   }
+  configs.push(config)
 
+  config = mergeConfigs(configs)
+  config.plugins.push(wfDevPlugin())
   return config
 })
 """
@@ -93,21 +178,6 @@ export default defineConfig(async ({ command }) => {
 htmx = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
 alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js"
 vite = "https://github.com/vitejs/vite.git"
-
-
-@dataclass
-class ManifestChunk:
-    src: Optional[str] = None
-    file: str = ""
-    css: Optional[List[str]] = None
-    assets: Optional[List[str]] = None
-    isEntry: bool = False
-    name: Optional[str] = None
-    isDynamicEntry: bool = False
-    imports: Optional[List[str]] = None
-    dynamicImports: Optional[List[str]] = None
-
-Manifest = Dict[str, ManifestChunk]
 
 
 def _download_file(url: str, dest: Path):
@@ -136,6 +206,8 @@ def setup_frontend(project: str):
         _download_file(alpine, alpine_file)
         if not alpine_file.exists():
             raise FrontendException("Failed to download alpine.min.js")
+
+    from webfluid.surface import dist
 
     vite_dir = dist.parent / "vite"
     template_src = vite_dir / "packages" / "create-vite"
@@ -183,12 +255,14 @@ def setup_frontend(project: str):
     load_node(_download_file)
     load_tailwind(_download_file)
 
-    package_json_file = Path.cwd() / "package.json"
+    project_root = Path.cwd() / project
+
+    package_json_file = project_root / "package.json"
     package_json_file.write_text(
         package_json.format(project=project)
     )
 
-    vite_config_file = Path.cwd() / "vite.config.js"
+    vite_config_file = project_root / "vite.config.js"
     vite_config_file.write_text(vite_dev)
 
 
@@ -215,52 +289,11 @@ def validate_config(f: dict) -> tuple[bool, str | dict]:
     return True, f
 
 
-def load_manifest(vite_dist: Path) -> Manifest:
-    manifest_file = vite_dist / ".vite" / "manifest.json"
-    if not manifest_file.exists():
-        raise FrontendException("Failed to load Vites manifest.json")
-    raw = json.loads(manifest_file.read_text())
-    manifest: Manifest = {}
-
-    for key, data in raw.items():
-        manifest[key] = ManifestChunk(**data)
-
-    return manifest
-
-
-def resolve_entry(manifest: Manifest, entry: str):
-    if entry not in manifest:
-        raise FrontendException(f"'{entry}' not found in Vite manifest.")
-
-    js_files = set()
-    css_files = set()
-
-    visited = set()
-    def collect(chunk_name: str):
-        if chunk_name in visited:
-            return
-
-        chunk = manifest.get(chunk_name)
-        if not chunk:
-            return
-        visited.add(chunk_name)
-
-        js_files.add(chunk.file)
-
-        if chunk.css:
-            css_files.update(chunk.css)
-
-        if chunk.imports:
-            for dep in chunk.imports:
-                collect(dep)
-
-    collect(entry)
-    return list(js_files), list(css_files)
-
-
 class Frontend:
     _static_js = f"{WF_STATIC}/js"
+    _app_root: Path
     _proc: subprocess.Popen
+    _dev_server = "http://localhost:5173"
     _dev_prefix = "/vite-dev"
     _static_files = {}
 
@@ -277,10 +310,11 @@ class Frontend:
         self.typescript = False
         self.alpine = False
         self.prefix: str
+        self.root: Path
         self.dist: Path
-        self.main: str
-        self.manifest: Manifest
+        self.rel: str
         self.generate_tailwind: Callable
+        self._update_index = True
 
         if fluid is not None: self.cover_fluid(fluid)
         if additive is not None: self.cover_additive(additive)
@@ -292,13 +326,9 @@ class Frontend:
         self.alpine = frontend.get("alpine", self.alpine)
 
         if self.type == "vite":
-            self.dist = root_path / "frontend" / "dist"
-            src = self.dist.parent / "src"
-            for name in ("main.js","main.jsx","main.ts","main.tsx"):
-                if (src / name).exists():
-                    self.main = name
-                    break
-
+            self.root = root_path / "frontend"
+            self.dist = self.root / "dist"
+            src = self.root / "src"
             self.generate_tailwind = (
                 lambda: generate_asset(
                     src / "tailwind_raw.css",
@@ -308,22 +338,61 @@ class Frontend:
             )
 
             if not DEBUG:
-                self.manifest = load_manifest(self.dist)
+                self.dist.mkdir(parents=True, exist_ok=True)
                 Frontend._static_files[f"{name}_frontend"] = (
                     self.prefix, StaticFiles(directory=self.dist)
                 )
 
             if TAILWIND: self.generate_tailwind()
 
+    def _updated_index(self, index: str) -> str:
+        if not DEBUG: return index
+        html = HTMLParser(index)
+
+        for script in html.css("script"):
+            src_old = script.attributes.get("src")
+            if src_old is None: continue
+            script.attrs["src"] = f"{Frontend._dev_prefix}/{self.rel}{src_old}"
+
+        for link in html.css("link"):
+            href_old = link.attributes.get("href")
+            if href_old is None: continue
+            href_old = href_old.lstrip("/")
+            if (self.root / "public" / href_old).exists():
+                link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/public/{href_old}"
+            else:
+                link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/{href_old}"
+
+        client = create_tag("script")
+        client.attrs["type"] = "module"
+        client.attrs["src"] = f"{Frontend._dev_prefix}/@vite/client"
+        html.head.insert_child(client)
+
+        if self.framework == "react":
+            refresh = create_tag("script")
+            refresh.attrs["type"] = "module"
+            refresh.insert_child(f"""
+                import RefreshRuntime from "{Frontend._dev_prefix}/@react-refresh";
+                RefreshRuntime.injectIntoGlobalHook(window);
+                window.$RefreshReg$ = () => {{}};
+                window.$RefreshSig$ = () => (type) => type;
+                window.__vite_plugin_react_preamble_installed__ = true;
+            """)
+            html.head.insert_child(refresh)
+
+        return html.html
+
     def cover_fluid(self, fluid: "Fluid"):
-        self.prefix = ""
+        self.prefix = "/frontend"
+        self.rel = f"fluid{self.prefix}"
         self._init(
             fluid.config["APP_FRONTEND"],
-            fluid.app_root
+            fluid.app_root / "fluid"
         )
 
     def cover_additive(self, additive: "Additive"):
-        self.prefix = additive.prefix
+        self.prefix = f"{additive.prefix}/frontend"
+        self.rel = f"additives/{additive.root_path.name}/frontend"
         self._init(
             additive.manifest["frontend"],
             additive.root_path,
@@ -331,67 +400,56 @@ class Frontend:
         )
 
     def include(self) -> Markup:
+        if self.type == "vite": return self.vite()
+
         template = ""
         if self.type == "htmx":
             template += f'<script src="{self.htmx}"></script>\n'
             if self.alpine: template += f'<script src="{self.alpine}" defer></script>\n'
-
-        if self.type == "vite":
-            if DEBUG:
-                if TAILWIND: self.generate_tailwind()
-                template += f'<script type="module" src="{self._dev_prefix}/@vite/client"></script>\n'
-
-            if not hasattr(self, "main"):
-                raise FrontendException("Missing main entry in frontend/src.")
-            template += self.vite(f"src/{self.main}")
 
         if TAILWIND:
             template += f'<link rel="stylesheet" href="{self.prefix}/static/css/tailwind.css">'
 
         return Markup(template)
 
-    def vite(self, entry: str) -> Markup:
+    def vite(self) -> Markup | str:
         if self.type != "vite": return ""
 
         if DEBUG:
-            if entry.endswith(".js") or entry.endswith(".ts"):
-                return Markup(
-                    f'<script type="module" src="{self._dev_prefix}{self.prefix}/{entry}"></script>'
-                )
-            elif entry.endswith(".css"):
-                return Markup(
-                    f'<link rel="stylesheet" href="{self._dev_prefix}{self.prefix}/{entry}">'
-                )
-            return ""
+            if TAILWIND: self.generate_tailwind()
+            index_file = self.root / "index.html"
+            return Markup(self._updated_index(
+                index_file.read_text()
+            ))
 
-        js, css = resolve_entry(self.manifest, entry)
-        tags = []
-
-        for file in js:
-            tags.append(f'<script type="module" src="{self.prefix}/{file}"></script>')
-        for file in css:
-            tags.append(f'<link rel="stylesheet" href="{self.prefix}/{file}">')
-
-        return Markup("\n".join(tags))
+        index_file = self.dist / "index.html"
+        return Markup(index_file.read_text())
 
     @classmethod
     def prepare(cls, fluid: "Fluid"):
         if DEBUG:
             cls._proc = node_proc(
-                ["npm", "run", "dev"],
+                ["node", "node_modules/vite/bin/vite.js"],
                 fluid.app_root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
-            fluid.shutdown_hook(cls.stop)
             add_proxy(
-                fluid, "http://localhost:5173",
-                prefix=cls._dev_prefix
+                fluid, cls._dev_server,
+                prefix=cls._dev_prefix,
+                pass_prefix=True
             )
+            fluid.shutdown_hook(cls.stop)
         else:
+            node_cmd(
+                ["npm", "run", "typecheck", "--workspaces"],
+                fluid.app_root
+            )
+
             cls._proc = node_proc(
                 ["npm", "run", "build", "--workspaces"],
                 fluid.app_root,
-                capture_output=True,
                 text=True
             )
 
@@ -400,7 +458,11 @@ class Frontend:
                 if code is None:
                     code = await run_in_executor(cls._proc.wait)
                 if code != 0:
-                    raise FrontendException(cls._proc.stderr or cls._proc.stdout)
+                    raise FrontendException(
+                        cls._proc.stderr
+                        or cls._proc.stdout
+                        or "Failed to build frontend."
+                    )
             fluid.startup_hook(join_later)
 
             def mount():
@@ -408,11 +470,75 @@ class Frontend:
                     fluid.mount(data[0], data[1], name)
             fluid.startup_hook(mount)
 
+        cls._app_root = fluid.app_root
+        fluid.startup_hook(lambda: fluid.api_route(
+            "/{path:path}",
+            methods=["GET","POST","PUT","DELETE","PATCH"]
+        )(cls._asset_catch))
+
     @classmethod
     def stop(cls):
-        if DEBUG and cls._proc.poll() is None:
-            os.killpg(cls._proc.pid, signal.SIGINT)
-            cls._proc.wait(.5)
-            if cls._proc.poll() is None:
-                os.killpg(cls._proc.pid, signal.SIGKILL)
-                cls._proc.wait()
+        proc = cls._proc
+
+        if not DEBUG or proc.poll() is not None:
+            return
+
+        if os.name == "nt":
+            subprocess.Popen(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=(
+                    subprocess.CREATE_NEW_PROCESS_GROUP |
+                    subprocess.DETACHED_PROCESS
+                )
+            )
+        else:
+            os.killpg(proc.pid, signal.SIGINT)
+
+            try: proc.wait(0.5)
+            except subprocess.TimeoutExpired:
+                pass
+
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+
+    @classmethod
+    async def _asset_catch(cls, request: Request, path: str):
+        if path.startswith(("api", "wf-static")) or "/frontend" in path:
+            return Response(status_code=404)
+
+        if "." not in path:
+            return Response(status_code=404)
+
+        if path.startswith("."):
+            final_path = path
+        else:
+            vite_ns = request.cookies.get("vite_ns")
+            if vite_ns is None: return Response(status_code=404)
+
+            if (cls._app_root / vite_ns / path).exists():
+                final_path = f"{vite_ns}/{path}"
+
+            elif (cls._app_root / vite_ns / "public" / path).exists():
+                final_path = f"{vite_ns}/public/{path}"
+
+            else: return Response(status_code=404)
+
+        if DEBUG:
+            proxy = get_proxy(
+                cls._dev_server,
+                prefix=cls._dev_prefix,
+                pass_prefix=True
+            )
+
+            return await proxy(request, final_path)
+
+        file = cls._app_root / final_path
+        return FileResponse(
+            file,
+            filename=file.name,
+            media_type=guess_type(file)[0]
+                       or "application/octet-stream",
+        )

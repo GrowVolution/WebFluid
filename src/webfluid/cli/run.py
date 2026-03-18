@@ -229,7 +229,7 @@ def run(
         while _proc.poll() is None:
             if _terminate: break
             line = _proc.stdout.readline()
-            if line: typer.echo(line)
+            if line: typer.echo(line, nl=False)
             time.sleep(0.05)
 
     _stop()

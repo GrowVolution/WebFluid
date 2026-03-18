@@ -2,10 +2,12 @@ from pathlib import Path
 from configparser import ConfigParser
 from secrets import token_hex
 from selectolax.parser import HTMLParser, create_tag
+from importlib import import_module
 import typer, json, shutil, re
 
 from webfluid.cli import templates, questions
 from webfluid.surface import node_cmd, dist
+from webfluid.additives import installed_additives
 from webfluid.utils import safe_string
 
 create = typer.Typer(help="Create a new WebFluid instances.")
@@ -130,6 +132,37 @@ def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
     package_json.write_text(json.dumps(package, indent=2, ensure_ascii=False))
 
     return True
+
+
+def _setup_additives(config: ConfigParser):
+    additive_dir = Path("additives")
+    if not additive_dir.exists() or not any(additive_dir.iterdir()):
+        return
+
+    if "additives" not in config:
+        config["additives"] = {}
+
+    additives = installed_additives()
+    additives = [(a, p) for a, _, p in additives]
+    selected_additives = questions.additives(additives)
+
+    # TODO: Implement additive configuring
+    """
+    for selected in selected_additives:
+        try:
+            mod = import_module(f"additives.{selected[1]}")
+            adtv = getattr(mod, "additive", None)
+            if not adtv:
+                raise ImportError("Failed to import 'additive: additive' from additive.")
+            additive.configure(config)
+        except (ModuleNotFoundError, ImportError) as e:
+            typer.echo(typer.style(f"[{selected[0]}] Failed to load additive: {e}", fg=typer.colors.YELLOW))
+    """
+
+    for adtv in additives:
+        config["additives"][adtv[0]] = "1" \
+            if adtv[0] in selected_additives \
+            else "0"
 
 
 @create.command()
@@ -385,15 +418,18 @@ def create_app(
     config["features"] = {}
     features = (
         "WF_TAILWIND",
-        "WF_PROCESSING"
+        "WF_PROCESSING",
+        "WF_ADDITIVES"
     )
     enable_features = questions.features.ask()
     for feat in features:
         enabled = feat in enable_features
         config["features"][feat] = "1" if enabled else "0"
 
-    print()
+    _setup_additives(config)
+
     if "EXT_MAIL" in enable_extensions:
+        print()
         config["mail"] = {
             "MAIL_USERNAME": questions.mail_username.ask(),
             "MAIL_PASSWORD": questions.mail_password.ask()

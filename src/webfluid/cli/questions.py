@@ -1,6 +1,7 @@
 from prompt_toolkit.formatted_text import HTML
 from html import escape
 from pathlib import Path
+from typing import Any
 import questionary
 
 style = questionary.Style.from_dict({
@@ -30,14 +31,14 @@ qmark = ">"
 pointer = "•"
 
 
-def choice(title: str, value: str | int) -> questionary.Choice:
+def choice(title: str, value: Any) -> questionary.Choice:
     return questionary.Choice(
         HTML(f"<{value}>{escape(title)}</{value}>").formatted_text,
         value=value
     )
 
 
-def fixed_choice(title: str, value: str | int) -> questionary.Choice:
+def fixed_choice(title: str, value: Any) -> questionary.Choice:
     return questionary.Choice(
         HTML(f"<choice>{escape(title)}</choice>").formatted_text,
         value=value
@@ -206,6 +207,19 @@ def database_uri(name: str) -> str:
     ).ask()
 
 
+def additives(installed: list[tuple[str, str]]) -> list[str]:
+    choices = [
+        fixed_choice(src[0], src)
+        for src in installed
+    ]
+    return questionary.checkbox(
+        "Enable your additives:",
+        choices=choices,
+        qmark=qmark,
+        style=style
+    ).ask()
+
+
 redis_uri = questionary.text(
     "REDIS_URI:    ",
     default="redis://localhost:6379",
@@ -245,7 +259,8 @@ features = questionary.checkbox(
     "Enable your app features:  ",
     choices=[
         questionary.Choice("WF_TAILWIND", checked=True),
-        questionary.Choice("WF_PROCESSING", checked=True)
+        questionary.Choice("WF_PROCESSING", checked=True),
+        questionary.Choice("WF_ADDITIVES", checked=True)
     ],
     qmark=qmark,
     style=style

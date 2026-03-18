@@ -6,14 +6,7 @@ from webfluid.cli.run import cli_entry as run_cli
 from webfluid.surface import node_cli, tailwind_cli
 from webfluid.extensions.base import FluidExtension
 
-app = typer.Typer(
-    name="WebFluid CLI",
-    help=typer.style(
-        "wf [-h|--help]",
-        fg=typer.colors.BLUE,
-        bold=True
-    )
-)
+app = typer.Typer(name="WebFluid CLI")
 
 
 def cli():

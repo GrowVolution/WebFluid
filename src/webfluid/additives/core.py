@@ -1,9 +1,8 @@
 from jinja2 import ChoiceLoader
 from pathlib import Path
 from importlib import import_module
-from configparser import ConfigParser
 from typing import TYPE_CHECKING
-import typer, json
+import json
 
 from webfluid.core.additive import Additive, AdditiveVersion
 from webfluid.utils import enabled, try_import
@@ -38,46 +37,8 @@ def _load_additives(package: Path, target: str, additive_type: str, do_log: bool
             continue
 
 
-def setup_additives(app_name: str):
-    additives_home = Path.cwd() / "additives"
-    conf_path = Path.cwd() / "app_configs"
-
-    conf = conf_path / f"{app_name}.conf"
-    config = ConfigParser()
-    config.optionxform = str
-
-    conf_exists = conf.exists()
-    if conf_exists:
-        config.read(conf)
-    if "additives" not in config:
-        config["additives"] = {}
-
-    typer.echo("\n" +
-               typer.style("Okay, now you can activate your installed additives.\n", fg=typer.colors.YELLOW, bold=True) +
-               typer.style("Default is '0' (deactivated)!", fg=typer.colors.MAGENTA))
-
-    for additive_info in installed_additives(additives_home):
-        adtv_id = additive_info[0]
-        val = input(f"<{adtv_id} {additive_info[1]}>: ").strip()
-        if not val:
-            val = "0"
-        config["additives"][adtv_id] = val
-
-        if val.lower() in ("1", "y", "yes"):
-            try:
-                mod = import_module(f"additives.{additive_info[2]}")
-                additive = getattr(mod, "additive", None)
-                if not additive:
-                    raise ImportError("Failed to import 'additive: additive' from additive.")
-                additive.setup_config(config, conf_exists)
-            except (ModuleNotFoundError, ImportError) as e:
-                typer.echo(typer.style(f"[{adtv_id}] Failed to load additive: {e}", fg=typer.colors.YELLOW))
-
-    with open(conf, "w") as f:
-        config.write(f)
-
-
 async def register_additives(fluid: "Fluid"):
+    from webfluid.core.constants import ADDITIVES
     loaders = []
 
     async def register():
@@ -109,7 +70,7 @@ async def register_additives(fluid: "Fluid"):
                log_factory.exception(e, f"[{additive.additive_name}] Failed registering additive.")
 
     loaders.append(fluid.app_loader)
-    if enabled("WF_ADDITIVES"): await register()
+    if ADDITIVES: await register()
     loaders.append(fluid.framework_loader)
 
     fluid.jinja_env.loader = ChoiceLoader(loaders)

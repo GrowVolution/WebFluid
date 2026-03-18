@@ -2,7 +2,6 @@ from babel import support
 from typing import TYPE_CHECKING, Any
 import os
 
-from webfluid.core.ext import babel
 from webfluid.core.context import FluidContext
 from webfluid.extensions.babel.translations import MergedTranslations
 from webfluid.extensions.babel.speaklater import LazyString

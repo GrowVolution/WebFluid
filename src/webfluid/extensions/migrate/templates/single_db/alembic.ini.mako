@@ -43,5 +43,5 @@ level = NOTSET
 formatter = generic
 
 [formatter_generic]
-format = [WF]\t[%(asctime)s] [%(levelname)s-5.5s]\t[Migrate] %(message)s
+format = [WF]   [%(asctime)s] [%(levelname)s]    [Migrate] %(message)s
 datefmt = %Y-%m-%d %H:%M:%S %z

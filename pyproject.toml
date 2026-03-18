@@ -21,6 +21,7 @@ dependencies = [
     "aiomysql",
     "aiosqlite",
     "redis>=7.3.0",
+    "alembic",
 
     "uvicorn",
     "asgiref",

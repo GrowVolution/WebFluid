@@ -1,18 +1,34 @@
 from pathlib import Path
-import subprocess, shutil, typer
+from configparser import ConfigParser
+import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.core.config import Config, init_configs, build_config
 
+_templates = Path(__file__).parent / "templates"
+
+
+def _manipulated_env(app: str) -> dict:
+    cfg = ConfigParser()
+    cfg.optionxform = str
+    cfg.read(Path.cwd() / "app_configs" / f"{app}.ini")
+    env = os.environ.copy()
+    for k, v in cfg.defaults().items():
+        env[k] = v
+    for section in cfg.sections():
+        for k, v in cfg[section].items():
+            env[k] = v
+    env["EXT_SQLALCHEMY"] = "1"
+    env["EXT_BABEL"] = "1"
+    return env
+
 
 class Migrate(FluidExtension):
     _cli = typer.Typer(help="WebFluid Migrate CLI")
-    _templates = Path(__file__).parent / "templates"
 
-    @classmethod
+    @staticmethod
     @_cli.command()
-    def init(cls):
-
+    def init():
         project_root = Path.cwd()
 
         migrations_dir = project_root / "migrations"
@@ -26,13 +42,14 @@ class Migrate(FluidExtension):
             raise typer.Exit()
 
         class Dummy: app_root = project_root
+        sys.path.append(str(project_root))
         init_configs(Dummy)
         config = Config()
         config.from_object(build_config())
 
         binds = config.get("SQLALCHEMY_BINDS", {})
         template = "multi_db" if binds else "single_db"
-        template_dir = cls._templates / template
+        template_dir = _templates / template
 
         typer.echo(f"Using '{template}' migration template.")
 
@@ -54,7 +71,11 @@ class Migrate(FluidExtension):
     @staticmethod
     @_cli.command()
     def revision(
-            message: str,
+            app: str,
+            message: str = typer.Option(
+                "",
+                "--message", "-m",
+            ),
             autogenerate: bool = typer.Option(
                 False,
                 "--autogenerate", "-a"
@@ -63,24 +84,35 @@ class Migrate(FluidExtension):
         base_cmd = ["alembic", "revision"]
         if autogenerate: base_cmd.append("--autogenerate")
         base_cmd += ["-m", message]
-        subprocess.run(base_cmd, check=True)
+        subprocess.run(
+            base_cmd,
+            check=True,
+            env=_manipulated_env(app),
+            cwd=Path.cwd()
+        )
 
     @staticmethod
     @_cli.command()
-    def upgrade():
+    def upgrade(app: str):
         subprocess.run(
             ["alembic", "upgrade", "head"],
-            check=True
+            check=True,
+            env=_manipulated_env(app),
+            cwd=Path.cwd()
         )
 
     @staticmethod
     @_cli.command()
-    def downgrade(revision: str = "-1"):
+    def downgrade(
+            app: str,
+            revision: str = typer.Option(
+                "-1",
+                "--revision", "-r"
+            )
+    ):
         subprocess.run(
             ["alembic", "downgrade", revision],
-            check=True
+            check=True,
+            env=_manipulated_env(app),
+            cwd=Path.cwd()
         )
-
-    @classmethod
-    def cli_entry(cls, app: typer.Typer, name: str):
-        app.add_typer(cls._cli, name=name)

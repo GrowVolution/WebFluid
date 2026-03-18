@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import UniqueConstraint, select
 from babel.support import Translations
-import asyncio
 
 from webfluid.core.ext import db
 from webfluid.utils import run_in_executor

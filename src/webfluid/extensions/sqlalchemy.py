@@ -71,11 +71,11 @@ class Model(DeclarativeBase):
     __tablename__: Optional[str]
     __bind_key__: Optional[str]
 
-    @classmethod
-    @declared_attr.directive
+    @declared_attr
     def __tablename__(cls) -> str:
-        if "__tablename__" in cls.__dict__:
-            return cls.__dict__["__tablename__"]
+        tablename = cls.__dict__.get("__tablename__")
+        if isinstance(tablename, str):
+            return tablename
         return camel_to_snake(cls.__name__)
 
 

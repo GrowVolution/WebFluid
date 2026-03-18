@@ -201,7 +201,7 @@ class Babel(FluidExtension):
     @staticmethod
     def extract_fallback(project_root: Path):
         pot = "messages.pot"
-        trans = project_root / "fluid/translations"
+        trans = project_root / "translations"
         babel_cli = "babel.messages.frontend"
         has_catalogs = any(trans.glob("*/LC_MESSAGES/*.po"))
 

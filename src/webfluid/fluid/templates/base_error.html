@@ -1,0 +1,17 @@
+{% extends "fluid_base.html" %}
+
+{% block title %}{{ _('ERROR') }}{% endblock %}
+
+{% block content %}
+<div class="error-layout">
+    <div class="error-container">
+
+        <div class="error-frame">
+            <div class="error-card">
+                {% block error %}{% endblock %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

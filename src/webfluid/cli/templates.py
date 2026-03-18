@@ -11,7 +11,7 @@ api_router.include_router(v1)
 """
 
 
-app_index_html = """{% extends "base_example.html" %}
+app_index_html = """{% extends "fluid_base.html" %}
 {# The base example is natively provided by WebFluid. #}
 
 {% block title %}{{ _('Home') }}{% endblock %}
@@ -21,10 +21,44 @@ app_index_html = """{% extends "base_example.html" %}
 {% endblock %}
 
 {% block content %}
-    <div class="flex flex-col min-h-[100dvh] items-center justify-center px-6 py-8">
-        <h2 class="text-2xl font-semibold">{{ _('My liquified Application') }}</h2>
-        <p class="mt-2">{{ _('This is my brand new, super cool WebFluid project.') }}</p>
-    </div>
+    <section class="hero">
+
+        <div class="hero-bg">
+            <div class="hero-glow hero-glow-primary"></div>
+            <div class="hero-glow hero-glow-secondary"></div>
+        </div>
+
+        <div class="hero-container">
+
+            <h1 class="hero-title">
+                {{ _('My') }}
+                <span class="hero-highlight">
+                    {{ _('liquified Application') }}
+                </span>
+            </h1>
+
+            <p class="hero-text">
+                {{ _('This is my brand new, super cool WebFluid project.') }}
+            </p>
+
+            <div class="hero-actions">
+                <a href="https://github.com/GrowVolution/WebFluid"
+                   class="hero-button-primary" target="_blank">
+                    {{ _('Get Started') }}
+                </a>
+
+                <a href="https://github.com/GrowVolution/WebFluid/blob/main/DOCS.md"
+                   class="hero-button-secondary" target="_blank">
+                    {{ _('Learn More') }}
+                </a>
+            </div>
+
+            <div class="hero-image">
+                <img src="/wf-static/img/banner.jpg" alt="WebFluid Banner">
+            </div>
+
+        </div>
+    </section>
 {% endblock %}"""
 
 app_index_py = """from webfluid.core.context import FluidContext
@@ -109,7 +143,7 @@ api_py = """from .v1 import v1
 __all__ = ["v1"]
 """
 
-adtv_index_html = """{{% extends "base_example.html" %}}
+adtv_index_html = """{{% extends "fluid_base.html" %}}
 {{# The base example is natively provided by WebFluid. #}}
 
 {{% block title %}}{{{{ _('{name}') }}}}{{% endblock %}}
@@ -119,9 +153,32 @@ adtv_index_html = """{{% extends "base_example.html" %}}
 {{% endblock %}}
 
 {{% block content %}}
-    <div class="flex flex-col min-h-[100dvh] items-center justify-center px-6 py-8">
-        <h2 class="text-2xl font-semibold">{{{{ _('Adding a new Liquid') }}}}</h2>
-        <p class="mt-2">{{{{ _('Experimenting with spicy Additives.') }}}}</p>
+    <div class="page-center">
+        <div class="page-card">
+
+            <div class="flex flex-col items-center gap-2">
+
+                <div class="text-2xl opacity-80">
+                    🧪
+                </div>
+
+                <h1 class="page-title">
+                    {{{{ _('Adding a new Liquid') }}}}
+                </h1>
+
+                <p class="page-text">
+                    {{{{ _('Experimenting with spicy Additives.') }}}}
+                </p>
+
+            </div>
+
+            <div class="page-divider"></div>
+
+            <div class="mt-2">
+                {{% block page_content %}}{{% endblock %}}
+            </div>
+
+        </div>
     </div>
 {{% endblock %}}"""
 

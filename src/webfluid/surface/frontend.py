@@ -14,7 +14,7 @@ from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
 from webfluid.utils import add_proxy, run_in_executor, get_proxy
-from webfluid.exceptions import FrontendException
+from webfluid.exceptions import FrontendException, NodeError
 
 if TYPE_CHECKING:
     from webfluid import Fluid, Additive
@@ -404,11 +404,13 @@ class Frontend:
 
         template = ""
         if self.type == "htmx":
-            template += f'<script src="{self.htmx}"></script>\n'
-            if self.alpine: template += f'<script src="{self.alpine}" defer></script>\n'
+            template += f'<script src="{Frontend.htmx}"></script>\n'
+            if self.alpine: template += f'<script src="{Frontend.alpine}" defer></script>\n'
 
         if TAILWIND:
-            template += f'<link rel="stylesheet" href="{self.prefix}/static/css/tailwind.css">'
+            template += ( '<link rel="stylesheet" '
+                         f'href="{self.prefix.removesuffix('/frontend')}/static'
+                          '/css/tailwind.css">')
 
         return Markup(template)
 
@@ -442,14 +444,20 @@ class Frontend:
             )
             fluid.shutdown_hook(cls.stop)
         else:
-            node_cmd(
-                ["npm", "run", "typecheck", "--workspaces"],
-                fluid.app_root
-            )
+            try:
+                node_cmd(
+                    ["npm", "run", "typecheck", "--workspaces"],
+                    fluid.app_root
+                )
+            except NodeError as e:
+                if "No workspaces found!" not in str(e):
+                    raise e
 
             cls._proc = node_proc(
                 ["npm", "run", "build", "--workspaces"],
                 fluid.app_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True
             )
 
@@ -458,11 +466,11 @@ class Frontend:
                 if code is None:
                     code = await run_in_executor(cls._proc.wait)
                 if code != 0:
-                    raise FrontendException(
-                        cls._proc.stderr
-                        or cls._proc.stdout
-                        or "Failed to build frontend."
-                    )
+                    out = cls._proc.stderr or cls._proc.stdout
+                    if out: out = out.read()
+                    else: out = "Unknown error"
+                    if "No workspaces found!" not in out:
+                        raise FrontendException(out)
             fluid.startup_hook(join_later)
 
             def mount():
@@ -513,6 +521,8 @@ class Frontend:
             return Response(status_code=404)
 
         if path.startswith("."):
+            if not DEBUG:
+                return Response(status_code=404)
             final_path = path
         else:
             vite_ns = request.cookies.get("vite_ns")

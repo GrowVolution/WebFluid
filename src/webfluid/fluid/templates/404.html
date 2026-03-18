@@ -1,0 +1,21 @@
+{% extends "base_error.html" %}
+
+{% block error %}
+<div class="error-content error-notfound">
+
+  <div class="error-icon">👀</div>
+
+  <h1 class="error-title">
+    {{ _('NOT_FOUND_TITLE') }}
+  </h1>
+
+  <p class="error-text">
+    {{ _("NOT_FOUND_MSG") }}
+  </p>
+
+  <a href="/" class="error-action-secondary">
+    {{ _("BACK_HOME") }}
+  </a>
+
+</div>
+{% endblock %}

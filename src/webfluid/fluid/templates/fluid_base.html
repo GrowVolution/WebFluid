@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/wf-static/img/favicon.ico" type="image/ico">
+
+    <title>{% block title %}WebFluid App{% endblock %}</title>
+
+    {{ wf_tailwind }}
+
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+<header>
+    <nav>
+        {% block nav %}
+        <div class="navbar">
+            <a class="nav-brand group" href="/">
+                <img src="/wf-static/img/logo.png" class="nav-logo nav-logo-glow" alt="Logo">
+                <span class="nav-title">
+                    {{ _('NAV_BRAND') }}
+                </span>
+            </a>
+
+            <div class="nav-links hidden md:flex">
+                <a href="/" class="nav-link" data-nav>Home</a>
+
+                <div class="nav-dropdown" data-dropdown>
+                    <button class="nav-dropdown-button" data-dropdown-btn>
+                        More
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-70"
+                             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <div class="nav-dropdown-menu hidden" data-dropdown-menu>
+                        <a href="#" class="nav-dropdown-item" data-nav>Action 1</a>
+                        <a href="#" class="nav-dropdown-item" data-nav>Action 2</a>
+                    </div>
+                </div>
+            </div>
+
+            <button class="nav-toggle" id="navToggle">
+                ☰
+            </button>
+        </div>
+
+        <div class="nav-mobile max-h-0" id="navMobile">
+            <div class="nav-mobile-inner">
+                <a href="#" class="nav-link" data-nav>Home</a>
+                <a href="#" class="nav-link" data-nav>Action 1</a>
+                <a href="#" class="nav-link" data-nav>Action 2</a>
+            </div>
+        </div>
+        {% endblock %}
+    </nav>
+</header>
+
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<footer>
+    {% block footer %}
+    <div class="footer">
+        <div class="footer-text">
+            WebFluid {{ YEAR | default(2026) }} – MIT License
+        </div>
+
+        <div class="footer-links">
+            <a href="#" class="footer-link">Imprint</a>
+            <a href="#" class="footer-link">Privacy</a>
+        </div>
+    </div>
+    {% endblock %}
+</footer>
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+        const toggle = document.getElementById("navToggle");
+        const mobile = document.getElementById("navMobile");
+
+        let mobileOpen = false;
+
+        toggle?.addEventListener("click", () => {
+            mobileOpen = !mobileOpen;
+
+            if (mobileOpen) {
+                mobile.classList.remove("max-h-0");
+                mobile.classList.add("max-h-96");
+            } else {
+                mobile.classList.add("max-h-0");
+                mobile.classList.remove("max-h-96");
+            }
+        });
+
+
+        document.querySelectorAll("[data-dropdown]").forEach(drop => {
+            const btn = drop.querySelector("[data-dropdown-btn]");
+            const menu = drop.querySelector("[data-dropdown-menu]");
+
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                menu.classList.toggle("hidden");
+            });
+
+            document.addEventListener("click", () => {
+                menu.classList.add("hidden");
+            });
+        });
+
+
+        const currentPath = window.location.pathname;
+
+        document.querySelectorAll("[data-nav]").forEach(link => {
+            const href = link.getAttribute("href");
+
+            if (href === currentPath) {
+                link.classList.add("nav-link-active");
+            }
+        });
+
+    });
+</script>
+{% endblock %}
+</body>
+</html>

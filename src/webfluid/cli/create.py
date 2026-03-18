@@ -31,7 +31,7 @@ def _make_defaults(
 
     (base / "templates").mkdir(exist_ok=True)
     (base / "templates/index.html").write_text(
-        index_html
+        index_html, encoding="utf-8"
     )
 
     (base / "api/v1").mkdir(parents=True, exist_ok=True)
@@ -142,7 +142,7 @@ def _setup_additives(config: ConfigParser):
     if "additives" not in config:
         config["additives"] = {}
 
-    additives = installed_additives()
+    additives = installed_additives(additive_dir)
     additives = [(a, p) for a, _, p in additives]
     selected_additives = questions.additives(additives)
 
@@ -238,6 +238,11 @@ def project(
             )
             (app_dir / "templates/index.html").write_text(
                 "{{ frontend() }}"
+            )
+        else:
+            node_cmd(
+                ["npm", "install"],
+                project_root
             )
 
         conf_list = str(conf).strip("{}").split(", ")

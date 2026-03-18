@@ -214,3 +214,12 @@ def format_percent(number: float | Decimal | str, format: str | None = None):
 def format_scientific(number: float | Decimal | str, format: str | None = None):
     locale = get_locale()
     return numbers.format_scientific(number, format=format, locale=locale)
+
+
+def fake_t(s: str,  **vars) -> str:
+    return s if not vars else s % vars
+
+
+def fake_tn(s: str, p: str, n: int, **vars) -> str:
+    vars.setdefault("n", n)
+    return (s if n == 1 else p) % vars

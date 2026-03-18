@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -7,6 +8,7 @@ from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from pathlib import Path
+from datetime import datetime, UTC
 from typing import Callable
 import os, asyncio, uvicorn, signal
 
@@ -24,6 +26,7 @@ from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
 from webfluid.additives import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
 from webfluid.surface.wf_tailwind import generate_tailwind_css
+from webfluid.extensions.utils.babel import get_locale, fake_t, fake_tn
 from webfluid.utils import (get_root_path, safe_string, safe_execute,
                             required_arg_count, close_proxy_client)
 from webfluid.utils.logging import factory as log_factory
@@ -72,14 +75,14 @@ class Fluid(FastAPI):
         self._startup_lock = False
         self._shutdown_lock = False
 
-        jinja_context = {}
+        self.jinja_context = {}
         if "APP_FRONTEND" in self.config and self.config["APP_FRONTEND"] is not None:
             result = validate_config(self.config["APP_FRONTEND"])
             if not result[0]:
                 raise ValueError(f"Invalid frontend configuration: {result[1]}")
             self.frontend = Frontend()
             self.startup_hook(lambda: self.frontend.cover_fluid(self))
-            jinja_context["frontend"] = self.frontend.include
+            self.jinja_context["frontend"] = self.frontend.include
 
         if self.config.get("RATELIMIT_ENABLED", True):
             self.state.limiter = Limiter(
@@ -113,16 +116,56 @@ class Fluid(FastAPI):
 
         if TAILWIND:
             self.startup_hook(lambda: generate_tailwind_css(self))
-            jinja_context["wf_tailwind"] = Markup('<link rel="stylesheet" href="/wf-static/css/tailwind.css">')
-
-        if PROCESSING and jinja_context:
-            self.context_processor(lambda: jinja_context)
+            self.jinja_context["wf_tailwind"] = Markup('<link rel="stylesheet" href="/wf-static/css/tailwind.css">')
 
         self.startup_hook(
             lambda: register_additives(self)
         )
         self.startup_hook(self._prepare)
         Frontend.prepare(self)
+
+        if PROCESSING:
+            if not EXT_BABEL:
+                self.jinja_env.add_extension("jinja2.ext.i18n")
+                self.jinja_env.install_gettext_callables(
+                    fake_t, fake_tn, newstyle=True
+                )
+                lang = lambda: "en"
+            else:
+                lang = get_locale
+
+            self.context_processor(lambda: {
+                **self.jinja_context,
+                "LANG": lang(),
+                "YEAR": datetime.now(UTC).year
+            })
+
+            def before_request(r: Request):
+                agent = r.headers.get("user-agent", "unknown")
+                log_factory.log(
+                    f"[Request] {r.method} {r.url.path} from {r.client.host} ({agent})"
+                )
+
+            self.before_request(before_request)
+
+            async def after_request(_, response: Response):
+                if response.status_code == 404:
+                    return HTMLResponse(
+                        await self.render("404.html"),
+                        status_code=404
+                    )
+                return response
+
+            self.after_request(after_request)
+
+            async def exception_handler(request: Request, exc: Exception):
+                log_factory.exception(exc, f"{request.method} {request.url.path}")
+                return HTMLResponse(
+                    await self.render("500.html", error=str(exc)),
+                    status_code=500
+                )
+
+            self.add_exception_handler(Exception, exception_handler)
 
         self._asgi_app = None
         self._server = None

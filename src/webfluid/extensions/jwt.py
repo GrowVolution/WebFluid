@@ -9,7 +9,7 @@ from webfluid.core.constants import EXT_SCHEDULING, EXT_CACHE
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class JWTManager(FluidExtension):
@@ -35,7 +35,6 @@ class JWTManager(FluidExtension):
         )
 
     def _encode(self, payload: dict, audience: str, secret: str) -> str:
-        if not self._current_key: raise FrameworkException("JWTManager not initialized.")
         payload = payload.copy()
         now = datetime.now(UTC)
         payload.update({
@@ -52,7 +51,6 @@ class JWTManager(FluidExtension):
         )
 
     def _decode(self, token: str, audience: str, secret: str) -> dict:
-        if not self._current_key: raise FrameworkException("JWTManager not initialized.")
         return jwt.decode(
             token, secret,
             algorithms=[self._token_algorithm],
@@ -60,6 +58,9 @@ class JWTManager(FluidExtension):
             audience=self._token_audiences.get(audience, audience),
             verify=True
         )
+
+    def _check(self):
+        if not self._current_key: raise FrameworkException("JWTManager not initialized.")
 
     def expand_fluid(self, fluid: "Fluid", *_, **__):
         if not EXT_SCHEDULING:
@@ -87,22 +88,30 @@ class JWTManager(FluidExtension):
         self._token_audiences = fluid.config.get("JWT_AUDIENCES", self._token_audiences)
 
     def encode(self, payload: dict, audience: str = "default") -> str:
+        self._check()
+
         from webfluid.core.ext import cache
         secret = cache.get(f"jwt:{self._current_key}")
         return self._encode(payload, audience, secret)
 
     async def aencode(self, payload: dict, audience: str = "default") -> str:
+        self._check()
+
         from webfluid.core.ext import cache
         secret = await cache.aget(f"jwt:{self._current_key}")
         return self._encode(payload, audience, secret)
 
     def decode(self, token: str, audience: str = "default") -> dict:
+        self._check()
+
         from webfluid.core.ext import cache
         kid = jwt.get_unverified_header(token).get("kid", self._current_key)
         secret = cache.get(f"jwt:{kid}")
         return self._decode(token, audience, secret)
 
     async def adecode(self, token: str, audience: str = "default") -> dict:
+        self._check()
+
         from webfluid.core.ext import cache
         kid = jwt.get_unverified_header(token).get("kid", self._current_key)
         secret = await cache.aget(f"jwt:{kid}")

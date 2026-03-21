@@ -10,40 +10,32 @@ if TYPE_CHECKING:
     from webfluid.extensions.babel.constants import DateFormat, DateFormatKey
 
 
-def parse_best_match(accept_header: str, available: list[str]) -> str | None:
-    if not accept_header: return available[0] if available else None
+def parse_best_match(accept_header: str, available: tuple[str]) -> str | None:
+        if not accept_header: return available[0] if available else None
 
-    parsed = []
+        parsed = []
 
-    for part in accept_header.split(","):
-        part = part.strip()
-        media, *params = part.split(";")
+        for part in accept_header.split(","):
+            lang, *params = part.strip().split(";")
 
-        q = 1.0
-        for p in params:
-            p = p.strip()
-            if p.startswith("q="):
-                try: q = float(p[2:])
-                except ValueError: pass
+            q = 1.0
+            for p in params:
+                if p.strip().startswith("q="):
+                    try: q = float(p.strip()[2:])
+                    except ValueError: pass
 
-        parsed.append((media.strip(), q))
+            parsed.append((lang.strip(), q))
 
-    parsed.sort(key=lambda x: x[1], reverse=True)
+        parsed.sort(key=lambda x: x[1], reverse=True)
 
-    for media, _ in parsed:
-        mtype, msub = media.split("/", 1)
+        for lang, _ in parsed:
+            base = lang.split("-")[0]
 
-        for candidate in available:
-            ctype, csub = candidate.split("/", 1)
+            for candidate in available:
+                if candidate == lang or candidate == base:
+                    return candidate
 
-            if (
-                    (mtype == "*" or mtype == ctype)
-                    and
-                    (msub == "*" or msub == csub)
-            ):
-                return candidate
-
-    return None
+        return None
 
 
 def get_locale() -> Locale:
@@ -87,58 +79,58 @@ def get_timezone() -> ZoneInfo:
 
 def _get_format(
         key: "DateFormatKey",
-        format: "DateFormat" = None,
+        fmt: "DateFormat" = None,
 ):
     from webfluid.core.ext import babel
 
-    if format is None:
-        format = babel.date_formats[key]
+    if fmt is None:
+        fmt = babel.date_formats[key]
 
-    if format in ("short", "medium", "full", "long"):
-        return babel.date_formats.get("%s.%s" % (key, format)) or format
-    return format
+    if fmt in ("short", "medium", "full", "long"):
+        return babel.date_formats.get("%s.%s" % (key, fmt)) or fmt
+    return fmt
 
 
-def to_user_timezone(datetime: datetime):
-    if datetime.tzinfo is None:
-        datetime = datetime.replace(tzinfo=timezone.utc)
+def to_user_timezone(dt: datetime):
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     tzinfo = get_timezone()
     if tzinfo is None:
-        datetime = datetime.replace(tzinfo=timezone.utc)
-    return datetime.astimezone(tzinfo)
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(tzinfo)
 
 
-def to_utc(datetime: datetime):
-    return datetime.replace(tzinfo=None)
+def to_utc(dt: datetime):
+    return dt.replace(tzinfo=None)
 
 
 def format_datetime(
-        datetime: datetime | None = None,
-        format: "DateFormat" = None,
+        dt: datetime | None = None,
+        fmt: "DateFormat" = None,
         rebase: bool = True,
 ):
-    format = _get_format("datetime", format)
-    return _date_format(dates.format_datetime, datetime, format, rebase)
+    fmt = _get_format("datetime", fmt)
+    return _date_format(dates.format_datetime, dt, fmt, rebase)
 
 
 def format_date(
-        date: datetime | date | None = None,
-        format: "DateFormat" = None,
+        d: datetime | date | None = None,
+        ftm: "DateFormat" = None,
         rebase: bool = True,
 ):
-    if rebase and isinstance(date, datetime):
-        date = to_user_timezone(date)
-    format = _get_format("date", format)
-    return _date_format(dates.format_date, date, format, rebase)
+    if rebase and isinstance(d, datetime):
+        d = to_user_timezone(d)
+    ftm = _get_format("date", ftm)
+    return _date_format(dates.format_date, d, ftm, rebase)
 
 
 def format_time(
-        time: datetime | None = None,
-        format: "DateFormat" = None,
+        t: datetime | None = None,
+        fmt: "DateFormat" = None,
         rebase: bool = True,
 ):
-    format = _get_format("time", format)
-    return _date_format(dates.format_time, time, format, rebase)
+    fmt = _get_format("time", fmt)
+    return _date_format(dates.format_time, t, fmt, rebase)
 
 
 def format_timedelta(
@@ -164,7 +156,7 @@ def format_timedelta(
 def _date_format(
         formatter: Callable[..., str],
         obj: datetime | date | time | None,
-        format: str | numbers.NumberPattern | None,
+        fmt: str | numbers.NumberPattern | None,
         rebase: bool | None,
         **extra: Any,
 ):
@@ -172,7 +164,7 @@ def _date_format(
     extra = dict(extra) if extra else {}
     if formatter is not dates.format_date and rebase:
         extra["tzinfo"] = get_timezone()
-    return formatter(obj, format, locale=locale, **extra)
+    return formatter(obj, fmt, locale=locale, **extra)
 
 
 def format_number(number: float | Decimal | str):
@@ -182,16 +174,16 @@ def format_number(number: float | Decimal | str):
 
 def format_decimal(
         number: float | Decimal | str,
-        format: str | numbers.NumberPattern | None = None,
+        fmt: str | numbers.NumberPattern | None = None,
 ):
     locale = get_locale()
-    return numbers.format_decimal(number, format=format, locale=locale)
+    return numbers.format_decimal(number, format=fmt, locale=locale)
 
 
 def format_currency(
         number: float | Decimal | str,
         currency: str,
-        format: str | numbers.NumberPattern | None = None,
+        fmt: str | numbers.NumberPattern | None = None,
         currency_digits: bool = True,
         format_type: Literal["name", "standard", "accounting"] = "standard",
 ):
@@ -199,27 +191,27 @@ def format_currency(
     return numbers.format_currency(
         number,
         currency,
-        format=format,
+        format=fmt,
         locale=locale,
         currency_digits=currency_digits,
         format_type=format_type,
     )
 
 
-def format_percent(number: float | Decimal | str, format: str | None = None):
+def format_percent(number: float | Decimal | str, fmt: str | None = None):
     locale = get_locale()
-    return numbers.format_percent(number, format=format, locale=locale)
+    return numbers.format_percent(number, format=fmt, locale=locale)
 
 
-def format_scientific(number: float | Decimal | str, format: str | None = None):
+def format_scientific(number: float | Decimal | str, fmt: str | None = None):
     locale = get_locale()
-    return numbers.format_scientific(number, format=format, locale=locale)
+    return numbers.format_scientific(number, format=fmt, locale=locale)
 
 
-def fake_t(s: str,  **vars) -> str:
-    return s if not vars else s % vars
+def fake_t(s: str,  **args) -> str:
+    return s if not args else s % args
 
 
-def fake_tn(s: str, p: str, n: int, **vars) -> str:
-    vars.setdefault("n", n)
-    return (s if n == 1 else p) % vars
+def fake_tn(s: str, p: str, n: int, **args) -> str:
+    args.setdefault("n", n)
+    return (s if n == 1 else p) % args

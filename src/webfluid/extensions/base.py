@@ -1,8 +1,8 @@
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING
 import typer
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class FluidExtension:

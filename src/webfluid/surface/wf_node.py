@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
+from webfluid.surface import dist
 from webfluid.exceptions import NodeError
 
 if TYPE_CHECKING:
@@ -35,7 +36,6 @@ def _get_node_data():
 
 
 def _node_cmd(cmd: str) -> str:
-    from webfluid.surface import dist
     node = dist / "node"
     if not node.exists():
         if not _sys_node()[0]:
@@ -51,7 +51,6 @@ def _node_cmd(cmd: str) -> str:
 
 
 def _node_env() -> dict:
-    from webfluid.surface import dist
     env = os.environ.copy()
     if os.name != "nt":
         node_bin = str(dist / "node" / "bin")

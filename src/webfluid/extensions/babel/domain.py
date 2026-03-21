@@ -8,7 +8,7 @@ from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.utils.babel import get_locale
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
     from os import PathLike
 
 
@@ -20,7 +20,7 @@ class Domain:
         self.cache: dict[str, MergedTranslations] = {}
 
     def get_translations_path(self, fluid: "Fluid | None") -> "PathLike[str] | str":
-        if fluid: return self.dir or os.path.join(str(fluid.root_path), "translations")
+        if fluid: return self.dir or os.path.join(str(fluid.app_root), "translations")
         return self.dir or os.path.join(os.getcwd(), "translations")
 
     def get_translations(self) -> MergedTranslations:
@@ -42,52 +42,26 @@ class Domain:
 
     def gettext(self, string: str, **variables: Any):
         t = self.get_translations()
-        if variables:  return t.ugettext(string) % variables
-        return t.ugettext(string)
-
-    async def agettext(self, string: str, **variables: Any):
-        t = self.get_translations()
-        text = await t.agettext(string)
-        if variables: return text % variables
-        return text
+        if variables:  return t.gettext(string) % variables
+        return t.gettext(string)
 
     def ngettext(self, singular: str, plural: str, num: int, **variables: Any):
         variables.setdefault("num", num)
         t = self.get_translations()
-        return t.ungettext(singular, plural, num) % variables
-
-    async def angettext(self, singular: str, plural: str, num: int, **variables: Any):
-        variables.setdefault("num", num)
-        t = self.get_translations()
-        text = await t.angettext(singular, plural, num)
-        return text % variables
+        return t.ngettext(singular, plural, num) % variables
 
     def pgettext(self, context: str, string: str, **variables: Any):
         t = self.get_translations()
         if variables:
-            return t.upgettext(context, string) % variables
-        return t.upgettext(context, string)
-
-    async def apgettext(self, context: str, string: str, **variables: Any):
-        t = self.get_translations()
-        text = await t.apgettext(context, string)
-        if variables: return text % variables
-        return text
+            return t.pgettext(context, string) % variables
+        return t.pgettext(context, string)
 
     def npgettext(
             self, context: str, singular: str, plural: str, num: int, **variables: Any
     ):
         variables.setdefault("num", num)
         t = self.get_translations()
-        return t.unpgettext(context, singular, plural, num) % variables
-
-    async def anpgettext(
-            self, context: str, singular: str, plural: str, num: int, **variables: Any
-    ):
-        variables.setdefault("num", num)
-        t = self.get_translations()
-        text = await t.anpgettext(context, singular, plural, num)
-        return text % variables
+        return t.npgettext(context, singular, plural, num) % variables
 
     def lazy_gettext(self, string: str, **variables: Any):
         return LazyString(self.gettext, string, **variables)
@@ -97,3 +71,6 @@ class Domain:
 
     def lazy_pgettext(self, context: str, string: str, **variables: Any):
         return LazyString(self.pgettext, context, string, **variables)
+
+    def lazy_npgettext(self, context: str, singular: str, plural: str, num: int, **variables: Any):
+        return LazyString(self.npgettext, context, singular, plural, num, **variables)

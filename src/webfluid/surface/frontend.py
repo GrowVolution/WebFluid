@@ -11,13 +11,15 @@ from typing import TYPE_CHECKING, Callable
 import typer, requests, shutil, subprocess, os, signal
 
 from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
+from webfluid.surface import dist
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
-from webfluid.utils import add_proxy, run_in_executor, get_proxy
+from webfluid.utils.framework import add_proxy, run_in_executor, get_proxy
 from webfluid.exceptions import FrontendException, NodeError
 
 if TYPE_CHECKING:
-    from webfluid import Fluid, Additive
+    from webfluid.core.fluid import Fluid
+    from webfluid.core.additive import Additive
 
 _static_js = (Path(__file__).parent.parent / "fluid" / "static" / "js").resolve()
 
@@ -206,8 +208,6 @@ def setup_frontend(project: str):
         _download_file(alpine, alpine_file)
         if not alpine_file.exists():
             raise FrontendException("Failed to download alpine.min.js")
-
-    from webfluid.surface import dist
 
     vite_dir = dist.parent / "vite"
     template_src = vite_dir / "packages" / "create-vite"
@@ -446,7 +446,7 @@ class Frontend:
         else:
             try:
                 node_cmd(
-                    ["npm", "run", "typecheck", "--workspaces"],
+                    ["npm", "run", "check", "--workspaces"],
                     fluid.app_root
                 )
             except NodeError as e:

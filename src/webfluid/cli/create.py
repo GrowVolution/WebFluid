@@ -7,8 +7,8 @@ import typer, json, shutil, re
 
 from webfluid.cli import templates, questions
 from webfluid.surface import node_cmd, dist
-from webfluid.additives import installed_additives
-from webfluid.utils import safe_string
+from webfluid.additives.core import installed_additives
+from webfluid.utils.framework import safe_string
 
 create = typer.Typer(help="Create a new WebFluid instances.")
 
@@ -127,7 +127,7 @@ def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
     package["scripts"].pop("dev")
     if "&&" in package["scripts"]["build"]:
         tsc, build = package["scripts"]["build"].split(" && ")
-        package["scripts"]["typecheck"] = tsc
+        package["scripts"]["check"] = tsc
         package["scripts"]["build"] = build
     package_json.write_text(json.dumps(package, indent=2, ensure_ascii=False))
 
@@ -313,7 +313,7 @@ def additive(additive_id: str):
     if as_base:
         manifest["type"] = "base"
         selected_base = questions.select_base()
-        import_base_fn = "from webfluid.additives import import_base\n"
+        import_base_fn = "from webfluid.additives.core import import_base\n"
         base_import = f'\n\timport_base("{selected_base}"),'
         manifest["frontend"] = "none"
         index_html = templates.adtv_index_html.format(

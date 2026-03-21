@@ -1,9 +1,10 @@
 from importlib import import_module
+from secrets import token_hex
 from typing import TYPE_CHECKING, Callable
 import os
 
-from webfluid.additives import installed_additives
-from webfluid.utils import enabled, check_priority, build_sorted_tuple, try_import
+from webfluid.additives.core import installed_additives
+from webfluid.utils.framework import enabled, check_priority, build_sorted_tuple, try_import
 
 if TYPE_CHECKING:
     from webfluid import Fluid
@@ -32,7 +33,7 @@ class DefaultConfig:
         "alpine": True
     }
     BASE_URL = f"http://localhost:8000"
-    SECRET_KEY = os.getenv("SECRET_KEY", "151ca2beba81560d3fd5d16a38275236")
+    SECRET_KEY = os.getenv("SECRET_KEY", token_hex(32))
 
     PROXY_FIX = False
 

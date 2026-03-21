@@ -107,7 +107,7 @@ def confirm_safe_id(given: str, suggestion: str) -> bool:
 
 
 def select_base() -> str:
-    from webfluid.additives import installed_bases
+    from webfluid.additives.core import installed_bases
     bases = installed_bases(Path.cwd() / "additives")
     if len(bases) == 0:
         raise ValueError("There are no base additives installed.")

@@ -3,33 +3,63 @@ from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Optional
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.core.context import BaseContext
-from webfluid.utils import camel_to_snake
+from webfluid.utils.framework import camel_to_snake
 from webfluid.extensions.utils.sqlalchemy import database_uris
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class _Executor(BaseContext):
-    CTX = ContextVar("sqlalchemy.executor")
-    def __init__(self, session: Session | AsyncSession):
+    _ctx = ContextVar("sqlalchemy.executor")
+    def __init__(self, session: Session):
         self.session = session
 
-    def exec(self, statement: Select[Any],
+    def exec(self, statement: Select,
              scalars: bool = True) -> ScalarResult | Result:
         results = self.session.execute(statement)
         if scalars: return results.scalars()
         return results
 
-    async def exec_async(self, statement: Select[Any],
-                         scalars: bool = True) -> ScalarResult | Result:
+    def add(self, obj: Model, flush: bool = False) -> Model:
+        self.session.add(obj)
+        if flush: self.flush()
+        return obj
+
+    def delete(self, obj: Model, flush: bool = False):
+        self.session.delete(obj)
+        if flush: self.flush()
+
+    def flush(self):
+        self.session.flush()
+
+
+class _AsyncExecutor(BaseContext):
+    _ctx = ContextVar("sqlalchemy.async_executor")
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def exec(self, statement: Select,
+                    scalars: bool = True) -> ScalarResult | Result:
         results = await self.session.execute(statement)
         if scalars: return results.scalars()
         return results
+
+    async def add(self, obj: Model, flush: bool = False) -> Model:
+        self.session.add(obj)
+        if flush: await self.flush()
+        return obj
+
+    async def delete(self, obj: Model, flush: bool = False):
+        await self.session.delete(obj)
+        if flush: await self.flush()
+
+    async def flush(self):
+        await self.session.flush()
 
 
 class _Bind:
@@ -123,4 +153,4 @@ class SQLAlchemy(FluidExtension):
     @asynccontextmanager
     async def async_executor(self, bind_key: str = None, model: type[Model] = None):
         async with self._resolve_bind(bind_key, model).async_session() as session:
-            async with _Executor(session) as e: yield e
+            async with _AsyncExecutor(session) as e: yield e

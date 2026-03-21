@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 from webfluid.extensions.base import FluidExtension
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class BaseCache(FluidExtension):

@@ -3,12 +3,13 @@ from starlette.websockets import WebSocketDisconnect
 from pathlib import Path
 from importlib import import_module
 from typing import TYPE_CHECKING, Callable, Any
-import os, inspect, random, string, logging, re,\
-    asyncio, sys, importlib, httpx, websockets
+import os, inspect, random, string, re, asyncio, \
+    sys, importlib, httpx, websockets
 
 if TYPE_CHECKING:
     from types import ModuleType
-    from webfluid import Fluid, Additive, AdditiveVersion
+    from webfluid.core.fluid import Fluid
+    from webfluid.core.additive import  Additive, AdditiveVersion
 
 _proxy_client = httpx.AsyncClient()
 
@@ -35,15 +36,11 @@ def get_root_path(import_name: str) -> str:
     if mod and getattr(mod, "__file__", None):
         return str(Path(mod.__file__).resolve().parent)
 
-    try:
-        spec = importlib.util.find_spec(import_name)
-    except (ImportError, ValueError):
-        spec = None
+    try: spec = importlib.util.find_spec(import_name)
+    except (ImportError, ValueError): spec = None
 
     loader = getattr(spec, "loader", None)
-
-    if loader is None:
-        return str(Path.cwd())
+    if loader is None: return str(Path.cwd())
 
     if hasattr(loader, "get_filename"):
         filepath = loader.get_filename(import_name)
@@ -117,7 +114,8 @@ def try_import(name: str) -> "ModuleType | None":
         if e.name != name: raise
 
 
-def check_required_version(requirement: str, version_type: str = "wf", additive_version: "AdditiveVersion | str" = None) -> bool:
+def check_required_version(requirement: str, version_type: str = "wf",
+                           additive_version: "AdditiveVersion | str" = None) -> bool:
     version_type = version_type.lower()
     if version_type not in ["wf", "additive"]:
         raise ValueError("Invalid version type.")

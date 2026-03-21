@@ -1,12 +1,11 @@
 from importlib import import_module
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from webfluid.additives import installed_additives
-from webfluid.utils import enabled
+from webfluid.additives.core import installed_additives
+from webfluid.utils.framework import enabled
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 def database_uris(uri: str) -> tuple[str, str]:
@@ -45,8 +44,3 @@ def init_models(fluid: "Fluid"):
             if additive and not additive.is_base:
                 additive.init_models()
         except ModuleNotFoundError: pass
-
-
-def db_autoupdate(fluid: "Fluid"):
-    message = f"App-Factory autoupdate - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    # TODO: Implement Autoupdate

@@ -1,5 +1,6 @@
 from pathlib import Path
 from configparser import ConfigParser
+from datetime import datetime, UTC
 import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
@@ -83,7 +84,9 @@ class Migrate(FluidExtension):
     ):
         base_cmd = ["alembic", "revision"]
         if autogenerate: base_cmd.append("--autogenerate")
-        base_cmd += ["-m", message]
+        base_cmd += ["-m", f"[{app}] "
+                           f"[{datetime.now(UTC).strftime('%Y-%m-%d_%H-%M-%S')}] "
+                           f"{message}"]
         subprocess.run(
             base_cmd,
             check=True,

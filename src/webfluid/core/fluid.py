@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from starlette.middleware.sessions import SessionMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -9,6 +10,7 @@ from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from pathlib import Path
 from datetime import datetime, UTC
+from uuid import uuid4
 from typing import Callable
 import os, asyncio, uvicorn, signal
 
@@ -23,14 +25,14 @@ from webfluid.core.constants import (
     EXT_MAIL, EXT_JWT
 )
 from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
-from webfluid.additives import register_additives
+from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
 from webfluid.surface.wf_tailwind import generate_tailwind_css
 from webfluid.extensions.utils.babel import get_locale, fake_t, fake_tn
-from webfluid.utils import (get_root_path, safe_string, safe_execute,
+from webfluid.utils.framework import (get_root_path, safe_string, safe_execute,
                             required_arg_count, close_proxy_client)
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import EventHookException, ProcessorException
+from webfluid.exceptions import EventHookException, ProcessorException, FrameworkException
 
 
 class Fluid(FastAPI):
@@ -43,6 +45,11 @@ class Fluid(FastAPI):
         init_configs(self)
         self.config = Config()
         self.config.from_object(build_config())
+
+        secret = self.config.get("SECRET_KEY")
+        if not secret:
+            raise FrameworkException("SECRET_KEY is required.")
+
         super().__init__(**self.config.get("APP_CONFIG", {}))
 
         static_path = "fluid/static"
@@ -52,8 +59,19 @@ class Fluid(FastAPI):
         self.framework_static = StaticFiles(
             directory=(FRAMEWORK_ROOT / static_path)
         )
+        self.static_prefixes = {
+            "/static", "/wf-static",
+            "/frontend", "/vite-dev"
+        }
+        self._static_prefixes = None
 
         self.jinja_env = Environment(enable_async=True)
+        self.jinja_context = {}
+        self.sources = []
+        self.sources.append(
+            Markup('<script src="/wf-static/js/base.js" type="module"></script>')
+        )
+
         template_path = "fluid/templates"
         app_templates = FileSystemLoader(self.app_root / template_path)
         framework_templates = FileSystemLoader(FRAMEWORK_ROOT / template_path)
@@ -63,6 +81,7 @@ class Fluid(FastAPI):
         self.framework_loader = ChoiceLoader([
             framework_templates, PrefixLoader({ "framework": framework_templates })
         ])
+
         self._context_processors = []
         self._request_processors = {
             "before": [],
@@ -75,7 +94,8 @@ class Fluid(FastAPI):
         self._startup_lock = False
         self._shutdown_lock = False
 
-        self.jinja_context = {}
+        self.startup_hook(lambda: register_additives(self))
+
         if "APP_FRONTEND" in self.config and self.config["APP_FRONTEND"] is not None:
             result = validate_config(self.config["APP_FRONTEND"])
             if not result[0]:
@@ -94,19 +114,6 @@ class Fluid(FastAPI):
             )
             self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-        @self.middleware("http")
-        async def middleware(
-                request: Request, call_next: Callable
-        ) -> Response:
-            async with FluidContext(self, request):
-                for processor in self._request_processors["before"]:
-                    response = await safe_execute(processor, ProcessorException, request)
-                    if response is not None: return response
-                response = await call_next(request)
-                for processor in reversed(self._request_processors["after"]):
-                    response = await safe_execute(processor, ProcessorException, request, response)
-                return response
-
         if EXT_SCHEDULING: self.startup_hook(scheduler.start)
         if EXT_SQLALCHEMY: db.expand_fluid(self)
         if EXT_BABEL: babel.expand_fluid(self)
@@ -118,11 +125,27 @@ class Fluid(FastAPI):
             self.startup_hook(lambda: generate_tailwind_css(self))
             self.jinja_context["wf_tailwind"] = Markup('<link rel="stylesheet" href="/wf-static/css/tailwind.css">')
 
-        self.startup_hook(
-            lambda: register_additives(self)
-        )
         self.startup_hook(self._prepare)
         Frontend.prepare(self)
+
+        @self.middleware("http")
+        async def middleware(
+                request: Request, call_next: Callable
+        ) -> Response:
+            path = request.url.path
+            if path.startswith(self._static_prefixes):
+                return await call_next(request)
+
+            async with FluidContext(self, request):
+                for processor in self._request_processors["before"]:
+                    response = await safe_execute(processor, ProcessorException, request)
+                    if response is not None: return response
+                response = await call_next(request)
+                for processor in reversed(self._request_processors["after"]):
+                    response = await safe_execute(processor, ProcessorException, request, response)
+                return response
+
+        self.add_middleware(SessionMiddleware, secret_key=secret)
 
         if PROCESSING:
             if not EXT_BABEL:
@@ -136,36 +159,46 @@ class Fluid(FastAPI):
 
             self.context_processor(lambda: {
                 **self.jinja_context,
+
                 "LANG": lang(),
-                "YEAR": datetime.now(UTC).year
+                "YEAR": datetime.now(UTC).year,
+
+                "src": "\n\t".join(self.sources)
             })
 
+            @self.before_request
             def before_request(r: Request):
+                if not "id" in r.session:
+                    r.session["id"] = uuid4().hex
+
                 agent = r.headers.get("user-agent", "unknown")
                 log_factory.log(
                     f"[Request] {r.method} {r.url.path} from {r.client.host} ({agent})"
                 )
 
-            self.before_request(before_request)
+            @self.after_request
+            async def after_request(r, response: Response):
+                if response.status_code == 403:
+                    return HTMLResponse(
+                        await self.render("errors/403.html"),
+                        status_code=403
+                    )
 
-            async def after_request(_, response: Response):
                 if response.status_code == 404:
                     return HTMLResponse(
-                        await self.render("404.html"),
+                        await self.render("errors/404.html"),
                         status_code=404
                     )
+
                 return response
 
-            self.after_request(after_request)
-
+            @self.exception_handler(Exception)
             async def exception_handler(request: Request, exc: Exception):
                 log_factory.exception(exc, f"{request.method} {request.url.path}")
                 return HTMLResponse(
-                    await self.render("500.html", error=str(exc)),
+                    await self.render("errors/500.html", error=str(exc)),
                     status_code=500
                 )
-
-            self.add_exception_handler(Exception, exception_handler)
 
         self._asgi_app = None
         self._server = None
@@ -187,23 +220,28 @@ class Fluid(FastAPI):
         from webfluid import version
         return f"<WebFluid {version()}>"
 
-    def _prepare(self):
+    async def _prepare(self):
+        self._static_prefixes = tuple(self.static_prefixes)
         self.mount(APP_STATIC, self.app_static, "static")
         self.mount(WF_STATIC, self.framework_static, "wf_static")
 
     async def _startup(self):
         self._startup_lock = True
-
         log_factory.log("Running startup hooks...")
+
+        hooks = []
         for hook in self._hooks["startup"]:
-            await safe_execute(hook, EventHookException)
+            hooks.append(safe_execute(hook, EventHookException))
+        await asyncio.gather(*hooks)
 
     async def _shutdown(self):
         self._shutdown_lock = True
-
         log_factory.log("Running shutdown hooks...")
+
+        hooks = []
         for hook in reversed(self._hooks["shutdown"]):
-            await safe_execute(hook, EventHookException)
+            hooks.append(safe_execute(hook, EventHookException))
+        await asyncio.gather(*hooks)
 
     async def _run_server(self):
         host = os.getenv("SERVER_HOST", "127.0.0.1")

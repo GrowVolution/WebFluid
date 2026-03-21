@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 import json
 
-from webfluid.utils import check_required_version, enabled
+from webfluid.utils.framework import check_required_version, enabled
 from webfluid.utils.additive import id_check, version_check, type_check
 from webfluid.utils.logging import factory as log_factory
 from webfluid.surface import validate_frontend_config as frontend_check
@@ -52,23 +52,18 @@ class Manifest:
         if self["type"] == "base" and self["frontend"]["type"] != "none":
             raise ManifestError("Base additives cannot have a frontend.")
 
-    def __getitem__(self, key):
-        return self._data[key]
+    def __repr__(self): return f"<Manifest {self['id']}>"
+    def __getitem__(self, key): return self._data[key]
+    def __setitem__(self, key, value): self._data[key] = value
+    def __contains__(self, item): return item in self._data
+    def __len__(self): return len(self._data)
+    def __str__(self): return str(self._data)
 
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __contains__(self, item):
-        return item in self._data
-
-    def __len__(self):
-        return len(self._data)
-
-    def __repr__(self):
-        return f"<Manifest {self['id']}>"
-
-    def __str__(self):
-        return str(self._data)
+    def keys(self): return self._data.keys()
+    def values(self): return self._data.values()
+    def items(self): return self._data.items()
+    def get(self, key, default=None): return self._data.get(key, default)
+    def pop(self, key, default=None): return self._data.pop(key, default)
 
     def check_requirements(self, additive_root: Path):
         if not "requires" in self:
@@ -104,7 +99,7 @@ class Manifest:
             if not isinstance(requirement, dict):
                 raise ManifestError(f"[{self['name']}] Invalid additives requirement type: {type(requirement)}")
 
-            from webfluid.additives import installed_additives, installed_bases
+            from webfluid.additives.core import installed_additives, installed_bases
 
             additives = installed_additives(additive_root)
             for additive in additives:
@@ -132,11 +127,3 @@ class Manifest:
                 raise AdditiveException(
                     f"[{self['name']}] Missing or mismatching additive requirements: {[a for a in requirement]}"
                 )
-
-    @property
-    def get(self) -> Callable:
-        return self._data.get
-
-    @property
-    def pop(self) -> Callable:
-        return self._data.pop

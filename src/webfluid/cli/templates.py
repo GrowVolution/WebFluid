@@ -215,7 +215,7 @@ def before_enable(_):
 #               Shared Templates                  #
 ###################################################
 
-health_py = """from webfluid.utils import async_result
+health_py = """from webfluid.utils.framework import async_result
 from datetime import datetime, UTC
 
 

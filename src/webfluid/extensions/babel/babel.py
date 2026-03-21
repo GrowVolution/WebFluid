@@ -1,9 +1,11 @@
+from fastapi import WebSocket
 from contextvars import ContextVar
 from contextlib import contextmanager, asynccontextmanager
+from markupsafe import Markup
 from babel import Locale
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
-import sys, subprocess, typer
+import sys, subprocess, typer, json, asyncio
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.babel.constants import (
@@ -26,23 +28,24 @@ from webfluid.extensions.utils.babel import (
 )
 from webfluid.core.context import BaseContext
 from webfluid.core.constants import FRAMEWORK_ROOT, EXT_SQLALCHEMY
-from webfluid.utils import is_async_function
+from webfluid.utils.framework import is_async_function
 from webfluid.exceptions import FrameworkException
 
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
+    from webfluid.core.additive import Additive
     from webfluid.extensions.babel.domain import Domain
 
 
 class _DomainContext(BaseContext):
-    CTX = ContextVar("babel.domain")
+    _ctx = ContextVar("babel.domain")
     def __init__(self, domain: "Domain"):
         self.domain = domain
 
 
 class SelectorContext(BaseContext):
-    CTX = ContextVar("babel.selector")
+    _ctx = ContextVar("babel.selector")
     def __init__(self, locale_selector: Callable, timezone_selector: Callable):
         self.locale_selector = locale_selector
         self.timezone_selector = timezone_selector
@@ -86,6 +89,7 @@ class Babel(FluidExtension):
                      default_timezone: str = DEFAULT_TIMEZONE,
                      date_formats: dict[DateFormatKey, DateFormat] | None = None,
                      configure_jinja: bool = True,
+                     configure_socket: bool = True,
                      default_domain: "Domain | None" = None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
@@ -93,7 +97,7 @@ class Babel(FluidExtension):
             raise FrameworkException("Babel has already been initialized.")
 
         if default_domain is None:
-            from webfluid.extensions.babel.domain import Domain
+            from .domain import Domain
             default_domain = Domain()
         self.default_domain = default_domain
         self.default_locale = fluid.config.get("BABEL_DEFAULT_LOCALE", default_locale)
@@ -104,7 +108,7 @@ class Babel(FluidExtension):
 
         db_bind = fluid.config.get("BABEL_DATABASE_BIND")
         if db_bind is not None:
-            from webfluid.extensions.babel.translations import I18nMessage
+            from .translations import I18nMessage
             I18nMessage.set_bind(db_bind)
 
         if configure_jinja:
@@ -121,14 +125,60 @@ class Babel(FluidExtension):
             )
             fluid.jinja_env.add_extension("jinja2.ext.i18n")
             fluid.jinja_env.install_gettext_callables(
-                lambda x: self.current_domain.get_translations().ugettext(x),
-                lambda s, p, n: self.current_domain.get_translations().ungettext(s, p, n),
+                lambda x: self.current_domain.gettext(x),
+                lambda s, p, n: self.current_domain.ngettext(s, p, n),
                 newstyle=True,
             )
 
+        if configure_socket:
+            fluid.websocket("/ws/i18n")(self.socket_i18n)
+            fluid.sources.append(
+                Markup('<script src="/wf-static/js/i18n.js" type="module"></script>')
+            )
+
+        fluid.startup_hook(self.load_translations)
         Babel._instance = self
 
-    def register_additive(self): pass
+    def register_additive(self, additive: "Additive"):
+        self._domains[additive.name] = Domain(
+            additive.root_path / "translations",
+            domain=additive.name
+        )
+
+    async def load_translations(self):
+        domains = [self.default_domain.domain]
+        for domain in self._domains.values():
+            domains.append(domain.domain)
+
+        tasks = []
+
+        from .translations import MergedTranslations
+        for domain in domains:
+            for locale in self.supported_locales:
+                tasks.append(
+                    MergedTranslations.update_cache(domain, locale)
+                )
+
+        await asyncio.gather(*tasks)
+
+    async def socket_i18n(self, ws: WebSocket):
+        await ws.accept()
+
+        while True:
+            msg = json.loads(await ws.receive_text())
+
+            response = {
+                "id": msg["id"]
+            }
+
+            domain = self.current_domain
+            fn = getattr(domain, msg["type"], None)
+            if fn is not None:
+                response["data"] = fn(**msg["data"])
+            else:
+                response["data"] = f"Unknown gettext function: {msg['type']}"
+
+            await ws.send_text(json.dumps(response))
 
     def locale_selector(self, fn: Callable) -> Callable:
         self._locale_selector_fn = fn

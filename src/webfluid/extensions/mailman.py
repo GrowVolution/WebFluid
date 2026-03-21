@@ -10,7 +10,7 @@ from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class Mail(FluidExtension):

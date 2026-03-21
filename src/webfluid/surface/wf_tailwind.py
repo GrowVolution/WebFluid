@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
+from webfluid.surface import dist
 from webfluid.exceptions import TailwindError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 tailwind_cli = {
     "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-linux-{architecture}",
@@ -32,7 +33,6 @@ def _tailwind_cmd() -> str:
     if os.name == "nt":
         tw += ".exe"
 
-    from webfluid.surface import dist
     executable = dist / tw
     if not executable.exists():
         raise TailwindError("Missing tailwind cli executable.")
@@ -94,7 +94,6 @@ def load_tailwind(download_fn: Callable):
     data = _get_cli_data()
     file_type = ".exe" if data[1] == "windows" else ""
 
-    from webfluid.surface import dist
     dest = dist / f"tailwind{file_type}"
 
     if dest.exists(): return

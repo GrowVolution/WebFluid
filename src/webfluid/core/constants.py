@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from webfluid.utils import enabled
+from webfluid.utils.framework import enabled
 
 FRAMEWORK_ROOT = Path(__file__).parent.parent.resolve()
 

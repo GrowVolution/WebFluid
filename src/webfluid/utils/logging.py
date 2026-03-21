@@ -5,11 +5,11 @@ from typing import Callable
 import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
-from webfluid.utils import enabled, async_result
+from webfluid.utils.framework import enabled, async_result
 
 
 class _LogContext(BaseContext):
-    CTX = ContextVar("utils.logging")
+    _ctx = ContextVar("utils.logging")
     def __init__(self, logger_name: str):
         self.logger = logger_name
 

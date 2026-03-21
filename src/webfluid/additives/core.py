@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import json
 
 from webfluid.core.additive import Additive, AdditiveVersion
-from webfluid.utils import enabled, try_import
+from webfluid.utils.framework import enabled, try_import
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import ManifestError
 

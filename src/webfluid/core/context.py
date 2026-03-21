@@ -7,20 +7,20 @@ if TYPE_CHECKING:
 
 
 class BaseContext:
-    CTX: ContextVar
+    _ctx: ContextVar
     _tokens: list
 
     def __enter__(self):
         if not hasattr(self, "_tokens"):
-            object.__setattr__(self, "_tokens", [])
-        self._tokens.append(self.CTX.set(self))
+            self._tokens = []
+        self._tokens.append(self._ctx.set(self))
         return self
 
     def __exit__(self, *args):
         if not hasattr(self, "_tokens") or not self._tokens:
             raise RuntimeError("Context not entered")
-        self.CTX.reset(self._tokens.pop())
-        if not self._tokens: object.__delattr__(self, "_tokens")
+        self._ctx.reset(self._tokens.pop())
+        if not self._tokens: del self._tokens
         return False
 
     async def __aenter__(self):
@@ -31,20 +31,19 @@ class BaseContext:
 
     @classmethod
     def current(cls) -> "BaseContext":
-        try: return cls.CTX.get()
+        try: return cls._ctx.get()
         except LookupError:
             raise RuntimeError(f"No active {cls.__name__}.")
 
 
 class FluidContext(BaseContext):
-    _INTERNAL_KEYS = ("_data", "fluid", "request", "_tokens")
-    CTX = ContextVar("fluid.context")
+    _ctx = ContextVar("fluid.context")
 
     def __init__(self, fluid: "Fluid", request: "Request",
                  *args, **kwargs):
-        object.__setattr__(self, "fluid", fluid)
-        object.__setattr__(self, "request", request)
-        object.__setattr__(self, "_data", {})
+        self.fluid = fluid
+        self.request = request
+        self._data = {}
 
         self._data.update(kwargs)
         for arg in args:
@@ -53,27 +52,14 @@ class FluidContext(BaseContext):
                 raise ValueError(f"Duplicate argument name: {name}")
             self._data[arg.__name__] = arg
 
-    def __getattr__(self, key):
-        try: return self._data[key]
-        except KeyError: raise AttributeError(key)
-
-    def __setattr__(self, key, value):
-        if key in type(self)._INTERNAL_KEYS or key == "_INTERNAL_KEYS":
-            raise AttributeError(key)
-        else: self._data[key] = value
-
-    def __delattr__(self, key):
-        if key in type(self)._INTERNAL_KEYS or key == "_INTERNAL_KEYS":
-            raise AttributeError(key)
-        try: del self._data[key]
-        except KeyError: raise AttributeError(key)
-
+    def __getitem__(self, key): return self._data[key]
+    def __setitem__(self, key, value): self._data[key] = value
     def __contains__(self, item): return item in self._data
     def __len__(self): return len(self._data)
-    def __iter__(self): return iter(self._data)
-    def __dir__(self):
-        return list(super().__dir__()) + list(self._data.keys())
+    def __str__(self): return str(self._data)
 
     def keys(self): return self._data.keys()
     def values(self): return self._data.values()
     def items(self): return self._data.items()
+    def get(self, key, default=None): return self._data.get(key, default)
+    def pop(self, key, default=None): return self._data.pop(key, default)

@@ -1,6 +1,6 @@
 from functools import wraps
 
-from webfluid.utils import safe_string, enabled, async_result
+from webfluid.utils.framework import safe_string, enabled, async_result
 
 
 def id_check(additive_id: str) -> tuple[bool, str]:

@@ -1,9 +1,18 @@
-from webfluid import utils, exceptions
-from webfluid.core import Fluid, Additive, AdditiveVersion, Manifest
-from webfluid._version import FluidVersion, version
 
 __all__ = [
     "Fluid", "FluidVersion", "version",
     "Additive", "AdditiveVersion", "Manifest",
-    "utils", "exceptions",
+    "utils", "extensions", "exceptions",
 ]
+
+
+def __getattr__(name):
+    if name in {"Fluid", "Additive", "AdditiveVersion", "Manifest"}:
+        from webfluid import core
+        return getattr(core, name)
+
+    if name in {"FluidVersion", "version"}:
+        from webfluid import _version
+        return getattr(_version, name)
+
+    raise AttributeError(name)

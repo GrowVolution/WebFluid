@@ -8,6 +8,7 @@
     <title>{% block title %}WebFluid App{% endblock %}</title>
 
     {{ wf_tailwind }}
+    {{ src }}
 
     {% block head %}{% endblock %}
 </head>
@@ -27,7 +28,7 @@
             <div class="nav-links hidden md:flex">
                 <a href="/" class="nav-link" data-nav>Home</a>
 
-                <div class="nav-dropdown" data-dropdown>
+                <div class="nav-dropdown relative" data-dropdown>
                     <button class="nav-dropdown-button" data-dropdown-btn>
                         More
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-70"
@@ -68,7 +69,7 @@
     {% block footer %}
     <div class="footer">
         <div class="footer-text">
-            WebFluid {{ YEAR | default(2026) }} – MIT License
+            &copy; {{ YEAR | default(2026) }} GrowVolution e.V. – MIT License
         </div>
 
         <div class="footer-links">

@@ -13,13 +13,14 @@ from typing import TYPE_CHECKING, Callable, Sequence, Any
 import subprocess, sys, typer
 
 from webfluid.core.context import FluidContext
+from webfluid.core.constants import PROCESSING
 from webfluid.surface.frontend import Frontend
-from webfluid.utils import get_root_path, safe_string, required_arg_count, safe_execute, async_result
+from webfluid.utils.framework import get_root_path, required_arg_count, safe_execute, async_result
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError, EventHookException, ProcessorException
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class AdditiveVersion(tuple):
@@ -76,7 +77,7 @@ class AdditiveRouter(APIRouter):
             return await async_result(handler(*args, **kwargs))
 
         super().add_api_route(
-            path, wrapped, response_model=response_model, status_code=status_code, tags=tags,
+            path, log_factory.additive_context(wrapped), response_model=response_model, status_code=status_code, tags=tags,
             dependencies=dependencies, summary=summary, description=description,
             response_description=response_description, responses=responses, deprecated=deprecated,
             methods=methods, operation_id=operation_id, response_model_include=response_model_include,
@@ -158,6 +159,7 @@ class Additive:
         }
         self._before_enable_lock = False
         self._after_enable_lock = False
+        self.jinja_context = {}
 
         if self.is_base:
             self.api = AdditiveRouter()
@@ -178,12 +180,15 @@ class Additive:
                     if response is not None: return response
                 response = await call_next(*args, **kwargs)
                 for processor in reversed(self._request_processors["after"]):
-                    response = await safe_execute(processor, ProcessorException, response)
+                    response = await safe_execute(processor, ProcessorException, c.request, response)
                 return response
             return wrapper
 
         self.api.http_middleware(middleware)
         self.app.http_middleware(middleware)
+
+        if PROCESSING:
+            self.context_processor(lambda: self.jinja_context)
 
     def __repr__(self) -> str:
         return f"<{self.additive_name} {self.version}> {self.manifest.get('description', '')}"
@@ -214,15 +219,17 @@ class Additive:
 
         if self.frontend is not None:
             self.frontend.cover_additive(self)
-            self.context_processor(lambda: {
-                "frontend": self.frontend.include,
-            })
+            self.jinja_context["frontend"] = self.frontend.include
+            fluid.static_prefixes.add(self.frontend.prefix)
 
         fluid.include_router(self.api, prefix=self.prefix)
         fluid.include_router(self.app, prefix=self.prefix)
         fluid.include_router(self.ws, prefix=self.prefix)
+
+        static_prefix = f"{self.prefix}/static"
+        fluid.static_prefixes.add(static_prefix)
         fluid.mount(
-            f"{self.prefix}/static", self.static_files,
+            static_prefix, self.static_files,
             f"{self.name}_static"
         )
 
@@ -321,13 +328,13 @@ class Additive:
 
     def before_request(self, fn: Callable) -> Callable:
         if required_arg_count(fn) != 1:
-            raise TypeError("Request processors must receive exactly one argument (request).")
+            raise TypeError("Before request processors must receive exactly one argument (request).")
         self._request_processors["before"].append(fn)
         return fn
 
     def after_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 1:
-            raise TypeError("Request processors must receive exactly one argument (response).")
+        if required_arg_count(fn) != 2:
+            raise TypeError("After request processors must receive exactly one argument (request, response).")
         self._request_processors["after"].append(fn)
         return fn
 

@@ -1,4 +1,14 @@
-from webfluid.extensions.cache.cache import Cache
-from webfluid.extensions.cache.base import BaseCache
 
-__all__ = ["Cache", "BaseCache"]
+__all__ = ["BaseCache", "Cache"]
+
+
+def __getattr__(name):
+    if name == "BaseCache":
+        from .base import BaseCache
+        return BaseCache
+
+    if name == "Cache":
+        from .cache import Cache
+        return Cache
+
+    raise AttributeError(name)

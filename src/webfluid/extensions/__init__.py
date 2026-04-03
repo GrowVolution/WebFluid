@@ -1,8 +1,18 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from webfluid.extensions.base import FluidExtension
+    from webfluid.extensions.sqlalchemy import SQLAlchemy
+    from webfluid.extensions.babel.babel import Babel
+    from webfluid.extensions.events import EventManager
+    from webfluid.extensions.mailman import Mail
+    from webfluid.extensions.cache.cache import Cache
+    from webfluid.extensions.jwt import JWTManager
 
 __all__ = [
     "FluidExtension",
 
-    "SQLAlchemy", "Babel", "Security", "OAuth",
+    "SQLAlchemy", "Babel", "EventManager",
     "Mail", "Cache", "JWTManager",
 
     "babel", "cache", "utils"
@@ -22,13 +32,9 @@ def __getattr__(name):
         from .babel.babel import Babel
         return Babel
 
-    if name == "Security":
-        from .security.security import Security
-        return Security
-
-    if name == "OAuth":
-        from .security.oauth import OAuth
-        return OAuth
+    if name == "EventManager":
+        from .events import EventManager
+        return EventManager
 
     if name == "Mail":
         from .mailman import Mail

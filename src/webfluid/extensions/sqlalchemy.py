@@ -9,6 +9,7 @@ from webfluid.extensions.base import FluidExtension
 from webfluid.core.context import BaseContext
 from webfluid.utils.framework import camel_to_snake
 from webfluid.extensions.utils.sqlalchemy import database_uris
+from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
     from webfluid.core.fluid import Fluid
@@ -25,7 +26,7 @@ class _Executor(BaseContext):
         if scalars: return results.scalars()
         return results
 
-    def add(self, obj: Model, flush: bool = False) -> Model:
+    def insert(self, obj: Model, flush: bool = False) -> Model:
         self.session.add(obj)
         if flush: self.flush()
         return obj
@@ -49,7 +50,7 @@ class _AsyncExecutor(BaseContext):
         if scalars: return results.scalars()
         return results
 
-    async def add(self, obj: Model, flush: bool = False) -> Model:
+    async def insert(self, obj: Model, flush: bool = False) -> Model:
         self.session.add(obj)
         if flush: await self.flush()
         return obj
@@ -100,6 +101,7 @@ class _Bind:
 class Model(DeclarativeBase):
     __tablename__: Optional[str]
     __bind_key__: Optional[str]
+    __bind_set__ = False
 
     @declared_attr
     def __tablename__(cls) -> str:
@@ -107,6 +109,15 @@ class Model(DeclarativeBase):
         if isinstance(tablename, str):
             return tablename
         return camel_to_snake(cls.__name__)
+
+    @classmethod
+    def set_bind(cls, key: str):
+        if cls.__bind_set__:
+            raise FrameworkException(
+                f"DB bind has already been set for {cls.__name__}!"
+            )
+        cls.__bind_key__ = key
+        cls.__bind_set__ = True
 
 
 class SQLAlchemy(FluidExtension):

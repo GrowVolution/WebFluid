@@ -1,3 +1,7 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from webfluid.cli.wf import cli
 
 __all__ = ["cli"]
 

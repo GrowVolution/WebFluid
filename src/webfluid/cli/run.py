@@ -1,6 +1,7 @@
 from configparser import ConfigParser
 from pathlib import Path
 from datetime import datetime, UTC
+from threading import Thread
 import typer, subprocess, sys, os, signal, time
 
 from webfluid.cli import questions
@@ -24,19 +25,13 @@ def _env_from_config(config_file: Path) -> dict:
     return env
 
 
-def _key_pressed():
+def _read_key() -> str:
     if os.name == "nt":
         import msvcrt
-        return msvcrt.kbhit()
-
-    from select import select
-    return select([sys.stdin], [], [], 0)[0]
-
-
-def _read_key():
-    if os.name == "nt":
-        import msvcrt
-        return msvcrt.getch().decode("utf-8", errors="ignore")
+        c = msvcrt.getch()
+        if c == '' or c == 'à':
+            c = msvcrt.getch()
+        return c.decode()
 
     import termios, tty
     fd = sys.stdin.fileno()
@@ -58,19 +53,30 @@ def _exit(signum: int, _):
     _terminate = True
 
 
+def _stream_log():
+    if _proc is None or _proc.stdout is None: return
+
+    while _streaming:
+        line = _proc.stdout.readline()
+        if not _streaming: break
+        if line: typer.echo(line, nl=False)
+
+
 def _join_log():
     if _proc is None: return
 
     typer.secho("Joining application log...", bold=True)
-    typer.secho("Press ESC to return to menu.\n", fg=typer.colors.YELLOW)
+    typer.secho("Press STRG+Q to return to menu.\n", fg=typer.colors.YELLOW)
     time.sleep(1)
 
+    global _streaming
+    _streaming = True
+    Thread(target=_stream_log, daemon=True).start()
+
     while _proc.poll() is None:
-        line = _proc.stdout.readline()
-        if line: typer.echo(line)
-        if _key_pressed() and _read_key() == "\x1b":
-            break
-        time.sleep(0.05)
+        if _read_key() == "\x11": break
+
+    _streaming = False
 
 
 def _start(env: dict, project_root: Path):
@@ -194,6 +200,7 @@ def run(
         )
         raise typer.Exit(1)
 
+    env["APP_NAME"] = name
     env["SERVER_HOST"] = host
     env["SERVER_PORT"] = str(port)
     env["IN_EXECUTION"] = "1"
@@ -208,6 +215,8 @@ def run(
     signal.signal(signal.SIGTERM, _exit)
 
     if interactive:
+        # TODO: Fix process management on Windows
+
         while True:
             if _terminate: break
 

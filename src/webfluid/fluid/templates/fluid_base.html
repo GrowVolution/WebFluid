@@ -7,6 +7,7 @@
 
     <title>{% block title %}WebFluid App{% endblock %}</title>
 
+    {{ wf_theme }}
     {{ wf_tailwind }}
     {{ src }}
 
@@ -21,7 +22,7 @@
             <a class="nav-brand group" href="/">
                 <img src="/wf-static/img/logo.png" class="nav-logo nav-logo-glow" alt="Logo">
                 <span class="nav-title">
-                    {{ _('NAV_BRAND') }}
+                    {{ _('BRAND') }}
                 </span>
             </a>
 

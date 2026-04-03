@@ -45,7 +45,7 @@ class Mail(FluidExtension):
 
         self.default_sender = config.get("MAIL_DEFAULT_SENDER", self.default_sender)
 
-    def make_message(self, to: str, subject: str, body: list[dict[str, str]],
+    def make_message(self, to: str, subject: str, body: dict[str, str],
                      attachments: list[dict[str, bytes | str]] = None,
                      from_email: str | None = None, cc: list[str] | None = None,
                      bcc: list[str] | None = None) -> MIMEMultipart:
@@ -57,9 +57,8 @@ class Mail(FluidExtension):
             if bcc: msg["Bcc"] = ", ".join(bcc)
             msg["Subject"] = subject
 
-            for alternative in body:
-                for t, content in alternative.items():
-                    msg.attach(MIMEText(content, t, "utf-8"))
+            for t, content in body.items():
+                msg.attach(MIMEText(content, t, "utf-8"))
 
             if attachments:
                 for attachment in attachments:
@@ -82,7 +81,7 @@ class Mail(FluidExtension):
     def _send_sync(self, msg: MIMEMultipart):
         with self.client() as smtp: smtp.send_message(msg)
 
-    def send(self, to: str, subject: str, body: list[dict[str, str]],
+    def send(self, to: str, subject: str, body: dict[str, str],
              attachments: list[dict[str, bytes | str]] = None,
              from_email: str | None = None, cc: list[str] | None = None,
              bcc: list[str] | None = None, fake_async: bool = True):
@@ -91,7 +90,7 @@ class Mail(FluidExtension):
         if fake_async: Thread(target=self._send_sync, args=(msg,)).start()
         else: self._send_sync(msg)
 
-    async def send_async(self, to: str, subject: str, body: list[dict[str, str]],
+    async def send_async(self, to: str, subject: str, body: dict[str, str],
                          attachments: list[dict[str, bytes | str]] = None,
                          from_email: str | None = None, cc: list[str] | None = None,
                          bcc: list[str] | None = None):

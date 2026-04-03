@@ -1,17 +1,17 @@
 from pathlib import Path
 from configparser import ConfigParser
 from secrets import token_hex
-from selectolax.parser import HTMLParser, create_tag
 from importlib import import_module
-import typer, json, shutil, re
+import typer, json, shutil, re, sys
 
-from webfluid.cli import templates, questions
+from webfluid.cli import questions
+from webfluid.cli.create import templates
 from webfluid.surface import node_cmd, dist
 from webfluid.additives.core import installed_additives
 from webfluid.utils.framework import safe_string
 
 create = typer.Typer(help="Create a new WebFluid instances.")
-
+# TODO: Update create templates, structure and defaults
 
 def _make_defaults(
         base: Path,
@@ -106,20 +106,10 @@ def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
 
     if space == "fluid":
         config_file.write_text(_inject_base(config))
-        namespace = "fluid/frontend"
     else:
-        prefix = f"/{name}"
-        config_file.write_text(_inject_base(config, prefix))
-        namespace = f"additives/{name}/frontend"
-
-    index_file = template_dst / "index.html"
-    index = HTMLParser(index_file.read_text())
-    cookie = create_tag("script")
-    cookie.insert_child(
-        f"document.cookie = `vite_ns={namespace}; path=/`"
-    )
-    index.head.insert_child(cookie)
-    index_file.write_text(index.html)
+        config_file.write_text(
+            _inject_base(config, f"/{name}")
+        )
 
     package_json = template_dst / "package.json"
     package = json.loads(package_json.read_text())
@@ -146,22 +136,21 @@ def _setup_additives(config: ConfigParser):
     additives = [(a, p) for a, _, p in additives]
     selected_additives = questions.additives(additives)
 
-    # TODO: Implement additive configuring
-    """
+    sys.path.append(str(additive_dir.parent))
     for selected in selected_additives:
         try:
             mod = import_module(f"additives.{selected[1]}")
             adtv = getattr(mod, "additive", None)
             if not adtv:
                 raise ImportError("Failed to import 'additive: additive' from additive.")
-            additive.configure(config)
+            adtv.configure(config)
         except (ModuleNotFoundError, ImportError) as e:
-            typer.echo(typer.style(f"[{selected[0]}] Failed to load additive: {e}", fg=typer.colors.YELLOW))
-    """
+            typer.echo(typer.style(f"[{selected[0]}] Failed to load additive: {e}",
+                                   fg=typer.colors.YELLOW))
 
     for adtv in additives:
         config["additives"][adtv[0]] = "1" \
-            if adtv[0] in selected_additives \
+            if adtv in selected_additives \
             else "0"
 
 
@@ -312,15 +301,19 @@ def additive(additive_id: str):
     import_base_fn = ""
     if as_base:
         manifest["type"] = "base"
-        selected_base = questions.select_base()
-        import_base_fn = "from webfluid.additives.core import import_base\n"
-        base_import = f'\n\timport_base("{selected_base}"),'
-        manifest["frontend"] = "none"
+        manifest["frontend"] = { "type": "none" }
         index_html = templates.adtv_index_html.format(
             name=manifest["name"]
         )
     else:
         manifest["type"] = "default"
+
+        extend = questions.extend.ask()
+        if extend:
+            selected_base = questions.select_base()
+            import_base_fn = "from webfluid.additives.core import import_base\n"
+            base_import = f'\n\timport_base("{selected_base}"),'
+
         manifest["frontend"] = _frontend_conf()
         if _create_frontend(
                 additive_root,
@@ -341,8 +334,8 @@ def additive(additive_id: str):
     requirements = questions.requirements.ask()
     if requirements:
         copy = requirements.copy()
-        requirements = [f"\t\t{r}," for r in copy]
-        requirements_str = f"[\n{'\n'.join(requirements)}\t]"
+        requirements = [f"\t\t\"{r}\"," for r in copy]
+        requirements_str = f"[\n{'\n'.join(requirements)}\n\t]"
         if not base_import:
             requirements_str = "\n\trequired_extensions=" + requirements_str
         else:
@@ -411,6 +404,7 @@ def create_app(
         "EXT_SCHEDULING",
         "EXT_SQLALCHEMY",
         "EXT_BABEL",
+        "EXT_EVENTS",
         "EXT_CACHE",
         "EXT_MAIL",
         "EXT_JWT"
@@ -422,6 +416,7 @@ def create_app(
 
     config["features"] = {}
     features = (
+        "WF_THEMES",
         "WF_TAILWIND",
         "WF_PROCESSING",
         "WF_ADDITIVES"

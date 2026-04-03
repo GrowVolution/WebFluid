@@ -3,37 +3,29 @@ from logging.config import fileConfig
 import asyncio, logging
 
 from webfluid.core.ext import db
-
-# -----------------------------------------------------
-# Alembic config
-# -----------------------------------------------------
+from webfluid.utils import try_import
 
 config = context.config
 fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 
-# -----------------------------------------------------
-# Load Fluid application
-# -----------------------------------------------------
-
 def get_fluid():
     from main import create_app
-    return create_app()
+    app = create_app()
+
+    try_import("fluid.models")
+    for pkg in (app.app_root / "additives").iterdir():
+        if not pkg.is_dir(): continue
+        try_import(f"additives.{pkg.name}.models")
+
+    return app
 
 fluid = get_fluid()
 
 
-# -----------------------------------------------------
-# Metadata
-# -----------------------------------------------------
-
 target_metadata = db.Model.metadata
 
-
-# -----------------------------------------------------
-# Bind discovery
-# -----------------------------------------------------
 
 def get_bind_names():
     return list(db.binds.keys())
@@ -48,10 +40,8 @@ def get_engine_url(bind_key="default"):
     return str(engine.url).replace("%", "%%")
 
 
-# set default url
 config.set_main_option("sqlalchemy.url", get_engine_url("default"))
 
-# configure sections for each bind
 bind_names = [b for b in get_bind_names() if b != "default"]
 
 for bind in bind_names:
@@ -62,18 +52,10 @@ for bind in bind_names:
     )
 
 
-# -----------------------------------------------------
-# Metadata resolution
-# -----------------------------------------------------
-
 def get_metadata(bind):
     # TODO: Upgrade to optional Multi-Metadata later
     return target_metadata
 
-
-# -----------------------------------------------------
-# Offline migrations
-# -----------------------------------------------------
 
 def run_migrations_offline():
 
@@ -102,10 +84,6 @@ def run_migrations_offline():
         with context.begin_transaction():
             context.run_migrations(engine_name=name)
 
-
-# -----------------------------------------------------
-# Online migrations
-# -----------------------------------------------------
 
 def do_run_migrations(connection, name):
 
@@ -144,8 +122,6 @@ async def run_migrations_online():
         async with engine.connect() as connection:
             await connection.run_sync(do_run_migrations, name)
 
-
-# -----------------------------------------------------
 
 if context.is_offline_mode():
     run_migrations_offline()

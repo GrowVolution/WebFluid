@@ -1,3 +1,7 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from webfluid.additives.core import *
 
 __all__ = [
     "register_additives",

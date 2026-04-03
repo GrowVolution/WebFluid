@@ -1,5 +1,4 @@
 from importlib import import_module
-from secrets import token_hex
 from typing import TYPE_CHECKING, Callable
 import os
 
@@ -7,7 +6,7 @@ from webfluid.additives.core import installed_additives
 from webfluid.utils.framework import enabled, check_priority, build_sorted_tuple, try_import
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 _config_map: dict[int, list[type]] = {}
 
@@ -33,7 +32,11 @@ class DefaultConfig:
         "alpine": True
     }
     BASE_URL = f"http://localhost:8000"
-    SECRET_KEY = os.getenv("SECRET_KEY", token_hex(32))
+    SECRET_KEY = os.getenv("SECRET_KEY")
+
+    SESSION_COOKIE_NAME = "session"
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = "lax"
 
     PROXY_FIX = False
 
@@ -43,7 +46,7 @@ class DefaultConfig:
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", "sqlite:///app.db")
 
-    OAUTH_CLIENTS = {}
+    BABEL_DISABLE_AUTOUPDATE = False
 
     MAIL_SERVER = "localhost"
     MAIL_PORT = 587

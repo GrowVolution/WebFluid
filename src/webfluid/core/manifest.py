@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Callable
 import json
 
 from webfluid.utils.framework import check_required_version, enabled

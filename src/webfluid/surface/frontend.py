@@ -1,16 +1,16 @@
 from fastapi import Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pathlib import Path
 from git import Repo, exc
 from tqdm import tqdm
 from markupsafe import Markup
-from selectolax.parser import HTMLParser, create_tag
+from selectolax.lexbor import LexborHTMLParser, create_tag
 from mimetypes import guess_type
 from typing import TYPE_CHECKING, Callable
 import typer, requests, shutil, subprocess, os, signal
 
-from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
+from webfluid.core.constants import DEBUG, THEMES, TAILWIND, WF_STATIC
 from webfluid.surface import dist
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
@@ -314,6 +314,7 @@ class Frontend:
         self.dist: Path
         self.rel: str
         self.generate_tailwind: Callable
+        self.tailwind: str
         self._update_index = True
 
         if fluid is not None: self.cover_fluid(fluid)
@@ -345,9 +346,16 @@ class Frontend:
 
             if TAILWIND: self.generate_tailwind()
 
+        if TAILWIND:
+            if not (root_path / "static" / "css" / "tailwind.css").exists():
+                self.tailwind = ""
+                return
+
+            self.tailwind = f'<link rel="stylesheet" href="{self.prefix}/static/css/tailwind.css">'
+
     def _updated_index(self, index: str) -> str:
         if not DEBUG: return index
-        html = HTMLParser(index)
+        html = LexborHTMLParser(index)
 
         for script in html.css("script"):
             src_old = script.attributes.get("src")
@@ -382,6 +390,11 @@ class Frontend:
 
         return html.html
 
+    def _vite_index(self):
+        response = HTMLResponse(self.vite())
+        response.set_cookie("vite_ns", self.rel)
+        return response
+
     def cover_fluid(self, fluid: "Fluid"):
         self.prefix = "/frontend"
         self.rel = f"fluid{self.prefix}"
@@ -390,98 +403,101 @@ class Frontend:
             fluid.app_root / "fluid"
         )
 
+        if self.type == "vite":
+            fluid.get("/")(self._vite_index)
+
     def cover_additive(self, additive: "Additive"):
         self.prefix = f"{additive.prefix}/frontend"
         self.rel = f"additives/{additive.root_path.name}/frontend"
         self._init(
             additive.manifest["frontend"],
             additive.root_path,
-            additive.name
+            additive.id
         )
 
-    def include(self) -> Markup:
-        if self.type == "vite": return self.vite()
+        if self.type == "vite":
+            additive.app.get("/")(self._vite_index)
 
+    def include(self) -> Markup:
         template = ""
         if self.type == "htmx":
             template += f'<script src="{Frontend.htmx}"></script>\n'
             if self.alpine: template += f'<script src="{Frontend.alpine}" defer></script>\n'
 
         if TAILWIND:
-            template += ( '<link rel="stylesheet" '
-                         f'href="{self.prefix.removesuffix('/frontend')}/static'
-                          '/css/tailwind.css">')
+            template += self.tailwind
 
         return Markup(template)
 
-    def vite(self) -> Markup | str:
+    def vite(self) -> str:
         if self.type != "vite": return ""
 
         if DEBUG:
             if TAILWIND: self.generate_tailwind()
             index_file = self.root / "index.html"
-            return Markup(self._updated_index(
+            return self._updated_index(
                 index_file.read_text()
-            ))
+            )
 
         index_file = self.dist / "index.html"
-        return Markup(index_file.read_text())
+        return index_file.read_text()
 
     @classmethod
     def prepare(cls, fluid: "Fluid"):
         if DEBUG:
-            cls._proc = node_proc(
-                ["node", "node_modules/vite/bin/vite.js"],
-                fluid.app_root,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
-            )
+            def create_proc():
+                cls._proc = node_proc(
+                    ["node", "node_modules/vite/bin/vite.js"],
+                    fluid.app_root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+
             add_proxy(
                 fluid, cls._dev_server,
                 prefix=cls._dev_prefix,
                 pass_prefix=True
             )
             fluid.shutdown_hook(cls.stop)
+
         else:
-            try:
-                node_cmd(
-                    ["npm", "run", "check", "--workspaces"],
-                    fluid.app_root
+            async def create_proc():
+                try:
+                    node_cmd(
+                        ["npm", "run", "check", "--workspaces"],
+                        fluid.app_root
+                    )
+                except NodeError as e:
+                    if "No workspaces found!" not in str(e):
+                        raise e
+
+                cls._proc = node_proc(
+                    ["npm", "run", "build", "--workspaces"],
+                    fluid.app_root,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
                 )
-            except NodeError as e:
-                if "No workspaces found!" not in str(e):
-                    raise e
 
-            cls._proc = node_proc(
-                ["npm", "run", "build", "--workspaces"],
-                fluid.app_root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            async def join_later():
-                code = cls._proc.poll()
-                if code is None:
-                    code = await run_in_executor(cls._proc.wait)
+                code = await run_in_executor(cls._proc.wait)
                 if code != 0:
                     out = cls._proc.stderr or cls._proc.stdout
                     if out: out = out.read()
                     else: out = "Unknown error"
                     if "No workspaces found!" not in out:
                         raise FrontendException(out)
-            fluid.startup_hook(join_later)
 
             def mount():
                 for name, data in cls._static_files.items():
                     fluid.mount(data[0], data[1], name)
             fluid.startup_hook(mount)
 
+        fluid.startup_hook(create_proc)
+
         cls._app_root = fluid.app_root
-        fluid.startup_hook(lambda: fluid.api_route(
-            "/{path:path}",
-            methods=["GET","POST","PUT","DELETE","PATCH"]
+        fluid.startup_hook(lambda: fluid.get(
+            "/{path:path}", name="vite_asset_catch"
         )(cls._asset_catch))
 
     @classmethod

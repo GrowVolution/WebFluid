@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
 import json
 
 from webfluid.core.additive import Additive, AdditiveVersion
+from webfluid.core.constants import DEBUG
 from webfluid.utils.framework import enabled, try_import
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import ManifestError
 
 if TYPE_CHECKING:
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 _additives = {
     "additives": {},
@@ -62,12 +63,12 @@ async def register_additives(fluid: "Fluid"):
 
             try:
                 log_factory.log(f"Registering: {additive}")
-                if enabled("DEBUG_MODE"): additive.install()
+                #if DEBUG: additive.install()
                 await additive.enable(fluid)
                 loaders.append(additive.loader)
-                log_factory.log(f"[{additive.additive_name}] Additive successfully registered.")
+                log_factory.log(f"[{additive.name}] Additive successfully registered.")
             except Exception as e:
-               log_factory.exception(e, f"[{additive.additive_name}] Failed registering additive.")
+               log_factory.exception(e, f"[{additive.name}] Failed registering additive.")
 
     loaders.append(fluid.app_loader)
     if ADDITIVES: await register()
@@ -103,8 +104,19 @@ def installed_bases(package: Path, do_log: bool = False) -> list[tuple[str, str,
     return _additives["bases"][package]
 
 
-def import_base(additive_id: str) -> Additive | None:
-    mod = try_import(f"additives.{additive_id}")
+def import_base(base_id: str) -> Additive | None:
+    entry_point = try_import("main")
+    if not entry_point: return None
+
+    for base in installed_bases(Path(
+            entry_point.__file__
+    ).parent / "additives"):
+        if base[0] == base_id:
+            pkg = base[2]
+            break
+    else: return None
+
+    mod = import_module(f"additives.{pkg}")
     if not mod: return None
 
     additive = getattr(mod, "additive", None)

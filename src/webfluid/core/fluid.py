@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -9,30 +8,28 @@ from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from pathlib import Path
-from datetime import datetime, UTC
-from uuid import uuid4
 from typing import Callable
 import os, asyncio, uvicorn, signal
 
 from webfluid.core.config import Config, init_configs, build_config
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import (
-    FRAMEWORK_ROOT,
+    FRAMEWORK_ROOT, FRAMEWORK_ID, EXECUTION,
     APP_STATIC, WF_STATIC,
-    TAILWIND, PROCESSING,
+    THEMES, TAILWIND, PROCESSING,
     EXT_SCHEDULING, EXT_SQLALCHEMY,
-    EXT_BABEL, EXT_CACHE,
+    EXT_BABEL, EXT_EVENTS, EXT_CACHE,
     EXT_MAIL, EXT_JWT
 )
-from webfluid.core.ext import scheduler, db, babel, cache, mail, jwt
+from webfluid.core.ext import scheduler, db, babel, events, cache, mail, jwt
+from webfluid.core.processing import setup_processing
 from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
-from webfluid.surface.wf_tailwind import generate_tailwind_css
-from webfluid.extensions.utils.babel import get_locale, fake_t, fake_tn
+from webfluid.surface.wf_tailwind import generate_themes, generate_tailwind_css
 from webfluid.utils.framework import (get_root_path, safe_string, safe_execute,
                             required_arg_count, close_proxy_client)
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import EventHookException, ProcessorException, FrameworkException
+from webfluid.exceptions import FrameworkException
 
 
 class Fluid(FastAPI):
@@ -69,8 +66,9 @@ class Fluid(FastAPI):
         self.jinja_context = {}
         self.sources = []
         self.sources.append(
-            Markup('<script src="/wf-static/js/base.js" type="module"></script>')
+            Markup(f'<script src="{WF_STATIC}/js/base.js" type="module"></script>')
         )
+        self._themes = {}
 
         template_path = "fluid/templates"
         app_templates = FileSystemLoader(self.app_root / template_path)
@@ -79,7 +77,7 @@ class Fluid(FastAPI):
             app_templates, PrefixLoader({ "app": app_templates })
         ])
         self.framework_loader = ChoiceLoader([
-            framework_templates, PrefixLoader({ "framework": framework_templates })
+            framework_templates, PrefixLoader({ FRAMEWORK_ID: framework_templates })
         ])
 
         self._context_processors = []
@@ -110,20 +108,39 @@ class Fluid(FastAPI):
                 default_limits=self.config.get(
                     "RATELIMIT_DEFAULT", ["500/day", "100/hour"]
                 ),
-                storage_uri=self.config.get("RATELIMIT_STORAGE_URI", "redis://localhost:6379/1"),
+                storage_uri=self.config.get(
+                    "RATELIMIT_STORAGE_URI", "redis://localhost:6379/1"
+                ),
             )
             self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
         if EXT_SCHEDULING: self.startup_hook(scheduler.start)
         if EXT_SQLALCHEMY: db.expand_fluid(self)
-        if EXT_BABEL: babel.expand_fluid(self)
+
+        if EXT_BABEL:
+            babel.expand_fluid(self)
+
+            if EXECUTION:
+                from webfluid.fluid.i18n import translations
+                babel.register_domain(FRAMEWORK_ID)
+                babel.update_translations(FRAMEWORK_ID, translations)
+
+        if EXT_EVENTS: events.expand_fluid(self)
         if EXT_CACHE: cache.expand_fluid(self)
         if EXT_MAIL: mail.expand_fluid(self)
         if EXT_JWT: jwt.expand_fluid(self)
 
+        if THEMES:
+            self.startup_hook(lambda: generate_themes(self))
+            self._themes[FRAMEWORK_ID] = Markup(
+                f'<link rel="stylesheet" href="{WF_STATIC}/css/theme.css">'
+            )
+
         if TAILWIND:
             self.startup_hook(lambda: generate_tailwind_css(self))
-            self.jinja_context["wf_tailwind"] = Markup('<link rel="stylesheet" href="/wf-static/css/tailwind.css">')
+            self.jinja_context[f"{FRAMEWORK_ID}_tailwind"] = Markup(
+                f'<link rel="stylesheet" href="{WF_STATIC}/css/tailwind.css">'
+            )
 
         self.startup_hook(self._prepare)
         Frontend.prepare(self)
@@ -138,67 +155,28 @@ class Fluid(FastAPI):
 
             async with FluidContext(self, request):
                 for processor in self._request_processors["before"]:
-                    response = await safe_execute(processor, ProcessorException, request)
+                    response = await safe_execute(processor, True)
                     if response is not None: return response
                 response = await call_next(request)
                 for processor in reversed(self._request_processors["after"]):
-                    response = await safe_execute(processor, ProcessorException, request, response)
+                    response = await safe_execute(processor, True, response)
                 return response
 
-        self.add_middleware(SessionMiddleware, secret_key=secret)
+        self.add_middleware(
+            SessionMiddleware,
+            secret_key=secret,
+            session_cookie=self.config.get(
+                "SESSION_COOKIE_NAME", "session"
+            ),
+            https_only=self.config.get(
+                "SESSION_COOKIE_SECURE", False
+            ),
+            same_site=self.config.get(
+                "SESSION_COOKIE_SAMESITE", "lax"
+            )
+        )
 
-        if PROCESSING:
-            if not EXT_BABEL:
-                self.jinja_env.add_extension("jinja2.ext.i18n")
-                self.jinja_env.install_gettext_callables(
-                    fake_t, fake_tn, newstyle=True
-                )
-                lang = lambda: "en"
-            else:
-                lang = get_locale
-
-            self.context_processor(lambda: {
-                **self.jinja_context,
-
-                "LANG": lang(),
-                "YEAR": datetime.now(UTC).year,
-
-                "src": "\n\t".join(self.sources)
-            })
-
-            @self.before_request
-            def before_request(r: Request):
-                if not "id" in r.session:
-                    r.session["id"] = uuid4().hex
-
-                agent = r.headers.get("user-agent", "unknown")
-                log_factory.log(
-                    f"[Request] {r.method} {r.url.path} from {r.client.host} ({agent})"
-                )
-
-            @self.after_request
-            async def after_request(r, response: Response):
-                if response.status_code == 403:
-                    return HTMLResponse(
-                        await self.render("errors/403.html"),
-                        status_code=403
-                    )
-
-                if response.status_code == 404:
-                    return HTMLResponse(
-                        await self.render("errors/404.html"),
-                        status_code=404
-                    )
-
-                return response
-
-            @self.exception_handler(Exception)
-            async def exception_handler(request: Request, exc: Exception):
-                log_factory.exception(exc, f"{request.method} {request.url.path}")
-                return HTMLResponse(
-                    await self.render("errors/500.html", error=str(exc)),
-                    status_code=500
-                )
+        if PROCESSING: setup_processing(self)
 
         self._asgi_app = None
         self._server = None
@@ -231,7 +209,7 @@ class Fluid(FastAPI):
 
         hooks = []
         for hook in self._hooks["startup"]:
-            hooks.append(safe_execute(hook, EventHookException))
+            hooks.append(safe_execute(hook, False))
         await asyncio.gather(*hooks)
 
     async def _shutdown(self):
@@ -240,7 +218,7 @@ class Fluid(FastAPI):
 
         hooks = []
         for hook in reversed(self._hooks["shutdown"]):
-            hooks.append(safe_execute(hook, EventHookException))
+            hooks.append(safe_execute(hook, False))
         await asyncio.gather(*hooks)
 
     async def _run_server(self):
@@ -266,6 +244,10 @@ class Fluid(FastAPI):
         if self._shutdown_flag.is_set(): return
         self._shutdown_flag.set()
 
+    def _validate_theme(self, name: str):
+        if not THEMES: raise FrameworkException("Themes are not enabled.")
+        elif name in self._themes: raise FrameworkException(f"Theme '{name}' already exists.")
+
     def startup_hook(self, fn: Callable) -> Callable:
         if self._startup_lock:
             raise RuntimeError("Startup hooks cannot be added after the server was started.")
@@ -286,6 +268,25 @@ class Fluid(FastAPI):
         self._hooks["shutdown"].append(fn)
         return fn
 
+    def add_theme(self, name: str, link: Markup):
+        self._validate_theme(name)
+        self._themes[name] = link
+
+    def get_theme(self) -> Markup:
+        if not THEMES: raise FrameworkException("Themes are not enabled.")
+        try:
+            theme = FluidContext.current().request.session.get("theme")
+            if not theme:
+                theme = self.config.get("GLOBAL_THEME", FRAMEWORK_ID)
+        except RuntimeError:
+            theme = self.config.get("GLOBAL_THEME", FRAMEWORK_ID)
+
+        return self._themes.get(theme) or self._themes[FRAMEWORK_ID]
+
+    def set_theme(self, request: Request, name: str):
+        self._validate_theme(name)
+        request.session["theme"] = name
+
     def context_processor(self, fn: Callable) -> Callable:
         if required_arg_count(fn) > 0:
             raise TypeError("Context processors must not receive non optional arguments.")
@@ -293,20 +294,20 @@ class Fluid(FastAPI):
         return fn
 
     def before_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 1:
-            raise TypeError("Before request processors must receive exactly one argument (request).")
+        if required_arg_count(fn) > 0:
+            raise TypeError("Before request processors must not receive non optional arguments.")
         self._request_processors["before"].append(fn)
         return fn
 
     def after_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 2:
-            raise TypeError("After request processors must receive exactly one argument (request, response).")
+        if required_arg_count(fn) != 1:
+            raise TypeError("After request processors must receive exactly one argument (response).")
         self._request_processors["after"].append(fn)
         return fn
 
     async def render(self, template: str, **ctx) -> str:
         for processor in self._context_processors:
-            result = await safe_execute(processor, ProcessorException)
+            result = await safe_execute(processor, False)
             if not isinstance(result, dict): continue
             ctx = result | ctx
         return await self.jinja_env.get_template(template).render_async(**ctx)

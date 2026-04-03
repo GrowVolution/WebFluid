@@ -1,9 +1,9 @@
 from contextvars import ContextVar
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastapi import Request
-    from webfluid import Fluid
+    from webfluid.core.fluid import Fluid
 
 
 class BaseContext:
@@ -38,9 +38,9 @@ class BaseContext:
 
 class FluidContext(BaseContext):
     _ctx = ContextVar("fluid.context")
+    _ctx_cache = {}
 
-    def __init__(self, fluid: "Fluid", request: "Request",
-                 *args, **kwargs):
+    def __init__(self, fluid: "Fluid", request: "Request", *args, **kwargs):
         self.fluid = fluid
         self.request = request
         self._data = {}
@@ -63,3 +63,35 @@ class FluidContext(BaseContext):
     def items(self): return self._data.items()
     def get(self, key, default=None): return self._data.get(key, default)
     def pop(self, key, default=None): return self._data.pop(key, default)
+
+    @classmethod
+    def get_ctx_data(cls, default_config: object, *requirements: str) -> Any | tuple:
+        data = []
+
+        try:
+            ctx = cls.current()
+            for req in requirements:
+                if req in cls._ctx_cache:
+                    d = cls._ctx_cache[req]
+
+                else:
+                    d = ctx.fluid.config.get(
+                        req, getattr(default_config, req, None)
+                    )
+                    cls._ctx_cache[req] = d
+
+                data.append(d)
+
+        except RuntimeError:
+            from webfluid.utils.logging import factory as log_factory
+            log_factory.warning("Running outside a request, using cache or default config.")
+
+            for req in requirements:
+                if req in cls._ctx_cache:
+                    d = cls._ctx_cache[req]
+                else:
+                    d = getattr(default_config, req, None)
+
+                data.append(d)
+
+        return data[0] if len(data) == 1 else tuple(data)

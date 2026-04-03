@@ -1,4 +1,4 @@
 
 __all__ = [
-    "sqlalchemy", "babel"
+    "sqlalchemy", "babel", "security",
 ]

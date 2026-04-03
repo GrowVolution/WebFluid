@@ -5,7 +5,7 @@ from fastapi.responses import Response, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.utils import generate_unique_id
 from pydantic.main import IncEx
-from jinja2 import PrefixLoader, FileSystemLoader
+from jinja2 import PrefixLoader, FileSystemLoader, ChoiceLoader
 from functools import wraps
 from enum import Enum
 from pathlib import Path
@@ -15,11 +15,13 @@ import subprocess, sys, typer
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import PROCESSING
 from webfluid.surface.frontend import Frontend
-from webfluid.utils.framework import get_root_path, required_arg_count, safe_execute, async_result
+from webfluid.utils.framework import (get_root_path, required_arg_count,
+                                      safe_execute, async_result, try_import)
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import AdditiveException, ManifestError, EventHookException, ProcessorException
+from webfluid.exceptions import AdditiveException, ManifestError
 
 if TYPE_CHECKING:
+    from configparser import ConfigParser
     from webfluid.core.fluid import Fluid
 
 
@@ -104,37 +106,41 @@ class Additive:
         if not "additives." in import_name:
             raise AdditiveException("Additives have to be created inside the 'additives' package.")
 
-        self.additive_name = import_name.split(".")[-1]
+        self.name = import_name.split(".")[-1]
         self.import_name = import_name
         self.root_path = Path(get_root_path(import_name)).resolve()
 
         from webfluid.core.manifest import Manifest
         try: self.manifest = Manifest(self.root_path / "manifest.json")
         except (FileNotFoundError, ManifestError) as e:
-            raise AdditiveException(f"[{self.additive_name}] Failed to load manifest: {e}")
+            raise AdditiveException(f"[{self.name}] Failed to load manifest: {e}")
 
         if not "name" in self.manifest:
-            self.manifest["name"] = self.additive_name
+            self.manifest["name"] = self.name
         else:
-            self.additive_name = self.manifest["name"]
-        self.name = self.manifest["id"]
-        self.prefix = f"/{self.name.replace('_', '-')}"
+            self.name = self.manifest["name"]
+        self.id = self.manifest["id"]
+        self.prefix = f"/{self.id.replace('_', '-')}"
 
         self.is_base = self.manifest["type"] == "base"
         self.required_extensions = required_extensions or []
 
         if base and self.is_base:
-            raise AdditiveException(f"[{self.additive_name}] Base additives cannot extend other additives.")
+            raise AdditiveException(f"[{self.name}] Base additives cannot extend other additives.")
         elif base and not base.is_base:
-            raise AdditiveException(f"[{self.additive_name}] Default additives can only extend base additives.")
+            raise AdditiveException(f"[{self.name}] Default additives can only extend base additives.")
 
         self.base = base
         self.parent = None
 
         async def enable(fluid: "Fluid"):
             await self._before_enable(fluid)
+            if base: await base._before_enable(fluid)
+
             self._enable(fluid)
+
             await self._after_enable()
+            if base: await base._after_enable()
 
         from webfluid.utils.additive import require_extensions
         if base: self.required_extensions.extend(base.required_extensions or [])
@@ -142,12 +148,26 @@ class Additive:
             require_extensions(*self.required_extensions)(enable)
         )
 
-        self.static_files = StaticFiles(
-            directory=(self.root_path / "static")
-        )
-        self.loader = PrefixLoader(
-            { self.name: FileSystemLoader(self.root_path / "templates") }
-        )
+        static_path = self.root_path / "static"
+        self.static_files = None
+        if static_path.exists():
+            self.static_files = StaticFiles(
+                directory=static_path
+            )
+
+        if base:
+            self.loader = PrefixLoader(
+                { self.id: ChoiceLoader([
+                    FileSystemLoader(self.root_path / "templates"),
+                    FileSystemLoader(base.root_path / "templates")
+                ]) }
+            )
+
+        elif not self.is_base:
+            self.loader = PrefixLoader(
+                {self.id: FileSystemLoader(self.root_path / "templates")}
+            )
+
         self._context_processors = []
         self._request_processors = {
             "before": [],
@@ -174,13 +194,12 @@ class Additive:
 
         def middleware(call_next: Callable):
             async def wrapper(*args, **kwargs):
-                c = FluidContext.current()
                 for processor in self._request_processors["before"]:
-                    response = await safe_execute(processor, ProcessorException, c.request)
+                    response = await safe_execute(processor, True)
                     if response is not None: return response
-                response = await call_next(*args, **kwargs)
+                response = await safe_execute(call_next, True, *args, **kwargs)
                 for processor in reversed(self._request_processors["after"]):
-                    response = await safe_execute(processor, ProcessorException, c.request, response)
+                    response = await safe_execute(processor, True, response)
                 return response
             return wrapper
 
@@ -188,27 +207,32 @@ class Additive:
         self.app.http_middleware(middleware)
 
         if PROCESSING:
+            def url_for(name: str, **path_params):
+                ctx = FluidContext.current()
+                return ctx.request.url_for(self.unique_name(name), **path_params)
+
+            self.jinja_context["url_for"] = url_for
             self.context_processor(lambda: self.jinja_context)
 
     def __repr__(self) -> str:
-        return f"<{self.additive_name} {self.version}> {self.manifest.get('description', '')}"
+        return f"<{self.name} {self.version}> {self.manifest.get('description', '')}"
 
     async def _before_enable(self, fluid: "Fluid"):
         self._before_enable_lock = True
         for hook in self._hooks["before"]:
-            await safe_execute(hook, EventHookException, fluid)
+            await safe_execute(hook, False, fluid)
 
     def _enable(self, fluid: "Fluid"):
         if self.is_base: raise AdditiveException(
-            f"[{self.additive_name}] Base additives are not allowed be enabled."
+            f"[{self.name}] Base additives are not allowed be enabled."
         )
 
         self.manifest.check_requirements(fluid.additive_root)
 
         if self.base and self.base.parent:
             raise AdditiveException(
-                f"[{self.additive_name}] Base additive '{self.base.additive_name}' has already "
-                f"been extended by '{self.base.parent.additive_name}'."
+                f"[{self.name}] Base additive '{self.base.name}' has already "
+                f"been extended by '{self.base.parent.name}'."
             )
         elif self.base:
             self.base.manifest.check_requirements(fluid.additive_root)
@@ -216,6 +240,8 @@ class Additive:
             self.app.include_router(self.base.app)
             self.ws.include_router(self.base.ws)
             self.base.parent = self
+            self.base.prefix = self.prefix
+            self.base.id = self.id
 
         if self.frontend is not None:
             self.frontend.cover_additive(self)
@@ -226,17 +252,18 @@ class Additive:
         fluid.include_router(self.app, prefix=self.prefix)
         fluid.include_router(self.ws, prefix=self.prefix)
 
-        static_prefix = f"{self.prefix}/static"
-        fluid.static_prefixes.add(static_prefix)
-        fluid.mount(
-            static_prefix, self.static_files,
-            f"{self.name}_static"
-        )
+        if self.static_files:
+            static_prefix = f"{self.prefix}/static"
+            fluid.static_prefixes.add(static_prefix)
+            fluid.mount(
+                static_prefix, self.static_files,
+                f"{self.id}_static"
+            )
 
     async def _after_enable(self):
         self._after_enable_lock = True
         for hook in reversed(self._hooks["after"]):
-            await safe_execute(hook, EventHookException)
+            await safe_execute(hook, False)
 
     def _extract(self):
         extract_path = Path(self.root_path) / "extract"
@@ -251,12 +278,12 @@ class Additive:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 if dst.exists():
                     typer.echo(typer.style(
-                        f"[{self.additive_name}] Could not extract '{'/'.join(rel.parts)}': "
+                        f"[{self.name}] Could not extract '{'/'.join(rel.parts)}': "
                         "File already exists.", fg=typer.colors.YELLOW
                     ))
                     continue
 
-                typer.echo(f"[{self.additive_name}] Extracting '{'/'.join(rel.parts)}'.")
+                typer.echo(f"[{self.name}] Extracting '{'/'.join(rel.parts)}'.")
 
                 dst.write_bytes(
                     file.read_bytes()
@@ -266,7 +293,7 @@ class Additive:
         for_dir(extract_path, "templates")
 
         typer.echo(typer.style(
-            f"[{self.additive_name}] Finished extracting additives extract files to main app.",
+            f"[{self.name}] Finished extracting additives extract files to main app.",
             fg=typer.colors.GREEN, bold=True
         ))
 
@@ -278,13 +305,13 @@ class Additive:
         packages = requirements["packages"]
         if not isinstance(packages, list):
             typer.echo(typer.style(
-                f"[{self.additive_name}] Invalid packages requirement type: {type(packages)}",
+                f"[{self.name}] Invalid packages requirement type: {type(packages)}",
                 fg=typer.colors.YELLOW, bold=True
             ))
             return
 
         for package in packages:
-            typer.echo(f"[{self.additive_name}] Installing required package '{package}'...")
+            typer.echo(f"[{self.name}] Installing required package '{package}'...")
 
             result = subprocess.run(
                 [sys.executable, "-m", "pip", "install", "--upgrade", package],
@@ -294,7 +321,7 @@ class Additive:
 
             if result.returncode != 0:
                 typer.echo(typer.style(
-                    f"[{self.additive_name}] Failed to install package '{package}': {result.stderr}",
+                    f"[{self.name}] Failed to install package '{package}': {result.stderr}",
                     fg=typer.colors.RED, bold=True
                 ))
 
@@ -327,24 +354,27 @@ class Additive:
         return fn
 
     def before_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 1:
-            raise TypeError("Before request processors must receive exactly one argument (request).")
+        if required_arg_count(fn) > 0:
+            raise TypeError("Before request processors must not receive non optional arguments.")
         self._request_processors["before"].append(fn)
         return fn
 
     def after_request(self, fn: Callable) -> Callable:
-        if required_arg_count(fn) != 2:
-            raise TypeError("After request processors must receive exactly one argument (request, response).")
+        if required_arg_count(fn) != 1:
+            raise TypeError("After request processors must receive exactly one argument (response).")
         self._request_processors["after"].append(fn)
         return fn
 
     async def render(self, template: str, **ctx) -> str:
         for processor in self._context_processors:
-            result = await safe_execute(processor, ProcessorException)
+            result = await safe_execute(processor, False)
             if not isinstance(result, dict): continue
             ctx = result | ctx
         c = FluidContext.current()
-        return await c.fluid.render(f"{self.name}/{template}", **ctx)
+        return await c.fluid.render(f"{self.id}/{template}", **ctx)
+
+    def unique_name(self, name: str) -> str:
+        return f"{self.id}_{name}"
 
     def install(self):
         if self.base:
@@ -352,6 +382,53 @@ class Additive:
             self.base._install_packages()
         self._extract()
         self._install_packages()
+
+    def configure(self, config: "ConfigParser"):
+        if self.base: self.base.configure(config)
+
+        mod = try_import(f"{self.import_name}.config")
+        if mod is None: return
+
+        name = self.id
+        setup = getattr(mod, "setup", None)
+        if setup is None: return
+        elif not isinstance(setup, dict):
+            typer.secho(f"[{name}] Attribute 'setup' in '{self.import_name}.config' must be a dict.",
+                        fg=typer.colors.YELLOW)
+            return
+
+        from webfluid.cli import questions
+        config[name] = {}
+
+        for key, settings in setup.items():
+            if "type" not in settings:
+                typer.secho(f"[{name}] Missing 'type' in setup settings for '{key}'.",
+                            fg=typer.colors.YELLOW)
+                continue
+            elif settings["type"] not in {"select", "checkbox", "text", "confirm", "auto"}:
+                typer.secho(f"[{name}] Invalid 'type' in setup settings for '{key}': {settings['type']}.",
+                            fg=typer.colors.YELLOW)
+                continue
+
+            key_type = settings["type"]
+            if key_type != "auto" and "message" not in settings:
+                typer.secho(f"[{name}] Missing 'message' in setup settings for '{key}'.",
+                            fg=typer.colors.YELLOW)
+                continue
+            elif key_type == "auto" and "value" not in settings:
+                typer.secho(f"[{name}] Missing 'value' in setup settings for '{key}'.",
+                            fg=typer.colors.YELLOW)
+                continue
+
+            if key_type == "auto":
+                config[name][key] = settings["value"]
+                continue
+
+            question = getattr(questions, key_type)
+            message = settings["message"]
+            kwargs = settings.get("kwargs", {})
+
+            config[name][key] = question(message, **kwargs).ask()
 
     @property
     def version(self) -> AdditiveVersion:

@@ -45,64 +45,101 @@ def fixed_choice(title: str, value: Any) -> questionary.Choice:
     )
 
 
+def select(message: str, choices: list[Any | questionary.Choice],
+           **kwargs) -> questionary.Question:
+    std = {
+        "qmark": qmark,
+        "pointer": pointer,
+        "style": style
+    }
+    return questionary.select(
+        message,
+        choices=choices,
+        **(std | kwargs)
+    )
+
+
+def checkbox(message: str, choices: list[Any | questionary.Choice],
+             **kwargs) -> questionary.Question:
+    std = {
+        "qmark": qmark,
+        "pointer": pointer
+    }
+    return questionary.checkbox(
+        message,
+        choices=choices,
+        **(std | kwargs)
+    )
+
+
+def text(message: str, **kwargs) -> questionary.Question:
+    std = {
+        "qmark": qmark,
+        "style": style
+    }
+    return questionary.text(
+        message,
+        **(std | kwargs)
+    )
+
+
+def confirm(message: str, **kwargs) -> questionary.Question:
+    std = {
+        "qmark": qmark,
+        "style": style
+    }
+    return questionary.confirm(
+        message,
+        **(std | kwargs)
+    )
+
+
 ###################################################
 #                   wf create                     #
 ###################################################
 
-frontend_type = questionary.select(
+frontend_type = select(
     "Select your frontend type:",
     choices=[
         choice("🚫  None", "none"),
         choice("</> HTMX", "htmx"),
-        choice(" ⚡ Vite", "vite"),
+        choice("⚡  Vite", "vite"),
     ],
-    default="none",
-    qmark=qmark,
-    pointer=pointer,
-    style=style
+    default="none"
 )
 
-frontend_framework = questionary.select(
+frontend_framework = select(
     "Select your frontend framework:",
     choices=[
         choice("🚫  None", "none"),
         choice("⚛️  React", "react"),
         choice("🟢  Vue", "vue"),
         choice("🔥  Svelte", "svelte"),
-        choice(" ◆ Solid", "solid"),
+        choice("◆  Solid", "solid"),
         choice("📦  Preact", "preact"),
         choice("💡  Lit", "lit"),
-        choice(" ⚡ Qwik", "qwik"),
+        choice("⚡  Qwik", "qwik"),
     ],
-    default="none",
-    qmark=qmark,
-    pointer=pointer,
-    style=style
+    default="none"
 )
 
-use_typescript = questionary.confirm(
+use_typescript = confirm(
     "Do you want to use TypeScript?",
-    default=False,
-    qmark=qmark,
-    style=style
+    default=False
 )
 
-use_alpine = questionary.confirm(
+use_alpine = confirm(
     "Do you want to use AlpineJS?",
-    default=False,
-    qmark=qmark,
-    style=style
+    default=False
 )
 
 #-------------- additive manifest-----------------#
 
 
 def confirm_safe_id(given: str, suggestion: str) -> bool:
-    return questionary.confirm(
+    return confirm(
         f"Invalid id format '{given}'. Continue with '{suggestion}' instead?",
-        default=True,
-        qmark=qmark,
-        style=style
+        default=True
     ).ask()
 
 
@@ -116,13 +153,10 @@ def select_base() -> str:
         choice(f"<{base_id} {version}>", base_id)
         for base_id, version, _ in bases
     ]
-    return questionary.select(
+    return select(
         "Select your base additive:",
         choices=choices,
-        default=choices[0],
-        qmark=qmark,
-        pointer=pointer,
-        style=style
+        default=choices[0]
     ).ask()
 
 
@@ -132,56 +166,48 @@ def additive_name(additive_id: str) -> str:
         parts[i] = part.capitalize()
 
     default = " ".join(parts)
-    return questionary.text(
+    return text(
         "Enter your additive name:",
-        default=default,
-        qmark=qmark,
-        style=style
+        default=default
     ).ask()
 
 
-version_format = questionary.select(
+version_format = select(
     "Select a version format:",
     choices=[
         "1",
         "1.0",
         "1.0.0"
     ],
-    default="1.0",
-    qmark=qmark,
-    pointer=pointer,
-    style=style
+    default="1.0"
 )
 
-as_base = questionary.confirm(
+as_base = confirm(
     "Do you want to create a base additive?",
-    default=False,
-    qmark=qmark,
-    style=style
+    default=False
 )
 
-description = questionary.text(
+extend = confirm(
+    "Do you want to extend an existing additive?",
+    default=False
+)
+
+description = text(
     "Describe your additive:",
-    default="",
-    qmark=qmark,
-    style=style
+    default=""
 )
 
-author = questionary.text(
+author = text(
     "Enter your name or nickname:",
-    default="",
-    qmark=qmark,
-    style=style
+    default=""
 )
 
-email = questionary.text(
+email = text(
     "Enter your email address:",
-    default="",
-    qmark=qmark,
-    style=style
+    default=""
 )
 
-requirements = questionary.checkbox(
+requirements = checkbox(
     "Select your additive requirements:",
     choices=[
         "scheduling",
@@ -190,20 +216,16 @@ requirements = questionary.checkbox(
         "cache",
         "mail",
         "jwt"
-    ],
-    qmark=qmark,
-    style=style
+    ]
 )
 
 #------------------ app config -------------------#
 
 
 def database_uri(name: str) -> str:
-    return questionary.text(
+    return text(
         "DATABASE_URI: ",
-        default=f"sqlite:///{name}.db",
-        qmark=qmark,
-        style=style
+        default=f"sqlite:///{name}.db"
     ).ask()
 
 
@@ -212,100 +234,82 @@ def additives(installed: list[tuple[str, str]]) -> list[str]:
         fixed_choice(src[0], src)
         for src in installed
     ]
-    return questionary.checkbox(
-        "Enable your additives:",
-        choices=choices,
-        qmark=qmark,
-        style=style
+    return checkbox(
+        "Enable your additives:     ",
+        choices=choices
     ).ask()
 
 
-redis_uri = questionary.text(
+redis_uri = text(
     "REDIS_URI:    ",
-    default="redis://localhost:6379",
-    qmark=qmark,
-    style=style
+    default="redis://localhost:6379"
 )
 
-mail_username = questionary.text(
+mail_username = text(
     "MAIL_USERNAME:",
-    default="",
-    qmark=qmark,
-    style=style
+    default=""
 )
 
-mail_password = questionary.text(
+mail_password = text(
     "MAIL_PASSWORD:",
-    default="",
-    qmark=qmark,
-    style=style
+    default=""
 )
 
-extensions = questionary.checkbox(
+extensions = checkbox(
     "Enable your app extensions:",
     choices=[
         "EXT_SCHEDULING",
         questionary.Choice("EXT_SQLALCHEMY", checked=True),
         questionary.Choice("EXT_BABEL", checked=True),
+        questionary.Choice("EXT_EVENTS", checked=True),
         "EXT_CACHE",
         "EXT_MAIL",
         "EXT_JWT"
-    ],
-    qmark=qmark,
-    style=style
+    ]
 )
 
-features = questionary.checkbox(
+features = checkbox(
     "Enable your app features:  ",
     choices=[
+        questionary.Choice("WF_THEMES", checked=True),
         questionary.Choice("WF_TAILWIND", checked=True),
         questionary.Choice("WF_PROCESSING", checked=True),
         questionary.Choice("WF_ADDITIVES", checked=True)
-    ],
-    qmark=qmark,
-    style=style
+    ]
 )
 
 ###################################################
 #                    wf run                       #
 ###################################################
 
-host = questionary.text(
+host = text(
     "Enter the host address:",
-    default="127.0.0.1",
-    qmark=qmark,
-    style=style
+    default="127.0.0.1"
 )
 
-port = questionary.text(
+port = text(
     "Enter the port number: ",
     default="8000",
-    validate=lambda x: x.isdigit(),
-    qmark=qmark,
-    style=style
+    validate=lambda x: x.isdigit()
 )
 
-debug_mode = questionary.confirm(
+debug_mode = confirm(
     "Run in debug mode?     ",
-    default=False,
-    qmark=qmark,
-    style=style
+    default=False
 )
 
-menu = questionary.select(
+menu = select(
     "What do you want to do:",
     choices=[
         fixed_choice("🔄  Restart", 0),
-        fixed_choice(" ⏹ Stop", 1),
-        fixed_choice(" ▶ Start (if stopped)", 2),
+        fixed_choice("⏹  Stop", 1),
+        fixed_choice("▶  Start (if stopped)", 2),
 
         fixed_choice("📜  Join log (console)", 3),
-        fixed_choice(" 🗑 Clear log folder", 4),
+        fixed_choice("🗑  Clear log folder", 4),
 
         fixed_choice("🧹  Clear console", 5),
 
         fixed_choice("🚪  Exit", 6)
-    ],
-    qmark=qmark,
-    style=style
+    ]
 )

@@ -10,3 +10,4 @@ dist/
 .coverage
 tailwind.exe
 tailwind.css
+theme.css

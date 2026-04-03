@@ -22,14 +22,15 @@ dependencies = [
     "aiosqlite",
     "redis>=7.3.0",
     "alembic",
-    "strawberry-graphql",
 
     "uvicorn",
     "asgiref",
     "requests",
     "httpx",
     "websockets",
-    "slowapi[redis]",
+    "slowapi>=0.1.9",
+    "limits>=5.8.0",
+    "packaging>=26.0",
     "python-multipart",
     "apscheduler",
     "aiosmtplib",
@@ -40,7 +41,6 @@ dependencies = [
 
     "argon2_cffi",
     "itsdangerous",
-    "authlib",
     "pyjwt",
 
     "typer",

@@ -1,0 +1,72 @@
+@layer theme;
+@import "tailwindcss/theme.css" layer(theme);
+
+@theme {
+    --color-primary-1: #748BA7;
+    --color-primary-2: #4B688B;
+    --color-primary-3: #2B4A6F;
+    --color-primary-4: #143153;
+    --color-primary-5: #051C38;
+
+    --color-secondary-1: #837EB1;
+    --color-secondary-2: #5B5494;
+    --color-secondary-3: #392276;
+    --color-secondary-4: #1F1959;
+    --color-secondary-5: #0D083B;
+
+    --color-tertiary-1: #6FA798;
+    --color-tertiary-2: #468B78;
+    --color-tertiary-3: #256F5B;
+    --color-tertiary-4: #0E5440;
+    --color-tertiary-5: #003828;
+
+
+    --color-primary-dark-1: #5A6F88;
+    --color-primary-dark-2: #3A536E;
+    --color-primary-dark-3: #223B56;
+    --color-primary-dark-4: #112943;
+    --color-primary-dark-5: #031426;
+
+    --color-secondary-dark-1: #68639A;
+    --color-secondary-dark-2: #4A447C;
+    --color-secondary-dark-3: #2E1B5E;
+    --color-secondary-dark-4: #18134A;
+    --color-secondary-dark-5: #09062F;
+
+    --color-tertiary-dark-1: #5A8C7F;
+    --color-tertiary-dark-2: #376F60;
+    --color-tertiary-dark-3: #1D5747;
+    --color-tertiary-dark-4: #0B4333;
+    --color-tertiary-dark-5: #002A20;
+
+
+    --color-default-1: var(--color-slate-400);
+    --color-default-2: var(--color-slate-500);
+    --color-default-3: var(--color-slate-600);
+    --color-default-4: var(--color-slate-700);
+    --color-default-5: var(--color-slate-800);
+
+    --color-success-1: var(--color-green-400);
+    --color-success-2: var(--color-green-500);
+    --color-success-3: var(--color-green-600);
+    --color-success-4: var(--color-green-700);
+    --color-success-5: var(--color-green-800);
+
+    --color-warning-1: var(--color-yellow-400);
+    --color-warning-2: var(--color-yellow-500);
+    --color-warning-3: var(--color-yellow-600);
+    --color-warning-4: var(--color-yellow-700);
+    --color-warning-5: var(--color-yellow-800);
+
+    --color-danger-1: var(--color-red-400);
+    --color-danger-2: var(--color-red-500);
+    --color-danger-3: var(--color-red-600);
+    --color-danger-4: var(--color-red-700);
+    --color-danger-5: var(--color-red-800);
+
+    --color-info-1: var(--color-blue-400);
+    --color-info-2: var(--color-blue-500);
+    --color-info-3: var(--color-blue-600);
+    --color-info-4: var(--color-blue-700);
+    --color-info-5: var(--color-blue-800);
+}

@@ -3,8 +3,8 @@
 [alembic]
 # template used to generate migration files
 # file_template = %%(rev)s_%%(slug)s
-script_location = migrations
-prepend_sys_path = .
+script_location = %(here)s/migrations_{app}
+prepend_sys_path = %(here)s/..
 
 # set to 'true' to run the environment during
 # the 'revision' command, regardless of autogenerate

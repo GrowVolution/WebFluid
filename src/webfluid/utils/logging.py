@@ -5,7 +5,8 @@ from typing import Callable
 import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
-from webfluid.utils.framework import enabled, async_result
+from webfluid.core.constants import EXECUTION
+from webfluid.utils.framework import async_result
 
 
 class _LogContext(BaseContext):
@@ -38,7 +39,6 @@ class _Formatter(logging.Formatter):
 
 class LogFactory:
     def __init__(self):
-        self._execution = False
         self.formatter = _Formatter()
 
         self.colored_console = logging.StreamHandler(sys.stdout)
@@ -60,7 +60,7 @@ class LogFactory:
         return wrapper
 
     def log(self, message: str, category: int = INFO):
-        if not self._execution: return
+        if not EXECUTION: return
         self.logger.log(category, message)
 
     def debug(self, message: str): self.log(message, DEBUG)
@@ -76,8 +76,7 @@ class LogFactory:
         self.error(f"{msg}{type(exc).__name__}: {exc}\n{tb_str.strip()}")
 
     def start_session(self):
-        self._execution = enabled("IN_EXECUTION")
-        if not self._execution: return
+        if not EXECUTION: return
 
         loglevel = os.environ.get("LOG_LEVEL", "info")
         loglevel = loglevel.upper()

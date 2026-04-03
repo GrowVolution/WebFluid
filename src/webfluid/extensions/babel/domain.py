@@ -4,12 +4,11 @@ import os
 
 from webfluid.core.context import FluidContext
 from webfluid.extensions.babel.translations import MergedTranslations
-from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.utils.babel import get_locale
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
     from os import PathLike
+    from webfluid.core.fluid import Fluid
 
 
 class Domain:
@@ -39,38 +38,3 @@ class Domain:
             self.cache[str(locale)] = translations
 
         return translations
-
-    def gettext(self, string: str, **variables: Any):
-        t = self.get_translations()
-        if variables:  return t.gettext(string) % variables
-        return t.gettext(string)
-
-    def ngettext(self, singular: str, plural: str, num: int, **variables: Any):
-        variables.setdefault("num", num)
-        t = self.get_translations()
-        return t.ngettext(singular, plural, num) % variables
-
-    def pgettext(self, context: str, string: str, **variables: Any):
-        t = self.get_translations()
-        if variables:
-            return t.pgettext(context, string) % variables
-        return t.pgettext(context, string)
-
-    def npgettext(
-            self, context: str, singular: str, plural: str, num: int, **variables: Any
-    ):
-        variables.setdefault("num", num)
-        t = self.get_translations()
-        return t.npgettext(context, singular, plural, num) % variables
-
-    def lazy_gettext(self, string: str, **variables: Any):
-        return LazyString(self.gettext, string, **variables)
-
-    def lazy_ngettext(self, singular: str, plural: str, num: int, **variables: Any):
-        return LazyString(self.ngettext, singular, plural, num, **variables)
-
-    def lazy_pgettext(self, context: str, string: str, **variables: Any):
-        return LazyString(self.pgettext, context, string, **variables)
-
-    def lazy_npgettext(self, context: str, singular: str, plural: str, num: int, **variables: Any):
-        return LazyString(self.npgettext, context, singular, plural, num, **variables)

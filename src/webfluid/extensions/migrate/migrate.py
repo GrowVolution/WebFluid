@@ -29,15 +29,16 @@ class Migrate(FluidExtension):
 
     @staticmethod
     @_cli.command()
-    def init():
+    def init(app: str):
         project_root = Path.cwd()
 
-        migrations_dir = project_root / "migrations"
-        alembic_ini = project_root / "alembic.ini"
+        (project_root / "migrate").mkdir(exist_ok=True)
+        migrations_dir = project_root / "migrate" / f"migrations_{app}"
+        alembic_ini = project_root / "migrate" / f"alembic_{app}.ini"
 
         if migrations_dir.exists() or alembic_ini.exists():
             typer.secho(
-                "Migration environment already initialized.",
+                f"[{app}] Migration environment already initialized.",
                 fg=typer.colors.YELLOW
             )
             raise typer.Exit()
@@ -58,9 +59,9 @@ class Migrate(FluidExtension):
             template_dir / "migrations",
             migrations_dir
         )
-        shutil.copyfile(
-            template_dir / "alembic.ini.mako",
-            alembic_ini
+        alembic_ini.write_text(
+            (template_dir / "alembic.ini.mako").read_text()
+            .format(app=app)
         )
         (migrations_dir / "versions").mkdir(exist_ok=True)
 
@@ -82,7 +83,7 @@ class Migrate(FluidExtension):
                 "--autogenerate", "-a"
             )
     ):
-        base_cmd = ["alembic", "revision"]
+        base_cmd = ["alembic", "-c", f"migrate/alembic_{app}.ini", "revision"]
         if autogenerate: base_cmd.append("--autogenerate")
         base_cmd += ["-m", f"[{app}] "
                            f"[{datetime.now(UTC).strftime('%Y-%m-%d_%H-%M-%S')}] "
@@ -98,7 +99,8 @@ class Migrate(FluidExtension):
     @_cli.command()
     def upgrade(app: str):
         subprocess.run(
-            ["alembic", "upgrade", "head"],
+            ["alembic", "-c", f"migrate/alembic_{app}.ini",
+             "upgrade", "head"],
             check=True,
             env=_manipulated_env(app),
             cwd=Path.cwd()
@@ -114,7 +116,8 @@ class Migrate(FluidExtension):
             )
     ):
         subprocess.run(
-            ["alembic", "downgrade", revision],
+            ["alembic", "-c", f"migrate/alembic_{app}.ini",
+             "downgrade", revision],
             check=True,
             env=_manipulated_env(app),
             cwd=Path.cwd()

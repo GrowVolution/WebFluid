@@ -77,6 +77,11 @@ def get_timezone() -> ZoneInfo:
     return ZoneInfo(tz)
 
 
+def format_message(message: str, **variables: Any) -> str:
+    if variables: return message % variables
+    return message
+
+
 def _get_format(
         key: "DateFormatKey",
         fmt: "DateFormat" = None,

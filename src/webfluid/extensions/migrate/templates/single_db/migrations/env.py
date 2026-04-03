@@ -3,33 +3,31 @@ from logging.config import fileConfig
 import asyncio, logging
 
 from webfluid.core.ext import db
+from webfluid.utils import try_import
 
-# Alembic config
 config = context.config
-
 fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
-# -----------------------------------------------------
-# Load Fluid app
-# -----------------------------------------------------
 
 def get_fluid():
     from main import create_app
-    return create_app()
+    app = create_app()
+
+    try_import("fluid.models")
+    for pkg in (app.app_root / "additives").iterdir():
+        if not pkg.is_dir(): continue
+        try_import(f"additives.{pkg.name}.models")
+
+    return app
 
 fluid = get_fluid()
 
-# SQLAlchemy metadata
+
 target_metadata = db.Model.metadata
 
 
-# -----------------------------------------------------
-# Engine resolution
-# -----------------------------------------------------
-
 def get_engine():
-    # default bind
     return db.binds["default"].async_engine
 
 
@@ -40,10 +38,6 @@ def get_engine_url():
 
 config.set_main_option("sqlalchemy.url", get_engine_url())
 
-
-# -----------------------------------------------------
-# Offline migrations
-# -----------------------------------------------------
 
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
@@ -58,10 +52,6 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
-
-# -----------------------------------------------------
-# Online migrations
-# -----------------------------------------------------
 
 def do_run_migrations(connection):
 
@@ -90,8 +80,6 @@ async def run_migrations_online():
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
 
-
-# -----------------------------------------------------
 
 if context.is_offline_mode():
     run_migrations_offline()

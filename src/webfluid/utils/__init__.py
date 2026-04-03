@@ -1,3 +1,7 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from webfluid.utils.framework import *
 
 __all__ = [
     "enabled", "random_code", "safe_string", "camel_to_snake", "get_root_path", "required_arg_count",

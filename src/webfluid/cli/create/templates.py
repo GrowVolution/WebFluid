@@ -115,23 +115,26 @@ if __name__ == "__main__":
 """
 
 
-gitignore = """[folders]
+app_gitignore = """[folders]
 .vscode/
 .idea/
 .venv/
 __pycache__/
+node_modules/
 app_configs/
-services/
+app_services/
 additives/
-instance/
-migrations/
+migrate/
 translations/
 dist/
 logs/
 
 [files]
 messages.pot
-tailwind.css"""
+theme.css
+tailwind.css
+_my_config.py
+*.db"""
 
 
 ###################################################
@@ -210,12 +213,27 @@ def before_enable(_):
     additive.app.get("/")(index)
 """
 
+adtv_gitignore = """[folders]
+.vscode/
+.idea/
+node_modules/
+translations/
+dist/
+
+[files]
+frontend/README.md
+frontend/_gitignore
+messages.pot
+theme.css
+tailwind.css
+_my_config.py"""
+
 
 ###################################################
 #               Shared Templates                  #
 ###################################################
 
-health_py = """from webfluid.utils.framework import async_result
+health_py = """from webfluid.utils import async_result
 from datetime import datetime, UTC
 
 

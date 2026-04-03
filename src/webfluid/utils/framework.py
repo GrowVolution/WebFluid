@@ -83,11 +83,16 @@ async def async_result(result: Any) -> Any:
 
 
 async def safe_execute(
-        fn: Callable, exception_class: type[Exception],
+        fn: Callable, reraise: bool,
         *args, **kwargs
 ) -> Any:
     try: return await async_result(fn(*args, **kwargs))
-    except Exception as e: raise exception_class(e)
+    except Exception as e:
+        if reraise: raise
+        else:
+            from .logging import factory as log_factory
+            log_factory.exception(e)
+    return None
 
 
 async def run_in_executor(fn: Callable, *args, executor=None):

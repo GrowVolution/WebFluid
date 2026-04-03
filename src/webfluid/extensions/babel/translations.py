@@ -3,65 +3,57 @@ from sqlalchemy import UniqueConstraint, select
 from babel.support import Translations
 import asyncio
 
-from webfluid.core.ext import db
-from webfluid.exceptions import FrameworkException
+from webfluid.core.ext import db, babel
+from webfluid.utils.logging import factory as log_factory
+
+
+def _plural_key(locale: str, key: str, num: int) -> str:
+    lc = babel.load_locale(locale)
+    return f"{lc.plural_form(num)}:{key}"
 
 
 class I18nMessage(db.Model):
-    __bind_set__ = False
-
     id: Mapped[int] = mapped_column(primary_key=True)
-    domain: Mapped[str] = mapped_column(nullable=False, default="messages")
-    locale: Mapped[str] = mapped_column(nullable=False)
-    key: Mapped[str] = mapped_column(nullable=False)
-    text: Mapped[str] = mapped_column(nullable=False)
-    num: Mapped[int] = mapped_column(nullable=False)
+    locale: Mapped[str]
+    domain: Mapped[str] = mapped_column(default="messages")
+    key: Mapped[str]
+    text: Mapped[str]
     ctx: Mapped[str | None]
 
-    __table_args__ = (UniqueConstraint("domain", "locale", "key", "num", "ctx"),)
+    __table_args__ = (UniqueConstraint("locale", "domain", "key", "ctx"),)
 
-    def __init__(self, domain: str, locale: str, key: str, text: str,
-                 num: int = 1, ctx: str | None = None):
-        self.domain = domain
+    def __init__(self, locale: str, domain: str, key: str, text: str,
+                 ctx: str | None = None):
         self.locale = locale
+        self.domain = domain
         self.key = key
         self.text = text
-        self.num = num
         if ctx is not None: self.ctx = ctx
-
-    @classmethod
-    def set_bind(cls, key: str):
-        if cls.__bind_set__:
-            raise FrameworkException("Translation DB bind has already been set!")
-        cls.__bind_key__ = key
-        cls.__bind_set__ = True
 
 
 class MergedTranslations(Translations):
     _locks = {}
     _db_cache = {}
 
-    def __init__(self, wrapped: Translations, domain: str, locale: str):
+    def __init__(self, wrapped: Translations, locale: str, domain: str):
         super().__init__()
         self._wrapped = wrapped
-        self._domain = domain
         self._locale = locale
+        self._domain = domain
 
-    def _db_get(self, message: str, num: int = 1, ctx: str = None) -> str | None:
-        domain_cache = self._db_cache.get(self._domain)
-        if not domain_cache: return None
-
-        locale_cache = domain_cache.get(self._locale)
+    def _db_get(self, key: str, num: int = 1, ctx: str = None) -> str | None:
+        locale_cache = MergedTranslations.cache(self._locale)
         if not locale_cache: return None
 
+        domain_cache = locale_cache.get(self._domain)
+        if not domain_cache: return None
+
+        key = _plural_key(self._locale, key, num)
+        key_cache = domain_cache.get(key)
+        if not key_cache: return None
+
         ctx = ctx or ""
-        ctx_cache = locale_cache.get(ctx)
-        if not ctx_cache: return None
-
-        num_cache = ctx_cache.get(num)
-        if not num_cache: return None
-
-        return num_cache.get(message)
+        return key_cache.get(ctx)
 
     def _mo_get(self, message: str) -> str | None:
         return self._wrapped.gettext(message)
@@ -81,8 +73,7 @@ class MergedTranslations(Translations):
         return self._mo_get(message)
 
     def ngettext(self, singular: str, plural: str, n: int) -> str:
-        key = plural if n != 1 else singular
-        db_val = self._db_get(key, n)
+        db_val = self._db_get(singular, n)
         if db_val: return db_val
         return self._mo_nget(singular, plural, n)
 
@@ -92,27 +83,83 @@ class MergedTranslations(Translations):
         return self._mo_pget(context, message)
 
     def npgettext(self, context: str, singular: str, plural: str, num: int) -> str:
-        key = plural if num != 1 else singular
-        db_val = self._db_get(key, num, context)
+        db_val = self._db_get(singular, num, context)
         if db_val: return db_val
         return self._mo_pnget(context, singular, plural, num)
 
+    async def settext(self, key: str, message: str):
+        await MergedTranslations._set(self._locale, self._domain, key, message)
+
+    async def nsettext(self, key: str, message: str, num: int):
+        await MergedTranslations._set(self._locale, self._domain, key, message, num)
+
+    async def psettext(self, key: str, message: str, context: str):
+        await MergedTranslations._set(self._locale, self._domain, key, message, ctx=context)
+
+    async def npsettext(self, key: str, message: str, num: int, context: str):
+        await MergedTranslations._set(self._locale, self._domain, key, message, num, context)
+
     @classmethod
-    async def update_cache(cls, domain: str, locale: str):
+    async def _set(cls, locale: str, domain: str, key: str, message: str,
+                   num: int = 1, ctx: str = None):
+        lock = cls._ensure_cache_and_lock(locale, domain)
+        async with lock:
+            async with db.async_executor(model=I18nMessage) as e:
+                key = _plural_key(locale, key, num)
+
+                result = await e.exec(
+                    select(I18nMessage).where(
+                        I18nMessage.locale == locale,
+                        I18nMessage.domain == domain,
+                        I18nMessage.key == key,
+                        I18nMessage.ctx == ctx
+                    )
+                )
+
+                row = result.first()
+                if row:
+                    row.text = message
+                else:
+                    await e.insert(I18nMessage(
+                        locale, domain,
+                        key, message, ctx
+                    ))
+
+            if key not in cls._db_cache[locale][domain]:
+                cls._db_cache[locale][domain][key] = {}
+
+            ctx = ctx or ""
+            cls._db_cache[locale][domain][key][ctx] = message
+
+    @classmethod
+    def _ensure_cache_and_lock(cls, locale: str, domain: str) -> asyncio.Lock:
+        if locale not in cls._db_cache:
+            cls._db_cache[locale] = {}
+
+        if domain not in cls._db_cache[locale]:
+            cls._db_cache[locale][domain] = {}
+
+        if locale not in cls._locks:
+            cls._locks[locale] = {}
+
+        return cls._locks[locale].setdefault(
+            domain, asyncio.Lock()
+        )
+
+    @classmethod
+    def cache(cls, locale: str) -> dict | None:
+        locale_cache = cls._db_cache.get(locale)
+        return locale_cache
+
+    @classmethod
+    async def db_load(cls, locale: str, domain: str):
         if (
-                domain in cls._db_cache
-                and locale in cls._db_cache[domain]
+                locale in cls._db_cache
+                and domain in cls._db_cache[locale]
         ):
             return
 
-        if domain not in cls._locks:
-            cls._locks[domain] = {}
-        if domain not in cls._db_cache:
-            cls._db_cache[domain] = {}
-
-        lock = cls._locks[domain].setdefault(
-            locale, asyncio.Lock()
-        )
+        lock = cls._ensure_cache_and_lock(domain, locale)
 
         async with lock:
             async with db.async_executor(model=I18nMessage) as e:
@@ -121,17 +168,64 @@ class MergedTranslations(Translations):
                     .where(
                         I18nMessage.domain == domain,
                         I18nMessage.locale == locale,
-                        )
+                    )
                 )
                 rows = results.all()
 
                 new_cache = {}
                 for r in rows:
-                    ctx = r.ctx or ""
-                    if r.ctx not in new_cache:
-                        new_cache[ctx] = {}
-                    if r.num not in new_cache[ctx]:
-                        new_cache[ctx][r.num] = {}
-                    new_cache[ctx][r.num][r.key] = r.text
+                    if r.key not in new_cache:
+                        new_cache[r.key] = {}
 
-            cls._db_cache[domain][locale] = new_cache
+                    ctx = r.ctx or ""
+                    new_cache[r.key][ctx] = r.text
+
+            cls._db_cache[locale][domain] = new_cache
+
+    @classmethod
+    async def update(cls, domain: str, translations: dict):
+        async with db.async_executor(model=I18nMessage) as e:
+            for locale, keys in translations.items():
+
+                lock = cls._ensure_cache_and_lock(domain, locale)
+                async with lock:
+
+                    new_cache = cls._db_cache[domain][locale]
+                    for key, forms in keys.items():
+                        for data, msg in forms.items():
+                            key = f"{data[0]}:{key}"
+                            if key not in new_cache:
+                                new_cache[key] = {}
+
+                            if not msg:
+                                log_factory.warning(
+                                    "[Babel] Missing message for "
+                                    f"locale '{locale}' and key '{key}' "
+                                    f"at domain '{domain}'."
+                                )
+                                continue
+
+                            ctx = data[1] if len(data) > 1 else None
+
+                            result = await e.exec(
+                                select(I18nMessage).where(
+                                    I18nMessage.locale == locale,
+                                    I18nMessage.domain == domain,
+                                    I18nMessage.key == key,
+                                    I18nMessage.ctx == ctx,
+                                )
+                            )
+
+                            row = result.first()
+                            if row:
+                                row.text = msg
+                            else:
+                                await e.insert(I18nMessage(
+                                    locale, domain,
+                                    key, msg, ctx
+                                ))
+
+                            ctx = ctx or ""
+                            new_cache[key][ctx] = msg
+
+                    cls._db_cache[locale][domain] = new_cache

@@ -4,7 +4,8 @@ from contextlib import contextmanager, asynccontextmanager
 from markupsafe import Markup
 from babel import Locale
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from functools import wraps
+from typing import TYPE_CHECKING, Callable, Any
 import sys, subprocess, typer, json, asyncio
 
 from webfluid.extensions.base import FluidExtension
@@ -15,7 +16,10 @@ from webfluid.extensions.babel.constants import (
     DateFormat,
     DateFormatKey
 )
+from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.utils.babel import (
+    parse_best_match,
+    format_message,
     format_currency,
     format_date,
     format_datetime,
@@ -27,14 +31,13 @@ from webfluid.extensions.utils.babel import (
     format_timedelta
 )
 from webfluid.core.context import BaseContext
-from webfluid.core.constants import FRAMEWORK_ROOT, EXT_SQLALCHEMY
+from webfluid.core.constants import FRAMEWORK_ROOT, WF_STATIC, EXT_SQLALCHEMY
 from webfluid.utils.framework import is_async_function
 from webfluid.exceptions import FrameworkException
 
 
 if TYPE_CHECKING:
     from webfluid.core.fluid import Fluid
-    from webfluid.core.additive import Additive
     from webfluid.extensions.babel.domain import Domain
 
 
@@ -54,6 +57,10 @@ class SelectorContext(BaseContext):
 class Babel(FluidExtension):
     _cli = typer.Typer(help="WebFluid Babel CLI")
     _instance = None
+    _api_whitelist = {
+        "gettext", "ngettext",
+        "pgettext", "npgettext"
+    }
 
     def __init__(self, fluid: "Fluid | None" = None,
                  default_locale: str = DEFAULT_LOCALE,
@@ -70,6 +77,9 @@ class Babel(FluidExtension):
         self.supported_locales = None
         self._locale_cache = {}
         self._domains = {}
+        self._update_tasks = []
+        self._update_disabled = False
+        self._update_blocked = False
 
         self._locale_selector_fn = None
         self._timezone_selector_fn = None
@@ -125,24 +135,31 @@ class Babel(FluidExtension):
             )
             fluid.jinja_env.add_extension("jinja2.ext.i18n")
             fluid.jinja_env.install_gettext_callables(
-                lambda x: self.current_domain.gettext(x),
-                lambda s, p, n: self.current_domain.ngettext(s, p, n),
+                lambda x: self.gettext(x),
+                lambda s, p, n: self.ngettext(s, p, n),
                 newstyle=True,
             )
 
         if configure_socket:
             fluid.websocket("/ws/i18n")(self.socket_i18n)
             fluid.sources.append(
-                Markup('<script src="/wf-static/js/i18n.js" type="module"></script>')
+                Markup(f'<script src="{WF_STATIC}/js/i18n.js" type="module"></script>')
             )
 
         fluid.startup_hook(self.load_translations)
+        self._update_disabled = fluid.config.get("BABEL_DISABLE_AUTOUPDATE", False)
+        if not self._update_disabled: fluid.startup_hook(self._update_translations)
+
         Babel._instance = self
 
-    def register_additive(self, additive: "Additive"):
-        self._domains[additive.name] = Domain(
-            additive.root_path / "translations",
-            domain=additive.name
+    def register_domain(self, name: str, package: Path | None = None):
+        if name in self._domains:
+            raise FrameworkException(f"Domain '{name}' already registered.")
+
+        from .domain import Domain
+        self._domains[name] = Domain(
+            (package / "translations") if package else None,
+            domain=name
         )
 
     async def load_translations(self):
@@ -156,29 +173,86 @@ class Babel(FluidExtension):
         for domain in domains:
             for locale in self.supported_locales:
                 tasks.append(
-                    MergedTranslations.update_cache(domain, locale)
+                    MergedTranslations.db_load(locale, domain)
                 )
 
         await asyncio.gather(*tasks)
 
+    def update_translations(self, domain: str,
+                            translations: dict[
+                                str, dict[
+                                    str, dict[
+                                        tuple[str, str | None], str
+                                    ]
+                                ]
+                            ]):
+        if self._update_disabled: return
+
+        if self._update_blocked:
+            raise FrameworkException("Translation updates are not allowed after startup.")
+
+        from .translations import MergedTranslations
+        self._update_tasks.append(
+            MergedTranslations.update(domain, translations)
+        )
+
+    async def _update_translations(self):
+        self._update_blocked = True
+        if not self._update_tasks: return
+        await asyncio.gather(*self._update_tasks)
+        self._update_tasks.clear()
+
     async def socket_i18n(self, ws: WebSocket):
         await ws.accept()
 
+        from .translations import MergedTranslations
         while True:
-            msg = json.loads(await ws.receive_text())
+            try:
+                msg = json.loads(await ws.receive_text())
+            except json.JSONDecodeError:
+                await ws.send_text(json.dumps({"error": "invalid json"}))
+                continue
 
-            response = {
-                "id": msg["id"]
-            }
-
-            domain = self.current_domain
-            fn = getattr(domain, msg["type"], None)
-            if fn is not None:
-                response["data"] = fn(**msg["data"])
+            for key in {"id", "type", "data"}:
+                if key not in msg:
+                    await ws.send_text(json.dumps({"error": f"missing '{key}' in message"}))
+                    break
             else:
-                response["data"] = f"Unknown gettext function: {msg['type']}"
+                response = {
+                    "id": msg["id"]
+                }
 
-            await ws.send_text(json.dumps(response))
+                request = msg["type"]
+                if request == "cache":
+                    locale = str(self.load_locale(
+                        msg["data"].get("locale")
+                        or ws.cookies.get("lang")
+                        or parse_best_match(
+                            ws.headers.get("Accept-Language"),
+                            self.supported_locales
+                        )
+                        or self.default_locale
+                    ))
+
+                    cache = MergedTranslations.cache(locale)
+                    if cache:
+                        response["data"] = cache
+                    else:
+                        response["error"] = "Cache not found."
+
+                elif request == "translate":
+                    fn_name = msg["data"].get("fn", "gettext")
+                    if fn_name not in  Babel._api_whitelist:
+                        response["error"] = "Only (non lazy) gettext api is supported."
+
+                    else:
+                        fn = getattr(self, fn_name)
+                        response["data"] = fn(**msg["args"])
+
+                else:
+                    response["error"] = f"Unknown request: {request}"
+
+                await ws.send_text(json.dumps(response))
 
     def locale_selector(self, fn: Callable) -> Callable:
         self._locale_selector_fn = fn
@@ -189,14 +263,15 @@ class Babel(FluidExtension):
         return fn
 
     def load_locale(self, locale: str) -> Locale:
-        cached = self._locale_cache.get(locale)
+        locale_key = locale.replace("-", "_")
+        cached = self._locale_cache.get(locale_key)
         if cached: return cached
-        if "-" in locale: locale = locale.replace("-", "_")
-        parsed = Locale.parse(locale)
-        self._locale_cache[locale] = parsed
+
+        parsed = Locale.parse(locale_key)
+        self._locale_cache[locale_key] = parsed
         return parsed
 
-    def domain_context(self, domain: str):
+    def domain_context(self, domain: str) -> Callable:
         def decorator(fn):
             if is_async_function(fn):
                 async def wrapper(*args, **kwargs):
@@ -208,8 +283,83 @@ class Babel(FluidExtension):
                     with _DomainContext(
                         self._domains.get(domain, self.default_domain)
                     ): return fn(*args, **kwargs)
-            return wrapper
+            return wraps(fn)(wrapper)
         return decorator
+
+    def gettext(self, string: str, **variables: Any) -> str:
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = t.gettext(string)
+            if msg != string:
+                return format_message(msg, **variables)
+
+        return format_message(string, **variables)
+
+    def ngettext(self, singular: str, plural: str, num: int, **variables: Any):
+        variables.setdefault("num", num)
+
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = t.ngettext(singular, plural, num)
+            if msg not in (singular, plural):
+                return format_message(msg, **variables)
+
+        return format_message(singular if num == 1 else plural, **variables)
+
+    def pgettext(self, context: str, string: str, **variables: Any):
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = t.pgettext(context, string)
+            if msg != string:
+                return format_message(msg, **variables)
+
+        return self.gettext(string, **variables)
+
+    def npgettext(
+            self, context: str, singular: str, plural: str, num: int,
+            **variables: Any
+    ):
+        variables.setdefault("num", num)
+
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = t.npgettext(context, singular, plural, num)
+            if msg not in (singular, plural):
+                return format_message(msg, **variables)
+
+        return self.ngettext(singular, plural, num, **variables)
+
+    def lazy_gettext(self, string: str, **variables: Any):
+        return LazyString(self.gettext, string, **variables)
+
+    def lazy_ngettext(self, singular: str, plural: str, num: int, **variables: Any):
+        return LazyString(self.ngettext, singular, plural, num, **variables)
+
+    def lazy_pgettext(self, context: str, string: str, **variables: Any):
+        return LazyString(self.pgettext, context, string, **variables)
+
+    def lazy_npgettext(self, context: str, singular: str, plural: str, num: int, **variables: Any):
+        return LazyString(self.npgettext, context, singular, plural, num, **variables)
+
+    @property
+    def _fallback_escalation(self) -> "list[Domain]":
+        current = self.current_domain
+        domains = [current]
+
+        if domains[0] != self.default_domain:
+            domains.append(self.default_domain)
+
+        if "__fallback__" in self._domains:
+            domains.append(self._domains["__fallback__"])
+
+        if "webfluid" in self._domains:
+            domains.append(self._domains["webfluid"])
+
+        return domains
 
     @property
     def current_domain(self) -> "Domain":

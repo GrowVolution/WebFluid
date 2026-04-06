@@ -66,7 +66,7 @@ def init_configs(fluid: "Fluid"):
 
     additives = fluid.app_root / "additives"
     if not additives.exists() or not additives.is_dir(): return
-    for additive in installed_additives(additives, True):
+    for additive in installed_additives(additives):
         a, _, p = additive
         if not enabled(a): continue
         try_import(f"additives.{p}.config")

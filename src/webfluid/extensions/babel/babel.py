@@ -31,7 +31,11 @@ from webfluid.extensions.utils.babel import (
     format_timedelta
 )
 from webfluid.core.context import BaseContext
-from webfluid.core.constants import FRAMEWORK_ROOT, WF_STATIC, EXT_SQLALCHEMY
+from webfluid.core.constants import (
+    FRAMEWORK_ROOT, FRAMEWORK_ID,
+    WF_STATIC,
+    EXT_SQLALCHEMY
+)
 from webfluid.utils.framework import is_async_function
 from webfluid.exceptions import FrameworkException
 
@@ -56,7 +60,6 @@ class SelectorContext(BaseContext):
 
 class Babel(FluidExtension):
     _cli = typer.Typer(help="WebFluid Babel CLI")
-    _instance = None
     _api_whitelist = {
         "gettext", "ngettext",
         "pgettext", "npgettext"
@@ -67,10 +70,8 @@ class Babel(FluidExtension):
                  default_timezone: str = DEFAULT_TIMEZONE,
                  date_formats: dict[DateFormatKey, DateFormat] | None = None,
                  configure_jinja: bool = True,
+                 configure_socket: bool = True,
                  default_domain: "Domain | None" = None):
-        if Babel._instance is not None:
-            raise FrameworkException("A Babel instance has already been created.")
-
         self.default_domain = None
         self.default_locale = None
         self.default_timezone = None
@@ -85,12 +86,11 @@ class Babel(FluidExtension):
         self._timezone_selector_fn = None
         self.date_formats = None
 
-        self.initialized = False
-
         super().__init__(
             fluid,
             default_locale, default_timezone,
             date_formats, configure_jinja,
+            configure_socket,
             default_domain
         )
 
@@ -103,8 +103,6 @@ class Babel(FluidExtension):
                      default_domain: "Domain | None" = None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
-        if Babel._instance:
-            raise FrameworkException("Babel has already been initialized.")
 
         if default_domain is None:
             from .domain import Domain
@@ -149,8 +147,6 @@ class Babel(FluidExtension):
         fluid.startup_hook(self.load_translations)
         self._update_disabled = fluid.config.get("BABEL_DISABLE_AUTOUPDATE", False)
         if not self._update_disabled: fluid.startup_hook(self._update_translations)
-
-        Babel._instance = self
 
     def register_domain(self, name: str, package: Path | None = None):
         if name in self._domains:
@@ -236,7 +232,10 @@ class Babel(FluidExtension):
 
                     cache = MergedTranslations.cache(locale)
                     if cache:
-                        response["data"] = cache
+                        response["data"] = {
+                            "locale": locale,
+                            "translations": cache
+                        }
                     else:
                         response["error"] = "Cache not found."
 
@@ -356,8 +355,8 @@ class Babel(FluidExtension):
         if "__fallback__" in self._domains:
             domains.append(self._domains["__fallback__"])
 
-        if "webfluid" in self._domains:
-            domains.append(self._domains["webfluid"])
+        if FRAMEWORK_ID in self._domains:
+            domains.append(self._domains[FRAMEWORK_ID])
 
         return domains
 

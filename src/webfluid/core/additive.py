@@ -241,7 +241,6 @@ class Additive:
             self.ws.include_router(self.base.ws)
             self.base.parent = self
             self.base.prefix = self.prefix
-            self.base.id = self.id
 
         if self.frontend is not None:
             self.frontend.cover_additive(self)
@@ -366,6 +365,8 @@ class Additive:
         return fn
 
     async def render(self, template: str, **ctx) -> str:
+        if self.parent: return await self.parent.render(template, **ctx)
+
         for processor in self._context_processors:
             result = await safe_execute(processor, False)
             if not isinstance(result, dict): continue
@@ -374,6 +375,7 @@ class Additive:
         return await c.fluid.render(f"{self.id}/{template}", **ctx)
 
     def unique_name(self, name: str) -> str:
+        if self.parent: return self.parent.unique_name(name)
         return f"{self.id}_{name}"
 
     def install(self):
@@ -389,46 +391,45 @@ class Additive:
         mod = try_import(f"{self.import_name}.config")
         if mod is None: return
 
-        name = self.id
         setup = getattr(mod, "setup", None)
         if setup is None: return
         elif not isinstance(setup, dict):
-            typer.secho(f"[{name}] Attribute 'setup' in '{self.import_name}.config' must be a dict.",
+            typer.secho(f"[{self.name}] Attribute 'setup' in '{self.import_name}.config' must be a dict.",
                         fg=typer.colors.YELLOW)
             return
 
         from webfluid.cli import questions
-        config[name] = {}
+        config[self.id] = {}
 
         for key, settings in setup.items():
             if "type" not in settings:
-                typer.secho(f"[{name}] Missing 'type' in setup settings for '{key}'.",
+                typer.secho(f"[{self.name}] Missing 'type' in setup settings for '{key}'.",
                             fg=typer.colors.YELLOW)
                 continue
             elif settings["type"] not in {"select", "checkbox", "text", "confirm", "auto"}:
-                typer.secho(f"[{name}] Invalid 'type' in setup settings for '{key}': {settings['type']}.",
+                typer.secho(f"[{self.name}] Invalid 'type' in setup settings for '{key}': {settings['type']}.",
                             fg=typer.colors.YELLOW)
                 continue
 
             key_type = settings["type"]
             if key_type != "auto" and "message" not in settings:
-                typer.secho(f"[{name}] Missing 'message' in setup settings for '{key}'.",
+                typer.secho(f"[{self.name}] Missing 'message' in setup settings for '{key}'.",
                             fg=typer.colors.YELLOW)
                 continue
             elif key_type == "auto" and "value" not in settings:
-                typer.secho(f"[{name}] Missing 'value' in setup settings for '{key}'.",
+                typer.secho(f"[{self.name}] Missing 'value' in setup settings for '{key}'.",
                             fg=typer.colors.YELLOW)
                 continue
 
             if key_type == "auto":
-                config[name][key] = settings["value"]
+                config[self.id][key] = settings["value"]
                 continue
 
             question = getattr(questions, key_type)
             message = settings["message"]
             kwargs = settings.get("kwargs", {})
 
-            config[name][key] = question(message, **kwargs).ask()
+            config[self.id][key] = question(message, **kwargs).ask()
 
     @property
     def version(self) -> AdditiveVersion:

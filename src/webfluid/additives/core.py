@@ -24,6 +24,7 @@ def _load_additives(package: Path, target: str, additive_type: str, do_log: bool
 
     for additive in package.iterdir():
         if not additive.is_dir(): continue
+        elif additive.name == "__pycache__": continue
 
         try:
             manifest = Manifest(additive / "manifest.json")
@@ -45,7 +46,7 @@ async def register_additives(fluid: "Fluid"):
     async def register():
         nonlocal loaders
 
-        for additive_info in installed_additives(fluid.additive_root):
+        for additive_info in installed_additives(fluid.additive_root, True):
             additive_id = additive_info[0]
             if not enabled(additive_id):
                 continue
@@ -63,6 +64,7 @@ async def register_additives(fluid: "Fluid"):
 
             try:
                 log_factory.log(f"Registering: {additive}")
+                # TODO: Add additional dev feature flag for automated installation in DEBUG
                 #if DEBUG: additive.install()
                 await additive.enable(fluid)
                 loaders.append(additive.loader)

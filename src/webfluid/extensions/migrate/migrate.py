@@ -44,8 +44,9 @@ class Migrate(FluidExtension):
             raise typer.Exit()
 
         class Dummy: app_root = project_root
-        sys.path.append(str(project_root))
-        init_configs(Dummy)
+        sys.path.insert(0, str(project_root))
+        try: init_configs(Dummy)
+        finally: sys.path.pop(0)
         config = Config()
         config.from_object(build_config())
 

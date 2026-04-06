@@ -10,4 +10,5 @@ dist/
 .coverage
 tailwind.exe
 tailwind.css
-theme.css
+htmx.min.js
+alpine.min.js

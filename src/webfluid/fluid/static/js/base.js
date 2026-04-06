@@ -1,4 +1,26 @@
 
+function getSystemTheme() {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+}
+
+function getCurrentTheme() {
+    return localStorage.getItem("theme") ?? getSystemTheme()
+}
+
+export function updateTheme() {
+    document.documentElement.dataset.theme = getCurrentTheme()
+}
+
+export function switchTheme() {
+    const current = getCurrentTheme()
+    const newTheme = current === "light" ? "dark" : "light"
+
+    localStorage.setItem("theme", newTheme)
+    updateTheme()
+}
+
 export function createWS(path, options = {}) {
     const protocol = location.protocol === "https:" ? "wss" : "ws"
 
@@ -124,7 +146,11 @@ export function createWS(path, options = {}) {
 
 
 window.wf = {
+    updateTheme,
+    switchTheme,
     createWS,
 
     ext: {}
 }
+
+updateTheme()

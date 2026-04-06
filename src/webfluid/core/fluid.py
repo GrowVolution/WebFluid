@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from frozendict import frozendict
 from pathlib import Path
 from typing import Callable
 import os, asyncio, uvicorn, signal
@@ -14,7 +15,8 @@ import os, asyncio, uvicorn, signal
 from webfluid.core.config import Config, init_configs, build_config
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import (
-    FRAMEWORK_ROOT, FRAMEWORK_ID, EXECUTION,
+    FRAMEWORK_ROOT, FRAMEWORK_ID,
+    DEBUG, EXECUTION,
     APP_STATIC, WF_STATIC,
     THEMES, TAILWIND, PROCESSING,
     EXT_SCHEDULING, EXT_SQLALCHEMY,
@@ -25,7 +27,7 @@ from webfluid.core.ext import scheduler, db, babel, events, cache, mail, jwt
 from webfluid.core.processing import setup_processing
 from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
-from webfluid.surface.wf_tailwind import generate_themes, generate_tailwind_css
+from webfluid.surface.wf_tailwind import generate_tailwind_css
 from webfluid.utils.framework import (get_root_path, safe_string, safe_execute,
                             required_arg_count, close_proxy_client)
 from webfluid.utils.logging import factory as log_factory
@@ -49,7 +51,7 @@ class Fluid(FastAPI):
 
         super().__init__(**self.config.get("APP_CONFIG", {}))
 
-        static_path = "fluid/static"
+        static_path = f"{FRAMEWORK_ID}/static"
         self.app_static = StaticFiles(
             directory=(self.app_root / static_path)
         )
@@ -57,7 +59,7 @@ class Fluid(FastAPI):
             directory=(FRAMEWORK_ROOT / static_path)
         )
         self.static_prefixes = {
-            "/static", "/wf-static",
+            APP_STATIC, WF_STATIC,
             "/frontend", "/vite-dev"
         }
         self._static_prefixes = None
@@ -70,7 +72,7 @@ class Fluid(FastAPI):
         )
         self._themes = {}
 
-        template_path = "fluid/templates"
+        template_path = f"{FRAMEWORK_ID}/templates"
         app_templates = FileSystemLoader(self.app_root / template_path)
         framework_templates = FileSystemLoader(FRAMEWORK_ROOT / template_path)
         self.app_loader = ChoiceLoader([
@@ -131,14 +133,13 @@ class Fluid(FastAPI):
         if EXT_JWT: jwt.expand_fluid(self)
 
         if THEMES:
-            self.startup_hook(lambda: generate_themes(self))
             self._themes[FRAMEWORK_ID] = Markup(
                 f'<link rel="stylesheet" href="{WF_STATIC}/css/theme.css">'
             )
 
         if TAILWIND:
             self.startup_hook(lambda: generate_tailwind_css(self))
-            self.jinja_context[f"{FRAMEWORK_ID}_tailwind"] = Markup(
+            self.jinja_context["wf_tailwind"] = Markup(
                 f'<link rel="stylesheet" href="{WF_STATIC}/css/tailwind.css">'
             )
 
@@ -201,7 +202,11 @@ class Fluid(FastAPI):
     async def _prepare(self):
         self._static_prefixes = tuple(self.static_prefixes)
         self.mount(APP_STATIC, self.app_static, "static")
-        self.mount(WF_STATIC, self.framework_static, "wf_static")
+
+        wf_static = f"{FRAMEWORK_ID}_static"
+        self.mount(WF_STATIC, self.framework_static, wf_static)
+        self.jinja_context["wf_static"] = wf_static
+        self.jinja_context = frozendict(self.jinja_context)
 
     async def _startup(self):
         self._startup_lock = True
@@ -275,9 +280,13 @@ class Fluid(FastAPI):
     def get_theme(self) -> Markup:
         if not THEMES: raise FrameworkException("Themes are not enabled.")
         try:
-            theme = FluidContext.current().request.session.get("theme")
+            ctx = FluidContext.current()
+            if not ctx.request: raise RuntimeError()
+
+            theme = ctx.request.session.get("theme")
             if not theme:
                 theme = self.config.get("GLOBAL_THEME", FRAMEWORK_ID)
+
         except RuntimeError:
             theme = self.config.get("GLOBAL_THEME", FRAMEWORK_ID)
 
@@ -314,6 +323,10 @@ class Fluid(FastAPI):
 
     async def start(self):
         log_factory.start_session()
+
+        cookie_secure = self.config.get("SESSION_COOKIE_SECURE", False)
+        if not cookie_secure and not DEBUG:
+            log_factory.warning("Session cookies are not secure. Consider setting SESSION_COOKIE_SECURE=True.")
 
         await self._startup()
         serve = asyncio.create_task(self._run_server())

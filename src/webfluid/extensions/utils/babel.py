@@ -46,6 +46,8 @@ def get_locale() -> Locale:
         return babel.load_locale(babel.default_locale)
 
     if babel.locale_selector_fn is not None:
+        locale = babel.locale_selector_fn()
+        if isinstance(locale, Locale): return locale
         return babel.load_locale(babel.locale_selector_fn())
 
     locale = (

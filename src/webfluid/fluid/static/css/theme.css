@@ -1,0 +1,72 @@
+
+:root {
+    --default-1: #90A1B9FF;
+    --default-2: #62748EFF;
+    --default-3: #45556CFF;
+    --default-4: #314158FF;
+    --default-5: #1D293DFF;
+
+    --success-1: #05DF72FF;
+    --success-2: #00C950FF;
+    --success-3: #00A63EFF;
+    --success-4: #008236FF;
+    --success-5: #016630FF;
+
+    --warning-1: #FDC700FF;
+    --warning-2: #F0B100FF;
+    --warning-3: #D08700FF;
+    --warning-4: #A65F00FF;
+    --warning-5: #894B00FF;
+
+    --danger-1: #FF6467FF;
+    --danger-2: #FB2C36FF;
+    --danger-3: #E7000BFF;
+    --danger-4: #C10007FF;
+    --danger-5: #9F0712FF;
+
+    --info-1: #51A2FFFF;
+    --info-2: #2B7FFFFF;
+    --info-3: #155DFCFF;
+    --info-4: #1447E6FF;
+    --info-5: #193CB8FF;
+}
+
+:root[data-theme="light"] {
+    --primary-1: #748BA7;
+    --primary-2: #4B688B;
+    --primary-3: #2B4A6F;
+    --primary-4: #143153;
+    --primary-5: #051C38;
+
+    --secondary-1: #837EB1;
+    --secondary-2: #5B5494;
+    --secondary-3: #392276;
+    --secondary-4: #1F1959;
+    --secondary-5: #0D083B;
+
+    --tertiary-1: #6FA798;
+    --tertiary-2: #468B78;
+    --tertiary-3: #256F5B;
+    --tertiary-4: #0E5440;
+    --tertiary-5: #003828;
+}
+
+:root[data-theme="dark"] {
+    --primary-1: #5A6F88;
+    --primary-2: #3A536E;
+    --primary-3: #223B56;
+    --primary-4: #112943;
+    --primary-5: #031426;
+
+    --secondary-1: #68639A;
+    --secondary-2: #4A447C;
+    --secondary-3: #2E1B5E;
+    --secondary-4: #18134A;
+    --secondary-5: #09062F;
+
+    --tertiary-1: #5A8C7F;
+    --tertiary-2: #376F60;
+    --tertiary-3: #1D5747;
+    --tertiary-4: #0B4333;
+    --tertiary-5: #002A20;
+}

@@ -351,7 +351,9 @@ class Frontend:
                 self.tailwind = ""
                 return
 
-            self.tailwind = f'<link rel="stylesheet" href="{self.prefix}/static/css/tailwind.css">'
+            self.tailwind = ('<link rel="stylesheet" '
+                            f'href="{self.prefix.removesuffix("/frontend")}'
+                             '/static/css/tailwind.css">')
 
     def _updated_index(self, index: str) -> str:
         if not DEBUG: return index

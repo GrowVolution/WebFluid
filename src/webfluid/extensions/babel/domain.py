@@ -34,7 +34,7 @@ class Domain:
             wrapped = support.Translations.load(
                 dirname, locale, domain=self.domain
             )
-            translations = MergedTranslations(wrapped, self.domain, str(locale))
+            translations = MergedTranslations(wrapped, str(locale), self.domain)
             self.cache[str(locale)] = translations
 
         return translations

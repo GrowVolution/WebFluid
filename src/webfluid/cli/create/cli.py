@@ -6,6 +6,7 @@ import typer, json, shutil, re, sys
 
 from webfluid.cli import questions
 from webfluid.cli.create import templates
+from webfluid.core.constants import FRAMEWORK_ID
 from webfluid.surface import node_cmd, dist
 from webfluid.additives.core import installed_additives
 from webfluid.utils.framework import safe_string
@@ -260,6 +261,13 @@ def project(
 
 @create.command()
 def additive(additive_id: str):
+    if additive_id == FRAMEWORK_ID:
+        typer.secho(
+            "Additive ID cannot be the same as the framework ID.",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(1)
+
     safe_id = safe_string(additive_id)
     if additive_id != safe_id:
         if not questions.confirm_safe_id(additive_id, safe_id):

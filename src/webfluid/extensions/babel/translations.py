@@ -159,15 +159,15 @@ class MergedTranslations(Translations):
         ):
             return
 
-        lock = cls._ensure_cache_and_lock(domain, locale)
+        lock = cls._ensure_cache_and_lock(locale, domain)
 
         async with lock:
             async with db.async_executor(model=I18nMessage) as e:
                 results = await e.exec(
                     select(I18nMessage)
                     .where(
-                        I18nMessage.domain == domain,
                         I18nMessage.locale == locale,
+                        I18nMessage.domain == domain
                     )
                 )
                 rows = results.all()
@@ -187,10 +187,10 @@ class MergedTranslations(Translations):
         async with db.async_executor(model=I18nMessage) as e:
             for locale, keys in translations.items():
 
-                lock = cls._ensure_cache_and_lock(domain, locale)
+                lock = cls._ensure_cache_and_lock(locale, domain)
                 async with lock:
 
-                    new_cache = cls._db_cache[domain][locale]
+                    new_cache = cls._db_cache[locale][domain]
                     for key, forms in keys.items():
                         for data, msg in forms.items():
                             key = f"{data[0]}:{key}"

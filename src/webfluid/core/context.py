@@ -1,5 +1,5 @@
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from fastapi import Request
@@ -40,7 +40,7 @@ class FluidContext(BaseContext):
     _ctx = ContextVar("fluid.context")
     _ctx_cache = {}
 
-    def __init__(self, fluid: "Fluid", request: "Request", *args, **kwargs):
+    def __init__(self, fluid: "Fluid", request: Optional["Request"] = None, *args, **kwargs):
         self.fluid = fluid
         self.request = request
         self._data = {}

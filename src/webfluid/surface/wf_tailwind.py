@@ -70,37 +70,14 @@ def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
     )
 
 
-def generate_themes(fluid: "Fluid"):
+def generate_tailwind_css(fluid: "Fluid"):
     from webfluid.core.constants import FRAMEWORK_ROOT
     d =  (FRAMEWORK_ROOT / "fluid" / "static" / "css")
 
     generate_asset(
-        d / "theme_raw.css",
-        d / "theme.css",
-        FRAMEWORK_ROOT
-    )
-
-    for d in fluid.app_root.rglob("static/css"):
-        in_file = d / "theme_raw.css"
-        if not in_file.exists(): continue
-        generate_asset(
-            in_file,
-            d / "theme.css",
-            d
-        )
-
-
-def generate_tailwind_css(fluid: "Fluid"):
-    from webfluid.core.constants import FRAMEWORK_ROOT, THEMES
-    d =  (FRAMEWORK_ROOT / "fluid" / "static" / "css")
-
-    if THEMES: target = d / "tailwind_themeless.css"
-    else: target = d / "tailwind_raw.css"
-
-    generate_asset(
-        target,
+        d / "tailwind_raw.css",
         d / "tailwind.css",
-        FRAMEWORK_ROOT
+        d
     )
 
     for d in fluid.app_root.rglob("static/css"):

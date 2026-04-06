@@ -6,6 +6,7 @@ import asyncio, json
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.core.constants import WF_STATIC
+from webfluid.core.context import FluidContext
 from webfluid.utils import required_arg_count, safe_execute
 from webfluid.exceptions import FrameworkException
 
@@ -52,6 +53,7 @@ class EventManager(FluidExtension):
         self._websockets = {}
         self._subscriptions = {}
         self._event_queue_size = 5
+        self._ctx_decorator = None
         super().__init__(fluid)
 
     def expand_fluid(self, fluid: "Fluid", *_, **__):
@@ -63,6 +65,14 @@ class EventManager(FluidExtension):
         fluid.sources.append(
             Markup(f'<script src="{WF_STATIC}/js/events.js" type="module"></script>')
         )
+
+        def ctx_decorator(fn):
+            async def ctx_wrapper(event: str, data: Any):
+                async with FluidContext(fluid, event=event, event_data=data):
+                    return await safe_execute(fn, False, data)
+            return ctx_wrapper
+
+        self._ctx_decorator = ctx_decorator
 
     async def _socket_manager(self, ws: WebSocket):
         await ws.accept()
@@ -170,10 +180,7 @@ class EventManager(FluidExtension):
         async for event_data in self._broadcasters[event].stream():
             server_tasks = []
             for fn in self._events[event]:
-                server_tasks.append(safe_execute(
-                    fn, False,
-                    event_data
-                ))
+                server_tasks.append(fn(event, event_data))
 
             client_tasks = []
             if event in self._subscriptions:
@@ -201,6 +208,9 @@ class EventManager(FluidExtension):
             )
 
     def event(self, name: str) -> Callable:
+        if not self._ctx_decorator:
+            raise FrameworkException("EventManager.expand_fluid() must be called before registering events.")
+
         if name not in self._broadcasters:
             self._broadcasters[name] = _BroadCaster(
                 self._event_queue_size
@@ -215,18 +225,21 @@ class EventManager(FluidExtension):
         def decorator(fn):
             if required_arg_count(fn) != 1:
                 raise FrameworkException("Event handlers must receive exactly one argument (data).")
-            self._events[name].append(fn)
+            self._events[name].append(self._ctx_decorator(fn))
             return fn
         return decorator
 
     def query(self, name: str) -> Callable:
+        if not self._ctx_decorator:
+            raise FrameworkException("EventManager.expand_fluid() must be called before registering queries.")
+
         if name in self._queries:
             raise ValueError(f"Query '{name}' already exists.")
 
         def decorator(fn):
             if required_arg_count(fn) != 1:
                 raise FrameworkException("Query handlers must receive exactly one argument (data).")
-            self._queries[name] = fn
+            self._queries[name] = self._ctx_decorator(fn)
             return fn
         return decorator
 
@@ -234,7 +247,7 @@ class EventManager(FluidExtension):
         if event not in self._broadcasters:
             raise ValueError(f"Event '{event}' does not exist.")
 
-        await self._broadcasters[event].publish(data)
+        self._broadcasters[event].publish(data)
 
     async def listen(self, event: str):
         if event not in self._broadcasters:
@@ -248,4 +261,4 @@ class EventManager(FluidExtension):
             raise ValueError(f"Query '{query}' does not exist.")
 
         query_fn = self._queries[query]
-        return await safe_execute(query_fn, True, data)
+        return await safe_execute(query_fn, True, query, data)

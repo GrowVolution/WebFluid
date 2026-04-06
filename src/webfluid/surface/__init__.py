@@ -6,7 +6,7 @@ if TYPE_CHECKING:
         load_node, cli_entry as node_cli, node_cmd, node_proc
     )
     from webfluid.surface.wf_tailwind import (
-        load_tailwind, generate_themes, generate_tailwind_css,
+        load_tailwind, generate_tailwind_css,
         generate_asset as generate_tailwind_asset,
         tailwind_cmd, cli_entry as tailwind_cli
     )
@@ -21,7 +21,7 @@ __all__ = [
 
     "load_node", "node_cli", "node_cmd", "node_proc",
 
-    "load_tailwind", "generate_themes", "generate_tailwind_css",
+    "load_tailwind", "generate_tailwind_css",
     "generate_tailwind_asset", "tailwind_cmd", "tailwind_cli",
 
     "Frontend", "setup_frontend", "validate_frontend_config"
@@ -38,7 +38,7 @@ def __getattr__(name):
         return getattr(wf_node, name)
 
     if name in {
-        "load_tailwind", "generate_themes", "generate_tailwind_css",
+        "load_tailwind", "generate_tailwind_css",
         "generate_tailwind_asset", "tailwind_cmd", "tailwind_cli"
     }:
         from . import wf_tailwind

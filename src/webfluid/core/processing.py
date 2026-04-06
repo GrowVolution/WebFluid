@@ -7,10 +7,9 @@ from selectolax.lexbor import LexborHTMLParser
 from typing import TYPE_CHECKING
 
 from webfluid.core.context import FluidContext
-from webfluid.core.constants import APP_STATIC, WF_STATIC, EXT_BABEL, THEMES
+from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES
 from webfluid.extensions.utils.babel import get_locale, fake_t, fake_tn
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
     from webfluid.core.fluid import Fluid
@@ -22,17 +21,13 @@ class Source(BaseModel):
     text: str
 
 
-class StaticPaths(BaseModel):
-    app: str
-    framework: str
-
-
 class ServerConfig(BaseModel):
     base_url: str
     app_name: str
     app_version: str
+    framework_id: str
+    framework_version: str
     sources: list[Source]
-    static_paths: StaticPaths
 
 
 def setup_processing(fluid: "Fluid"):
@@ -50,14 +45,25 @@ def setup_processing(fluid: "Fluid"):
         return fluid.get_theme()
 
     def url_for():
-        try: return FluidContext.current().request.url_for
+        try:
+            ctx = FluidContext.current()
+            if not ctx.request: return None
+            fn = FluidContext.current().request.url_for
         except RuntimeError: return None
+
+        def wrapper(endpoint: str, **path_params):
+            external = path_params.pop("external", False)
+            url = fn(endpoint, **path_params)
+            if external: return str(url)
+            return url.path
+        return wrapper
 
     fluid.context_processor(lambda: {
         **fluid.jinja_context,
 
         "LANG": lang(),
         "YEAR": datetime.now(UTC).year,
+        "FRAMEWORK_ID": FRAMEWORK_ID,
 
         "theme": theme(),
         "src": "\n\t".join(fluid.sources),
@@ -138,28 +144,14 @@ def setup_processing(fluid: "Fluid"):
             }
             sources.append(source)
 
+        from webfluid import version
         return {
             "base_url": str(request.base_url).rstrip("/"),
             "app_name": fluid.name,
             "app_version": fluid.config.get(
                 "APP_CONFIG", {}
             ).get("version", "unknown"),
-            "sources": sources,
-            "static_paths": {
-                "app": APP_STATIC,
-                "framework": WF_STATIC
-            }
+            "framework_id": FRAMEWORK_ID,
+            "framework_version": str(version()).lstrip("v"),
+            "sources": sources
         }
-
-    if THEMES:
-        @fluid.post("/set-theme")
-        async def set_theme(request: Request):
-            data = await request.json()
-            if "theme" not in data:
-                raise HTTPException(status_code=400, detail="Theme is required.")
-
-            try: fluid.set_theme(request, data["theme"])
-            except FrameworkException as e:
-                raise HTTPException(status_code=400, detail=str(e))
-
-            return { "status": "ok" }

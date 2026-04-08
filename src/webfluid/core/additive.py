@@ -7,6 +7,7 @@ from fastapi.utils import generate_unique_id
 from pydantic.main import IncEx
 from jinja2 import PrefixLoader, FileSystemLoader, ChoiceLoader
 from functools import wraps
+from frozendict import frozendict
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Sequence, Any
@@ -207,9 +208,17 @@ class Additive:
         self.app.http_middleware(middleware)
 
         if PROCESSING:
-            def url_for(name: str, **path_params):
-                ctx = FluidContext.current()
-                return ctx.request.url_for(self.unique_name(name), **path_params)
+            def url_for(endpoint: str, **path_params):
+                try:
+                    ctx = FluidContext.current()
+                    if not ctx.request: return None
+                    fn = FluidContext.current().request.url_for
+                except RuntimeError: return None
+
+                external = path_params.pop("external", False)
+                url = fn(self.unique_name(endpoint), **path_params)
+                if external: return str(url)
+                return url.path
 
             self.jinja_context["url_for"] = url_for
             self.context_processor(lambda: self.jinja_context)
@@ -241,11 +250,16 @@ class Additive:
             self.ws.include_router(self.base.ws)
             self.base.parent = self
             self.base.prefix = self.prefix
+            self.base.jinja_context["id"] = self.id
+            self.base.jinja_context = frozendict(self.base.jinja_context)
 
         if self.frontend is not None:
             self.frontend.cover_additive(self)
             self.jinja_context["frontend"] = self.frontend.include
             fluid.static_prefixes.add(self.frontend.prefix)
+
+        self.jinja_context["id"] = self.id
+        self.jinja_context = frozendict(self.jinja_context)
 
         fluid.include_router(self.api, prefix=self.prefix)
         fluid.include_router(self.app, prefix=self.prefix)

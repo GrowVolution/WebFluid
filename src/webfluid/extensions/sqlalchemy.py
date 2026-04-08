@@ -122,14 +122,32 @@ class Model(DeclarativeBase):
 
 class SQLAlchemy(FluidExtension):
     # TODO: Add optional Multi-Metadata later
+    _instance = None
 
     def __init__(self,
                  fluid: "Fluid | None" = None,
                  base: type[DeclarativeBase] = Model):
+        if SQLAlchemy._instance is not None:
+            raise FrameworkException("SQLAlchemy.expand_fluid() has already been called!")
+
         self.Model = base
         self.binds = {}
 
         super().__init__(fluid)
+
+    def expand_fluid(self, fluid: "Fluid", *_, **__):
+        default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
+        uris = database_uris(default_uri)
+        fluid.config["SQLALCHEMY_DATABASE_URI"] = uris[0]
+        self.binds["default"] = _Bind("default", uris)
+
+        further_binds = fluid.config.get("SQLALCHEMY_BINDS", {})
+        for key, uri in further_binds.items():
+            uris = database_uris(uri)
+            fluid.config["SQLALCHEMY_BINDS"][key] = uris[0]
+            self.binds[key] = _Bind(key, uris)
+
+        SQLAlchemy._instance = self
 
     def _get_bind(self, bind_key: str) -> _Bind:
         try: return self.binds[bind_key]
@@ -144,18 +162,6 @@ class SQLAlchemy(FluidExtension):
     def get_bind_for_model(self, model: type[Model]) -> _Bind:
         return self._get_bind(getattr(model, "__bind_key__", "default"))
 
-    def expand_fluid(self, fluid: "Fluid", *_, **__):
-        default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
-        uris = database_uris(default_uri)
-        fluid.config["SQLALCHEMY_DATABASE_URI"] = uris[0]
-        self.binds["default"] = _Bind("default", uris)
-
-        further_binds = fluid.config.get("SQLALCHEMY_BINDS", {})
-        for key, uri in further_binds.items():
-            uris = database_uris(uri)
-            fluid.config["SQLALCHEMY_BINDS"][key] = uris[0]
-            self.binds[key] = _Bind(key, uris)
-
     @contextmanager
     def executor(self, bind_key: str = None, model: type[Model] = None):
         with self._resolve_bind(bind_key, model).session() as session:
@@ -165,3 +171,9 @@ class SQLAlchemy(FluidExtension):
     async def async_executor(self, bind_key: str = None, model: type[Model] = None):
         async with self._resolve_bind(bind_key, model).async_session() as session:
             async with _AsyncExecutor(session) as e: yield e
+
+    @classmethod
+    def get_instance(cls) -> "SQLAlchemy":
+        if cls._instance is None:
+            raise FrameworkException("SQLAlchemy.expand_fluid() was never called!")
+        return cls._instance

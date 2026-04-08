@@ -63,8 +63,8 @@ def setup_processing(fluid: "Fluid"):
 
         "LANG": lang(),
         "YEAR": datetime.now(UTC).year,
-        "FRAMEWORK_ID": FRAMEWORK_ID,
 
+        "id": FRAMEWORK_ID,
         "theme": theme(),
         "src": "\n\t".join(fluid.sources),
         "url_for": url_for()

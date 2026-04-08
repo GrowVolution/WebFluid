@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi.util import get_ipaddr
 from slowapi.errors import RateLimitExceeded
 from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
@@ -106,7 +106,7 @@ class Fluid(FastAPI):
 
         if self.config.get("RATELIMIT_ENABLED", True):
             self.state.limiter = Limiter(
-                key_func=get_remote_address,
+                key_func=get_ipaddr,
                 default_limits=self.config.get(
                     "RATELIMIT_DEFAULT", ["500/day", "100/hour"]
                 ),

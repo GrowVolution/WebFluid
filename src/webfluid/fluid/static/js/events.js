@@ -16,15 +16,22 @@ export class EventManager {
         let listener = request("listen", event)
 
         while (!this._break_flag[event]) {
-            const response = await listener
-            if (!response?.data) {
-                console.error("Error while listening: " + response.error)
-                break
-            } else if (this._break_flag[event]) break
-            listener = request("listen", event)
+            try {
+                const response = await listener
+                if (this._break_flag[event]) break
+                listener = request("listen", event)
 
-            for (const handler of this._events[event]) {
-                handler(response.data)
+                for (const handler of this._events[event]) {
+                    handler(response)
+                }
+            } catch (error) {
+                if (error === "timeout" || error?.message === "timeout") {
+                    listener = request("listen", event)
+                    continue
+                }
+
+                console.error("Error while listening:", error)
+                break
             }
         }
     }
@@ -37,24 +44,38 @@ export class EventManager {
     async subscribe(event) {
         if (this._events[event]) throw new Error("Event already subscribed: " + event)
 
-        const response = await request("subscribe",  event)
-        if (!response?.data) throw new Error(response.error)
+        try {
+            const response = await request("subscribe",  event)
+            if (!response) {
+                console.error("Error while subscribing... ", response)
+                return
+            }
 
-        this._events[event] = []
-        this._break_flag[event] = false
-        this._event_loops[event] = this._event_loop(event)
+            this._events[event] = []
+            this._break_flag[event] = false
+            this._event_loops[event] = this._event_loop(event)
+        } catch (error) {
+            console.error("Error while subscribing: ", error)
+        }
     }
 
     async unsubscribe(event) {
         if (!this._events[event]) throw new Error("Event not subscribed: " + event)
 
-        const response = await request("unsubscribe",  event)
-        if (!response?.data) throw new Error(response.error)
+        try {
+            const response = await request("unsubscribe",  event)
+            if (!response) {
+                console.error("Error while unsubscribing... ", response)
+                return
+            }
 
-        delete this._events[event]
-        this._break_flag[event] = true
-        await this._event_loops[event]
-        delete this._event_loops[event]
+            delete this._events[event]
+            this._break_flag[event] = true
+            await this._event_loops[event]
+            delete this._event_loops[event]
+        } catch (error) {
+            console.error("Error while unsubscribing: ", error)
+        }
     }
 }
 

@@ -102,10 +102,7 @@ def create_app() -> Fluid:
 
     from fluid.api import api_router
     app.include_router(api_router)
-
-    from fluid.app import app_router
-    app.include_router(app_router)
-
+    {index}
     return app
 
 
@@ -131,7 +128,6 @@ logs/
 
 [files]
 messages.pot
-theme.css
 tailwind.css
 _my_config.py
 *.db"""
@@ -208,10 +204,7 @@ additive = Additive(
 def before_enable(_):
     from .api import v1
     additive.api.include_router(v1)
-
-    from .app import index
-    additive.app.get("/")(index)
-"""
+    {index}"""
 
 adtv_gitignore = """[folders]
 .vscode/
@@ -224,7 +217,6 @@ dist/
 frontend/README.md
 frontend/_gitignore
 messages.pot
-theme.css
 tailwind.css
 _my_config.py"""
 

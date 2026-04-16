@@ -1,7 +1,7 @@
 from fastapi import WebSocket
 from markupsafe import Markup
 from uuid import uuid4
-from typing import TYPE_CHECKING, Callable, Optional, Any
+from typing import TYPE_CHECKING, Callable, Optional, Any, AsyncGenerator
 import asyncio, json
 
 from webfluid.extensions.base import FluidExtension
@@ -102,6 +102,11 @@ class EventManager(FluidExtension):
                         event = msg["data"]
                         if event not in self._events:
                             response["error"] = f"Event '{msg['data']}' does not exist."
+
+                        elif self._events[event]["internal"]:
+                            response["error"] = f"Event '{msg['data']}' is not public."
+
+                        if "error" in response:
                             await ws.send_text(json.dumps(response))
                             continue
 
@@ -121,16 +126,6 @@ class EventManager(FluidExtension):
                         self._subscriptions[event].pop(sid, None)
                         response["data"] = True
 
-                    elif request == "listen":
-                        event = msg["data"]
-                        if event not in self._events or event not in self._subscriptions:
-                            response["error"] = f"Event '{event}' does not exist or was not subscribed to."
-                            await ws.send_text(json.dumps(response))
-                            continue
-
-                        self._subscriptions[event][sid] = msg["id"]
-                        continue
-
                     elif request == "query":
                         data = msg["data"]
                         if not isinstance(data, dict):
@@ -141,6 +136,11 @@ class EventManager(FluidExtension):
                         query = data.get("query")
                         if query not in self._queries:
                             response["error"] = f"Query '{query}' does not exist."
+
+                        elif self._queries[query]["internal"]:
+                            response["error"] = f"Query '{query}' is not public."
+
+                        if "error" in response:
                             await ws.send_text(json.dumps(response))
                             continue
 
@@ -161,11 +161,26 @@ class EventManager(FluidExtension):
 
                         if event not in self._events:
                             response["error"] = f"Event '{event}' does not exist."
+
+                        elif self._events[event]["internal"]:
+                            response["error"] = f"Event '{event}' is not public."
+
+                        if "error" in response:
                             await ws.send_text(json.dumps(response))
                             continue
 
                         await self.trigger(event, data.get("data"))
                         response["data"] = True
+
+                    elif request == "listen":
+                        event = msg["data"]
+                        if event not in self._events or event not in self._subscriptions:
+                            response["error"] = f"Event '{event}' does not exist or was not subscribed to."
+                            await ws.send_text(json.dumps(response))
+                            continue
+
+                        self._subscriptions[event][sid] = msg["id"]
+                        continue
 
                     else:
                         response["error"] = f"Unknown request: {request}"
@@ -176,14 +191,15 @@ class EventManager(FluidExtension):
 
     async def _event_loop(self, event: str):
         if event not in self._broadcasters: return
+        not_internal = not self._events[event]["internal"]
 
         async for event_data in self._broadcasters[event].stream():
             server_tasks = []
-            for fn in self._events[event]:
+            for fn in self._events[event]["handlers"]:
                 server_tasks.append(fn(event, event_data))
 
             client_tasks = []
-            if event in self._subscriptions:
+            if not_internal and event in self._subscriptions:
                 subscriptions = self._subscriptions[event].copy()
 
                 for sid, listener_id in subscriptions.items():
@@ -207,9 +223,23 @@ class EventManager(FluidExtension):
                 return_exceptions=True
             )
 
-    def event(self, name: str) -> Callable:
-        if not self._ctx_decorator:
-            raise FrameworkException("EventManager.expand_fluid() must be called before registering events.")
+    def _prepare_event(self, name: str, singleton: bool, internal: bool):
+        if singleton and name in self._events:
+            raise ValueError(f"Event '{name}' already exists.")
+
+        elif not singleton and name in self._events and self._events[name]["singleton"]:
+            raise ValueError(f"Singleton event '{name}' already exists.")
+
+        if name in self._events and internal != self._events[name]["internal"]:
+            raise ValueError(f"Event '{name}' is already registered as "
+                             f"{'internal' if self._events[name]['internal'] else 'public'}.")
+
+        if name not in self._events:
+            self._events[name] = {
+                "singleton": singleton,
+                "internal": internal,
+                "handlers": []
+            }
 
         if name not in self._broadcasters:
             self._broadcasters[name] = _BroadCaster(
@@ -219,27 +249,43 @@ class EventManager(FluidExtension):
                 self._event_loop, False, name
             ))
 
-        if name not in self._events:
-            self._events[name] = []
+    def create_signal(self, name: str, singleton: bool = False, internal: bool = False):
+        self._prepare_event(name, singleton, internal)
+
+    def event(self, name: str, singleton: bool = False, internal: bool = True) -> Callable:
+        if not self._ctx_decorator:
+            raise FrameworkException("EventManager.expand_fluid() must be called before registering events.")
+
+        self._prepare_event(name, singleton, internal)
 
         def decorator(fn):
             if required_arg_count(fn) != 1:
                 raise FrameworkException("Event handlers must receive exactly one argument (data).")
-            self._events[name].append(self._ctx_decorator(fn))
+            self._events[name]["handlers"].append(self._ctx_decorator(fn))
             return fn
         return decorator
 
-    def query(self, name: str) -> Callable:
+    def query(self, name: str, singleton: bool = True, internal: bool = True) -> Callable:
         if not self._ctx_decorator:
             raise FrameworkException("EventManager.expand_fluid() must be called before registering queries.")
 
-        if name in self._queries:
+        if singleton and name in self._queries:
             raise ValueError(f"Query '{name}' already exists.")
+
+        elif not singleton and name in self._queries and self._queries[name]["singleton"]:
+            raise ValueError(f"Singleton query '{name}' already exists.")
+
+        if name not in self._queries:
+            self._queries[name] = {
+                "singleton": singleton,
+                "internal": internal,
+                "handlers": []
+            }
 
         def decorator(fn):
             if required_arg_count(fn) != 1:
                 raise FrameworkException("Query handlers must receive exactly one argument (data).")
-            self._queries[name] = self._ctx_decorator(fn)
+            self._queries[name]["handlers"].append(self._ctx_decorator(fn))
             return fn
         return decorator
 
@@ -249,16 +295,20 @@ class EventManager(FluidExtension):
 
         self._broadcasters[event].publish(data)
 
-    async def listen(self, event: str):
+    async def listen(self, event: str) -> AsyncGenerator[Optional[Any]]:
         if event not in self._broadcasters:
             raise ValueError(f"Event '{event}' does not exist.")
 
         async for event_data in self._broadcasters[event].stream():
             yield event_data
 
-    async def request(self, query: str, data: Optional[Any] = None):
+    async def request(self, query: str, data: Optional[Any] = None) -> Any | tuple[Any]:
         if query not in self._queries:
             raise ValueError(f"Query '{query}' does not exist.")
 
-        query_fn = self._queries[query]
-        return await safe_execute(query_fn, True, query, data)
+        tasks = [
+            safe_execute(fn, True, query, data)
+            for fn in self._queries[query]["handlers"]
+        ]
+        results = await asyncio.gather(*tasks)
+        return tuple(results) if len(tasks) > 1 else results[0]

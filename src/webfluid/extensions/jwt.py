@@ -16,6 +16,7 @@ class JWTManager(FluidExtension):
     def __init__(self, fluid: "Fluid | None" = None):
         self._current_key = None
         self._secret_rotary_interval = 15
+        self._secret_length = 128
         self._token_expiry_days = 30
         self._token_algorithm = "HS256"
         self._token_issuer = "WebFluid"
@@ -30,7 +31,7 @@ class JWTManager(FluidExtension):
         self._current_key = uuid4().hex
         await cache.aset(
             f"jwt:{self._current_key}",
-            secrets.token_hex(64),
+            secrets.token_hex(self._secret_length),
             self._secret_rotary_interval * 24 * 60 * 60
         )
 
@@ -70,6 +71,9 @@ class JWTManager(FluidExtension):
 
         self._secret_rotary_interval = fluid.config.get(
             "JWT_ROTARY_INTERVAL", self._secret_rotary_interval
+        )
+        self._secret_length = fluid.config.get(
+            "JWT_SECRET_LENGTH", self._secret_length
         )
 
         from webfluid.core.ext import scheduler

@@ -10,7 +10,7 @@ from mimetypes import guess_type
 from typing import TYPE_CHECKING, Callable
 import typer, requests, shutil, subprocess, os, signal
 
-from webfluid.core.constants import DEBUG, THEMES, TAILWIND, WF_STATIC
+from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
 from webfluid.surface import dist
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
@@ -82,25 +82,37 @@ async function loadConfigs(command) {
 function mergeConfigs(configs) {
   let merged = {}
 
-  for (const config of configs) {
+  for (const config of configs)
     merged = mergeConfig(merged, config)
-
-    if (config.plugins) {
-      merged.plugins = [
-        ...(merged.plugins ?? []),
-        ...config.plugins
-      ]
-    }
-  }
 
   if (merged.plugins) {
     const seen = new Set()
-    merged.plugins = merged.plugins.filter(p => {
-      const name = p?.name || p
-      if (seen.has(name)) return false
-      seen.add(name)
-      return true
+
+    const updatedPlugins = []
+
+    merged.plugins.forEach(plugin => {
+      if (!Array.isArray(plugin)) {
+        const key = plugin?.name || plugin
+        if (seen.has(key)) return
+        seen.add(key)
+        updatedPlugins.push(plugin)
+        return
+      }
+
+      const updatedPlugin = []
+
+      for (const conf of plugin) {
+        const name = conf?.name || conf
+        if (seen.has(name)) continue
+        seen.add(name)
+        updatedPlugin.push(conf)
+      }
+
+      if (updatedPlugin.length === 0) return
+      updatedPlugins.push(updatedPlugin)
     })
+
+    merged.plugins = updatedPlugins
   }
 
   return merged
@@ -173,6 +185,7 @@ export default defineConfig(async ({ command }) => {
 
   config = mergeConfigs(configs)
   config.plugins.push(wfDevPlugin())
+
   return config
 })
 """
@@ -347,7 +360,7 @@ class Frontend:
             if TAILWIND: self.generate_tailwind()
 
         if TAILWIND:
-            if not (root_path / "static" / "css" / "tailwind.css").exists():
+            if not (root_path / "static" / "css" / "tailwind_raw.css").exists():
                 self.tailwind = ""
                 return
 

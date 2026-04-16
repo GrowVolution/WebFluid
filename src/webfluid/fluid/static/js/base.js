@@ -63,9 +63,10 @@ export function createWS(path, options = {}) {
             }
 
             if (msg.id && pending.has(msg.id)) {
-                const { resolve } = pending.get(msg.id)
+                const { resolve, reject } = pending.get(msg.id)
                 pending.delete(msg.id)
-                resolve(msg.data)
+                if (msg?.error) reject(msg.error)
+                else resolve(msg.data)
             }
         }
 

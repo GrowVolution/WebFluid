@@ -12,14 +12,12 @@ from webfluid.additives.core import installed_additives
 from webfluid.utils.framework import safe_string
 
 create = typer.Typer(help="Create a new WebFluid instances.")
-# TODO: Update create templates, structure and defaults
 
 def _make_defaults(
         base: Path,
         api_init: str,
         app_init: str,
-        index_py: str,
-        index_html: str,
+        index_py: str
 ):
     static_dir = base / "static"
     (static_dir / "img").mkdir(parents=True, exist_ok=True)
@@ -31,9 +29,6 @@ def _make_defaults(
     )
 
     (base / "templates").mkdir(exist_ok=True)
-    (base / "templates/index.html").write_text(
-        index_html, encoding="utf-8"
-    )
 
     (base / "api/v1").mkdir(parents=True, exist_ok=True)
     (base / "api/v1/health.py").write_text(
@@ -48,9 +43,29 @@ def _make_defaults(
     (base / "app/index.py").write_text(index_py)
     (base / "app/__init__.py").write_text(app_init)
 
-    (base / "models").mkdir(exist_ok=True)
-    (base / "schemas").mkdir(exist_ok=True)
-    (base / "services").mkdir(exist_ok=True)
+    models = base / "models"
+    models.mkdir(exist_ok=True)
+    (models / "__init__.py").touch()
+
+    schemas = base / "schemas"
+    schemas.mkdir(exist_ok=True)
+    (schemas / "__init__.py").touch()
+
+    services = base / "services"
+    services.mkdir(exist_ok=True)
+    (services / "__init__.py").touch()
+
+    events = base / "events"
+    events.mkdir(exist_ok=True)
+    (events / "__init__.py").touch()
+
+    tasks = base / "tasks"
+    tasks.mkdir(exist_ok=True)
+    (tasks / "__init__.py").touch()
+
+    utils = base / "utils"
+    utils.mkdir(exist_ok=True)
+    (utils / "__init__.py").touch()
 
 
 def _frontend_conf() -> dict:
@@ -196,16 +211,12 @@ def project(
             app_dir,
             templates.api_router_py,
             templates.app_router_py,
-            templates.app_index_py,
-            templates.app_index_html
+            templates.app_index_py
         )
 
         (project_root / "additives").mkdir(exist_ok=True)
-        (project_root / "main.py").write_text(
-            templates.main_py
-        )
         (project_root / ".gitignore").write_text(
-            templates.gitignore
+            templates.app_gitignore
         )
 
     def frontend():
@@ -226,13 +237,26 @@ def project(
                 ["npm", "install", "-w", "fluid/frontend"],
                 project_root
             )
-            (app_dir / "templates/index.html").write_text(
-                "{{ frontend() }}"
+
+            shutil.rmtree(app_dir / "app", ignore_errors=True)
+            (project_root / "main.py").write_text(
+                templates.main_py.format(index="")
             )
         else:
             node_cmd(
                 ["npm", "install"],
                 project_root
+            )
+
+            (app_dir / "templates/index.html").write_text(
+                templates.app_index_html
+            )
+            (project_root / "main.py").write_text(
+                templates.main_py.format(
+                    index="""
+    from fluid.app import app_router
+    app.include_router(app_router)
+                """)
             )
 
         conf_list = str(conf).strip("{}").split(", ")
@@ -329,7 +353,7 @@ def additive(additive_id: str):
                 "additive",
                 safe_id.replace("_", "-")
         ):
-            index_html = "{{ frontend() }}"
+            index_html = None
             node_cmd(
                 ["npm", "install", "-w", f"additives/{safe_id}/frontend"],
                 Path.cwd()
@@ -358,9 +382,18 @@ def additive(additive_id: str):
         additive_root,
         templates.api_py,
         templates.app_py,
-        templates.adtv_index_py,
-        index_html
+        templates.adtv_index_py
     )
+
+    if index_html:
+        (additive_root / "templates/index.html").write_text(index_html)
+        index_registry = """
+    from .app import index
+    additive.app.get("/")(index)
+        """
+    else:
+        shutil.rmtree(additive_root / "app", ignore_errors=True)
+        index_registry = ""
 
     (additive_root / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False)
@@ -369,8 +402,12 @@ def additive(additive_id: str):
         templates.init_py.format(
             import_base=import_base_fn,
             base=base_import,
-            requirements=requirements
+            requirements=requirements,
+            index=index_registry
         )
+    )
+    (additive_root / ".gitignore").write_text(
+        templates.adtv_gitignore
     )
 
 

@@ -5,9 +5,9 @@ from webfluid.extensions import SQLAlchemy, Babel, EventManager, Mail, Cache, JW
 
 scheduler = AsyncIOScheduler()
 
-db = SQLAlchemy()
-babel = Babel()
-events = EventManager()
-cache = Cache()
-mail = Mail()
-jwt = JWTManager()
+db: SQLAlchemy = SQLAlchemy()
+babel: Babel = Babel()
+events: EventManager = EventManager()
+cache: Cache = Cache()
+mail: Mail = Mail()
+jwt: JWTManager = JWTManager()

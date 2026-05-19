@@ -213,6 +213,7 @@ requirements = checkbox(
         "scheduling",
         questionary.Choice("sqlalchemy", checked=True),
         questionary.Choice("babel", checked=True),
+        questionary.Choice("events", checked=True),
         "cache",
         "mail",
         "jwt"

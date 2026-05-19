@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.core.context import BaseContext
-from webfluid.utils.framework import camel_to_snake
+from webfluid.utils.framework import camel_to_snake, async_result
 from webfluid.extensions.utils.sqlalchemy import database_uris
 from webfluid.exceptions import FrameworkException
 
@@ -56,7 +56,7 @@ class _AsyncExecutor(BaseContext):
         return obj
 
     async def delete(self, obj: Model, flush: bool = False):
-        await self.session.delete(obj)
+        await async_result(self.session.delete(obj))
         if flush: await self.flush()
 
     async def flush(self):

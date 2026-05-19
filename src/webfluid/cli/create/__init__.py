@@ -59,10 +59,6 @@ def _make_defaults(
     events.mkdir(exist_ok=True)
     (events / "__init__.py").touch()
 
-    tasks = base / "tasks"
-    tasks.mkdir(exist_ok=True)
-    (tasks / "__init__.py").touch()
-
     utils = base / "utils"
     utils.mkdir(exist_ok=True)
     (utils / "__init__.py").touch()
@@ -386,7 +382,9 @@ def additive(additive_id: str):
     )
 
     if index_html:
-        (additive_root / "templates/index.html").write_text(index_html)
+        (additive_root / "templates/index.html").write_text(
+            index_html, encoding="utf-8"
+        )
         index_registry = """
     from .app import index
     additive.app.get("/")(index)

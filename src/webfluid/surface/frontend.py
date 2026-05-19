@@ -581,5 +581,5 @@ class Frontend:
             file,
             filename=file.name,
             media_type=guess_type(file)[0]
-                       or "application/octet-stream",
+                       or "application/octet-stream"
         )

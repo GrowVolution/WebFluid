@@ -15,8 +15,7 @@ dependencies = [
     "babel",
 
     "sqlalchemy",
-    "psycopg2",
-    "asyncpg",
+    "psycopg[binary]",
     "pymysql",
     "aiomysql",
     "aiosqlite",

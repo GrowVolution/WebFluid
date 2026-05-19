@@ -16,8 +16,8 @@ def database_uris(uri: str) -> tuple[str, str]:
         sync_uri = uri
         async_uri = uri.replace("sqlite", "sqlite+aiosqlite")
     elif uri.startswith("postgresql:"):
-        sync_uri = uri.replace("postgresql", "postgresql+psycopg2")
-        async_uri = uri.replace("postgresql", "postgresql+asyncpg")
+        sync_uri = uri.replace("postgresql", "postgresql+psycopg")
+        async_uri = sync_uri
     elif uri.startswith("mysql:"):
         sync_uri = uri.replace("mysql", "mysql+pymysql")
         async_uri = uri.replace("mysql", "mysql+aiomysql")

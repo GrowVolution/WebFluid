@@ -1,7 +1,7 @@
 from importlib.metadata import entry_points
 import typer
 
-from webfluid.cli.create.cli import cli_entry as create_cli
+from webfluid.cli.create import cli_entry as create_cli
 from webfluid.cli.run import cli_entry as run_cli
 from webfluid.surface import node_cli, tailwind_cli
 from webfluid.extensions.base import FluidExtension

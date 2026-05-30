@@ -12,7 +12,7 @@ _terminate = False
 _log = None
 
 
-def _env_from_config(config_file: Path) -> dict:
+def _env_from_config(config_file: Path, debug: bool) -> dict:
     env = os.environ.copy()
     cfg = ConfigParser()
     cfg.optionxform = str
@@ -20,6 +20,8 @@ def _env_from_config(config_file: Path) -> dict:
     for k, v in cfg.defaults().items():
         env[k] = v
     for section in cfg.sections():
+        if section == "dev" and not debug:
+            continue
         for k, v in cfg[section].items():
             env[k] = v
     return env
@@ -184,7 +186,7 @@ def run(
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{datetime.now(UTC).strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
-    env = _env_from_config(config_file)
+    env = _env_from_config(config_file, debug)
     if interactive:
         if not host:  host = questions.host.ask()
         if not port: port = questions.port.ask()

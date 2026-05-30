@@ -1,6 +1,6 @@
 from functools import wraps
 
-from webfluid.utils.framework import safe_string, enabled, async_result
+from webfluid.utils.framework import safe_string, final_version, enabled, async_result
 
 
 def id_check(additive_id: str) -> tuple[bool, str]:
@@ -15,29 +15,37 @@ def version_check(v: str) -> tuple[bool, str]:
     if not version_str:
         return False, "Additive version not defined."
 
-    first_char_invalid = False
-    try:
-        int(version_str[0])
-    except ValueError:
-        first_char_invalid = True
+    first_char_invalid = not version_str[0].isdigit()
 
-    if  first_char_invalid \
-            or (" " in version_str and not (
-            version_str.endswith("alpha")
-            or version_str.endswith("beta")
-            or version_str.endswith("rc")
-    )):
+    if  first_char_invalid:
         return False, "Invalid version string format."
 
-    try:
-        v_numbers = version_str.split(" ")[0].split(".")
-        if len(v_numbers) > 3:
-            return False, "Too many version numbers."
+    v_numbers = version_str.split(" ")[0].split(".")
+    if len(v_numbers) > 3:
+        return False, "Too many version numbers."
 
-        for v_number in v_numbers:
-            int(v_number)
-    except ValueError:
-        return False, "Invalid version numbers."
+    for v_number in v_numbers:
+        if not v_number.isdigit() and \
+                v_numbers.index(v_number) != len(v_numbers) - 1:
+            return False, "Invalid version number format."
+        elif not v_number.isdigit():
+            if not (
+                    "a" in v_number and len(v_number.split("a")) == 2 or
+                    "b" in v_number and len(v_number.split("b")) == 2 or
+                    "rc" in v_number and len(v_number.split("rc")) == 2
+            ): return False, "Invalid version number format."
+
+        if v_number.isdigit():
+            v = int(v_number)
+            if v < 0 or v > 999:
+                return False, "Version number cannot be negative or greater than 999."
+
+        else:
+            v, _, b = final_version(v_number)
+            if v < 0 or v > 999:
+                return False, "Version number cannot be negative or greater than 999."
+            if b < 1 or b > 9:
+                return False, "Build number cannot smaller than 1 or greater than 9."
 
     return True, version_str
 

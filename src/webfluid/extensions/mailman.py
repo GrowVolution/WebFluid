@@ -3,7 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from threading import Thread
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import aiosmtplib, smtplib
 
 from webfluid.extensions.base import FluidExtension
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class Mail(FluidExtension):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self.host = "localhost"
         self.port = 587
         self.use_tls = True

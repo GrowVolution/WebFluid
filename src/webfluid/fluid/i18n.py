@@ -1,4 +1,6 @@
 
+_default = "{}"
+
 _keys = [
     "BRAND",
 
@@ -16,63 +18,63 @@ _keys = [
 translations = {
     "en": {
         _keys[0]: {
-            ("one",): "WebFluid"
+            _default: "WebFluid"
         },
 
         _keys[1]: {
-            ("one",): "Error"
+            _default: "Error"
         },
         _keys[2]: {
-            ("one",): "Internal Server Error"
+            _default: "Internal Server Error"
         },
         _keys[3]: {
-            ("one",): "Something went wrong, please try again later."
+            _default: "Something went wrong, please try again later."
         },
         _keys[4]: {
-            ("one",): "Not Found"
+            _default: "Not Found"
         },
         _keys[5]: {
-            ("one",): "The page you are looking for is not available."
+            _default: "The page you are looking for is not available."
         },
         _keys[6]: {
-            ("one",): "Forbidden"
+            _default: "Forbidden"
         },
         _keys[7]: {
-            ("one",): "You are not authorized to access this page."
+            _default: "You are not authorized to access this page."
         },
         _keys[8]: {
-            ("one",): "Back Home"
+            _default: "Back Home"
         },
 
     },
     "de": {
         _keys[0]: {
-            ("one",): "WebFluid"
+            _default: "WebFluid"
         },
 
         _keys[1]: {
-            ("one",): "Fehler"
+            _default: "Fehler"
         },
         _keys[2]: {
-            ("one",): "Interner Serverfehler"
+            _default: "Interner Serverfehler"
         },
         _keys[3]: {
-            ("one",): "Etwas ist schiefgelaufen, bitte versuche es später erneut."
+            _default: "Etwas ist schiefgelaufen, bitte versuche es später erneut."
         },
         _keys[4]: {
-            ("one",): "Nicht gefunden"
+            _default: "Nicht gefunden"
         },
         _keys[5]: {
-            ("one",): "Die angefragte Seite konnte nicht gefunden werden."
+            _default: "Die angefragte Seite konnte nicht gefunden werden."
         },
         _keys[6]: {
-            ("one",): "Gesperrt"
+            _default: "Gesperrt"
         },
         _keys[7]: {
-            ("one",): "Du bist nicht berechtigt, auf diese Seite zuzugreifen."
+            _default: "Du bist nicht berechtigt, auf diese Seite zuzugreifen."
         },
         _keys[8]: {
-            ("one",): "Zur Startseite"
+            _default: "Zur Startseite"
         },
 
     }

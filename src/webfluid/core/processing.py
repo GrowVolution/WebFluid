@@ -59,8 +59,6 @@ def setup_processing(fluid: "Fluid"):
         return wrapper
 
     fluid.context_processor(lambda: {
-        **fluid.jinja_context,
-
         "LANG": lang(),
         "YEAR": datetime.now(UTC).year,
 

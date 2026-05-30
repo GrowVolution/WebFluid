@@ -16,7 +16,7 @@ import subprocess, sys, typer
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import PROCESSING
 from webfluid.surface.frontend import Frontend
-from webfluid.utils.framework import (get_root_path, required_arg_count,
+from webfluid.utils.framework import (final_version, get_root_path, required_arg_count,
                                       safe_execute, async_result, try_import)
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
@@ -27,21 +27,24 @@ if TYPE_CHECKING:
 
 
 class AdditiveVersion(tuple):
-    def __new__(cls, major: int, minor: int | None = None, patch: int | None = None):
-        minor = 0 if minor is None else minor
-        patch = 0 if patch is None else patch
-        return super().__new__(cls, (major, minor, patch))
+    def __init__(self, major: str, minor: str | None = None, patch: str | None = None):
+        if minor is None and patch is None:
+            _, self.stage, self.build = final_version(major)
+        elif minor is not None and patch is None:
+            _, self.stage, self.build = final_version(minor)
+        elif patch is not None:
+            _, self.stage, self.build = final_version(patch)
+        else: raise ValueError("Invalid version format.")
 
-    @property
-    def length(self) -> int:
-        if self[2] != 0:
-            return 3
-        if self[1] != 0:
-            return 2
-        return 1
+    def __new__(cls, major: str, minor: str | None = None, patch: str | None = None):
+        if minor is None and patch is None: self = (final_version(major)[0],)
+        elif patch is None: self = (int(major), final_version(minor)[0])
+        else: self = (int(major), int(minor), final_version(patch)[0])
+        return super().__new__(cls, self)
 
     def __str__(self) -> str:
-        return f"v{'.'.join(map(str, self[:self.length]))}"
+        return (f"{'.'.join(map(str, self))}{self.stage}"
+                f"{self.build if self.stage else ''}")
 
 
 class AdditiveRouter(APIRouter):
@@ -114,6 +117,7 @@ class Additive:
         from webfluid.core.manifest import Manifest
         try: self.manifest = Manifest(self.root_path / "manifest.json")
         except (FileNotFoundError, ManifestError) as e:
+            print(e)
             raise AdditiveException(f"[{self.name}] Failed to load manifest: {e}")
 
         if not "name" in self.manifest:
@@ -152,9 +156,7 @@ class Additive:
         static_path = self.root_path / "static"
         self.static_files = None
         if static_path.exists():
-            self.static_files = StaticFiles(
-                directory=static_path
-            )
+            self.static_files = StaticFiles(directory=static_path)
 
         if base:
             self.loader = PrefixLoader(
@@ -448,4 +450,4 @@ class Additive:
     @property
     def version(self) -> AdditiveVersion:
         version_str = self.manifest["version"]
-        return AdditiveVersion(*map(int, version_str.split(".")))
+        return AdditiveVersion(*version_str.split("."))

@@ -11,6 +11,12 @@ if TYPE_CHECKING:
     from webfluid.core.fluid import Fluid
     from webfluid.core.additive import  Additive, AdditiveVersion
 
+_stage_map = {
+    "a": 0,
+    "b": 1,
+    "rc": 2
+}
+
 _proxy_client = httpx.AsyncClient()
 
 
@@ -28,6 +34,23 @@ def safe_string(text: str) -> str:
 
 def camel_to_snake(text: str) -> str:
     return re.sub(r'(?<!^)(?=[A-Z])', '_', text).lower()
+
+
+def final_version(v_str: str) -> tuple[int, str, int]:
+    if "a" in v_str:
+        stage = "a"
+        v, build = map(int, v_str.split("a"))
+    elif "b" in v_str:
+        stage = "b"
+        v, build = map(int, v_str.split("b"))
+    elif "rc" in v_str:
+        stage = "rc"
+        v, build = map(int, v_str.split("rc"))
+    else:
+        stage = ""
+        v, build = int(v_str), 0
+
+    return v, stage, build
 
 
 def get_root_path(import_name: str) -> str:
@@ -144,21 +167,23 @@ def check_required_version(requirement: str, version_type: str = "wf",
 
     if version_type == "additive":
         current = additive_version if isinstance(additive_version, ver_cls) \
-            else ver_cls(*map(int, additive_version.split(".")))
+            else ver_cls(*additive_version.split("."))
     else:
         current = version()
 
-    try:
-        target = ver_cls(*map(int, ver.split(".")))
+    try: target = ver_cls(*ver.split("."))
     except ValueError:
         raise ValueError("Invalid requirement string.")
 
+    current_stage = _stage_map.get(current.stage, 3)
+    target_stage = _stage_map.get(target.stage, 3)
+
     return {
-        ">":  current > target,
-        ">=": current >= target,
-        "<":  current < target,
-        "<=": current <= target,
-        "==": current == target,
+        ">":  current > target and current_stage > target_stage and current.build > target.build,
+        ">=": current >= target and current_stage >= target_stage and current.build >= target.build,
+        "<":  current < target and current_stage < target_stage and current.build < target.build,
+        "<=": current <= target and current_stage <= target_stage and current.build <= target.build,
+        "==": current == target and current_stage == target_stage and current.build == target.build,
     }.get(op, False)
 
 

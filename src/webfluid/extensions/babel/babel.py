@@ -5,7 +5,7 @@ from markupsafe import Markup
 from babel import Locale
 from pathlib import Path
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Callable, Any, Optional
 import sys, subprocess, typer, json, asyncio
 
 from webfluid.extensions.base import FluidExtension
@@ -65,13 +65,13 @@ class Babel(FluidExtension):
         "pgettext", "npgettext"
     }
 
-    def __init__(self, fluid: "Fluid | None" = None,
+    def __init__(self, fluid: Optional["Fluid"] = None,
                  default_locale: str = DEFAULT_LOCALE,
                  default_timezone: str = DEFAULT_TIMEZONE,
                  date_formats: dict[DateFormatKey, DateFormat] | None = None,
                  configure_jinja: bool = True,
                  configure_socket: bool = True,
-                 default_domain: "Domain | None" = None):
+                 default_domain: Optional["Domain"] = None):
         self.default_domain = None
         self.default_locale = None
         self.default_timezone = None
@@ -100,7 +100,7 @@ class Babel(FluidExtension):
                      date_formats: dict[DateFormatKey, DateFormat] | None = None,
                      configure_jinja: bool = True,
                      configure_socket: bool = True,
-                     default_domain: "Domain | None" = None):
+                     default_domain: Optional["Domain"] = None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
 

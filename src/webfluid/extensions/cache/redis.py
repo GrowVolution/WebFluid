@@ -1,6 +1,6 @@
 from redis import Redis as SyncRedis
 from redis.asyncio import Redis as AsyncRedis
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from webfluid.extensions.cache.base import BaseCache
 
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 class RedisCache(BaseCache):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self._redis_uri = "redis://localhost:6379"
         self._cache = None
         self._acache = None

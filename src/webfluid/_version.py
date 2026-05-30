@@ -1,14 +1,23 @@
 from importlib.metadata import version as _version
 
+from webfluid.utils.framework import final_version
+
 
 class FluidVersion(tuple):
-    def __new__(cls, major: int, minor: int, patch: int):
-        return super().__new__(cls, (major, minor, patch))
+    def __init__(self, major: str, minor: str, patch: str):
+        _, self.stage, self.build = final_version(patch)
+
+    def __new__(cls, major: str, minor: str, patch: str):
+        return super().__new__(cls, (
+            int(major), int(minor),
+            final_version(patch)[0]
+        ))
 
     def __str__(self):
-        return f"v{'.'.join(map(str, self))}"
+        return (f"{'.'.join(map(str, self))}{self.stage}"
+                f"{self.build if self.stage else ''}")
 
 
 def version() -> FluidVersion:
     v_str = _version("webfluid").split(" ")[-1].lstrip("v")
-    return FluidVersion(*map(int, v_str.split(".")))
+    return FluidVersion(*v_str.split("."))

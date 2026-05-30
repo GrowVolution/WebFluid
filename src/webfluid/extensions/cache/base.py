@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from webfluid.extensions.base import FluidExtension
 
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class BaseCache(FluidExtension):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self._default_timeout = 300
         super().__init__(fluid)
 

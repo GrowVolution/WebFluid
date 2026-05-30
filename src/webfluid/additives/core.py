@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import json
 
 from webfluid.core.additive import Additive, AdditiveVersion
-from webfluid.core.constants import DEBUG
+from webfluid.core.constants import DEV_AUTO_INSTALL
 from webfluid.utils.framework import enabled, try_import
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import ManifestError
@@ -30,12 +30,12 @@ def _load_additives(package: Path, target: str, additive_type: str, do_log: bool
             manifest = Manifest(additive / "manifest.json")
             if manifest["type"] != additive_type: continue
 
-            version = AdditiveVersion(*map(int, manifest["version"].split(".")))
+            version = AdditiveVersion(*manifest["version"].split("."))
             _additives[target][package].append(
                 (manifest.get("id", additive.name), version, additive.name)
             )
         except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
-            if do_log: log_factory.warning(f"Invalid additive package '{additive.name}' in {package}: {e}.")
+            if do_log: log_factory.warning(f"Invalid additive package '{additive.name}' in {package}:\n{e}")
             continue
 
 
@@ -64,8 +64,7 @@ async def register_additives(fluid: "Fluid"):
 
             try:
                 log_factory.log(f"Registering: {additive}")
-                # TODO: Add additional dev feature flag for automated installation in DEBUG
-                #if DEBUG: additive.install()
+                if DEV_AUTO_INSTALL: additive.install()
                 await additive.enable(fluid)
                 loaders.append(additive.loader)
                 log_factory.log(f"[{additive.name}] Additive successfully registered.")
@@ -79,8 +78,8 @@ async def register_additives(fluid: "Fluid"):
     fluid.jinja_env.loader = ChoiceLoader(loaders)
 
 
-def installed_additives(package: Path, do_log: bool = False) -> list[tuple[str, str, str]]:
-    if _additives["additives"].get(package):
+def installed_additives(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
+    if  _additives["additives"].get(package):
         return _additives["additives"][package]
 
     if not package.name == "additives":
@@ -91,10 +90,10 @@ def installed_additives(package: Path, do_log: bool = False) -> list[tuple[str, 
         package, "additives", "default", do_log
     )
 
-    return _additives["additives"][package]
+    return _additives["additives"][package] if cache else _additives["additives"].pop(package)
 
 
-def installed_bases(package: Path, do_log: bool = False) -> list[tuple[str, str, str]]:
+def installed_bases(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
     if _additives["bases"].get(package):
         return _additives["bases"][package]
 
@@ -103,7 +102,7 @@ def installed_bases(package: Path, do_log: bool = False) -> list[tuple[str, str,
         package, "bases", "base", do_log
     )
 
-    return _additives["bases"][package]
+    return _additives["bases"][package] if cache else _additives["bases"].pop(package)
 
 
 def import_base(base_id: str) -> Additive | None:

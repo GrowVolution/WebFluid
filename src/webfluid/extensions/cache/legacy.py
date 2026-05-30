@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, UTC
 from apscheduler.triggers.date import DateTrigger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from webfluid.extensions.cache.base import BaseCache
 from webfluid.utils.framework import async_result, enabled
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class LegacyCache(BaseCache):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         if not enabled("EXT_SCHEDULING"):
             raise FrameworkException("EXT_SCHEDULING is required for LegacyCache to work.")
 

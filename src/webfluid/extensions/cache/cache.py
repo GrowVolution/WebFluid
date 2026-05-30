@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from webfluid.extensions.cache import legacy, redis, base
 
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class Cache(base.BaseCache):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self._cache_type = "legacy"
         self._instance = None
         super().__init__(fluid)

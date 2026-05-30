@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import UniqueConstraint, select
 from babel.support import Translations
-import asyncio
+import asyncio, json
 
 from webfluid.core.ext import db, babel
 from webfluid.utils.logging import factory as log_factory
@@ -19,16 +19,18 @@ class I18nMessage(db.Model):
     key: Mapped[str]
     text: Mapped[str]
     ctx: Mapped[str | None]
+    cache: Mapped[bool]
 
     __table_args__ = (UniqueConstraint("locale", "domain", "key", "ctx"),)
 
     def __init__(self, locale: str, domain: str, key: str, text: str,
-                 ctx: str | None = None):
+                 ctx: str | None = None, cache: bool = True):
         self.locale = locale
         self.domain = domain
         self.key = key
         self.text = text
         if ctx is not None: self.ctx = ctx
+        self.cache = cache
 
 
 class MergedTranslations(Translations):
@@ -174,6 +176,8 @@ class MergedTranslations(Translations):
 
                 new_cache = {}
                 for r in rows:
+                    if not r.cache: continue
+
                     if r.key not in new_cache:
                         new_cache[r.key] = {}
 
@@ -193,9 +197,10 @@ class MergedTranslations(Translations):
                     new_cache = cls._db_cache[locale][domain]
                     for key, forms in keys.items():
                         for data, msg in forms.items():
-                            key = f"{data[0]}:{key}"
-                            if key not in new_cache:
-                                new_cache[key] = {}
+                            data = json.loads(data)
+
+                            key = f"{data.get('pf', 'one')}:{key}"
+                            cache = data.get("cache", True)
 
                             if not msg:
                                 log_factory.warning(
@@ -205,7 +210,7 @@ class MergedTranslations(Translations):
                                 )
                                 continue
 
-                            ctx = data[1] if len(data) > 1 else None
+                            ctx = data.get("ctx")
 
                             result = await e.exec(
                                 select(I18nMessage).where(
@@ -219,11 +224,21 @@ class MergedTranslations(Translations):
                             row = result.first()
                             if row:
                                 row.text = msg
+                                row.cache = cache
                             else:
                                 await e.insert(I18nMessage(
                                     locale, domain,
-                                    key, msg, ctx
+                                    key, msg, ctx,
+                                    cache
                                 ))
+
+                            if not cache:
+                                if key in new_cache:
+                                    new_cache[key].pop(ctx, None)
+                                continue
+
+                            if key not in new_cache:
+                                new_cache[key] = {}
 
                             ctx = ctx or ""
                             new_cache[key][ctx] = msg

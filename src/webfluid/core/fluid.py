@@ -7,7 +7,6 @@ from slowapi.errors import RateLimitExceeded
 from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from frozendict import frozendict
 from pathlib import Path
 from typing import Callable
 import os, asyncio, uvicorn, signal
@@ -52,9 +51,10 @@ class Fluid(FastAPI):
         super().__init__(**self.config.get("APP_CONFIG", {}))
 
         static_path = f"{FRAMEWORK_ID}/static"
-        self.app_static = StaticFiles(
-            directory=(self.app_root / static_path)
-        )
+        static = self.app_root / static_path
+        self.app_static = None
+        if static.exists():
+            self.app_static = StaticFiles(directory=static)
         self.framework_static = StaticFiles(
             directory=(FRAMEWORK_ROOT / static_path)
         )
@@ -65,7 +65,6 @@ class Fluid(FastAPI):
         self._static_prefixes = None
 
         self.jinja_env = Environment(enable_async=True)
-        self.jinja_context = {}
         self.sources = []
         self.sources.append(
             Markup(f'<script src="{WF_STATIC}/js/base.js" type="module"></script>')
@@ -102,7 +101,7 @@ class Fluid(FastAPI):
                 raise ValueError(f"Invalid frontend configuration: {result[1]}")
             self.frontend = Frontend()
             self.startup_hook(lambda: self.frontend.cover_fluid(self))
-            self.jinja_context["frontend"] = self.frontend.include
+            self.jinja_env.globals["frontend"] = self.frontend.include
 
         if self.config.get("RATELIMIT_ENABLED", True):
             self.state.limiter = Limiter(
@@ -139,7 +138,7 @@ class Fluid(FastAPI):
 
         if TAILWIND:
             self.startup_hook(lambda: generate_tailwind_css(self))
-            self.jinja_context["wf_tailwind"] = Markup(
+            self.jinja_env.globals["wf_tailwind"] = Markup(
                 f'<link rel="stylesheet" href="{WF_STATIC}/css/tailwind.css">'
             )
 
@@ -201,12 +200,12 @@ class Fluid(FastAPI):
 
     async def _prepare(self):
         self._static_prefixes = tuple(self.static_prefixes)
-        self.mount(APP_STATIC, self.app_static, "static")
+        if self.app_static:
+            self.mount(APP_STATIC, self.app_static, "static")
 
         wf_static = f"{FRAMEWORK_ID}_static"
         self.mount(WF_STATIC, self.framework_static, wf_static)
-        self.jinja_context["wf_static"] = wf_static
-        self.jinja_context = frozendict(self.jinja_context)
+        self.jinja_env.globals["wf_static"] = wf_static
 
     async def _startup(self):
         self._startup_lock = True

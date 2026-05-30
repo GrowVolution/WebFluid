@@ -1,7 +1,7 @@
 from uuid import uuid4
 from datetime import datetime, timedelta, UTC
 from apscheduler.triggers.interval import IntervalTrigger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import jwt, secrets
 
 from webfluid.extensions.base import FluidExtension
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class JWTManager(FluidExtension):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self._current_key = None
         self._secret_rotary_interval = 15
         self._secret_length = 128

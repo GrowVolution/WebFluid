@@ -508,7 +508,8 @@ class Frontend:
                     fluid.mount(data[0], data[1], name)
             fluid.startup_hook(mount)
 
-        fluid.startup_hook(create_proc)
+        if (fluid.app_root / "package.json").exists():
+            fluid.startup_hook(create_proc)
 
         cls._app_root = fluid.app_root
         fluid.startup_hook(lambda: fluid.get(

@@ -77,6 +77,19 @@ export class EventManager {
             console.error("Error while unsubscribing: ", error)
         }
     }
+    
+    async request(query, data=null) {
+        try {
+            const response = await request("request",  { query, data })
+            if (!response) {
+                console.error("Error while requesting... ", response)
+                return
+            }
+            return response
+        } catch (error) {
+            console.error("Error while requesting: ", error)
+        }
+    }
 }
 
 

@@ -46,7 +46,7 @@ class _BroadCaster:
 
 
 class EventManager(FluidExtension):
-    def __init__(self, fluid: "Fluid | None" = None):
+    def __init__(self, fluid: Optional["Fluid"] = None):
         self._broadcasters = {}
         self._events = {}
         self._queries = {}
@@ -126,7 +126,7 @@ class EventManager(FluidExtension):
                         self._subscriptions[event].pop(sid, None)
                         response["data"] = True
 
-                    elif request == "query":
+                    elif request == "request":
                         data = msg["data"]
                         if not isinstance(data, dict):
                             response["error"] = "Request data must be a dict."
@@ -302,7 +302,7 @@ class EventManager(FluidExtension):
         async for event_data in self._broadcasters[event].stream():
             yield event_data
 
-    async def request(self, query: str, data: Optional[Any] = None) -> Any | tuple[Any]:
+    async def request(self, query: str, data: Optional[Any] = None) -> Any | list[Any]:
         if query not in self._queries:
             raise ValueError(f"Query '{query}' does not exist.")
 
@@ -311,4 +311,4 @@ class EventManager(FluidExtension):
             for fn in self._queries[query]["handlers"]
         ]
         results = await asyncio.gather(*tasks)
-        return tuple(results) if len(tasks) > 1 else results[0]
+        return results[0] if self._queries[query]["singleton"] else results

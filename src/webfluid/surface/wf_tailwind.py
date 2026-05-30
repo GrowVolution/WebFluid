@@ -71,17 +71,19 @@ def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
 
 
 def generate_tailwind_css(fluid: "Fluid"):
-    from webfluid.core.constants import FRAMEWORK_ROOT
+    from webfluid.core.constants import FRAMEWORK_ROOT, THEMES
     d =  (FRAMEWORK_ROOT / "fluid" / "static" / "css")
 
+    raw_filename = f"tailwind{'_raw' if THEMES else '_no_themes'}.css"
+
     generate_asset(
-        d / "tailwind_raw.css",
+        d / raw_filename,
         d / "tailwind.css",
         d
     )
 
     for d in fluid.app_root.rglob("static/css"):
-        in_file = d / "tailwind_raw.css"
+        in_file = d / raw_filename
         if not in_file.exists(): continue
         generate_asset(
             in_file,
@@ -102,7 +104,7 @@ def load_tailwind(download_fn: Callable):
     if not dest.exists():
         raise TailwindError("Failed to download standalone tailwind cli.")
 
-    if os.name != "nt": os.system(f"chmod +x {str(dest)}")
+    if os.name != "nt": subprocess.run(["chmod", "+x", str(dest)])
 
 
 def tailwind(ctx: typer.Context):

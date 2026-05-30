@@ -125,7 +125,7 @@ class SQLAlchemy(FluidExtension):
     _instance = None
 
     def __init__(self,
-                 fluid: "Fluid | None" = None,
+                 fluid: Optional["Fluid"] = None,
                  base: type[DeclarativeBase] = Model):
         if SQLAlchemy._instance is not None:
             raise FrameworkException("SQLAlchemy.expand_fluid() has already been called!")
@@ -153,22 +153,22 @@ class SQLAlchemy(FluidExtension):
         try: return self.binds[bind_key]
         except KeyError: raise RuntimeError("Failed to resolve sqlalchemy bind.")
 
-    def _resolve_bind(self, bind_key: str, model: type[Model]) -> _Bind:
+    def _resolve_bind(self, bind_key: Optional[str], model: Optional[type]) -> _Bind:
         if not (bind_key or model): bind = self.binds["default"]
         elif bind_key: bind = self._get_bind(bind_key)
         else: bind = self.get_bind_for_model(model)
         return bind
 
-    def get_bind_for_model(self, model: type[Model]) -> _Bind:
+    def get_bind_for_model(self, model: Optional[type]) -> _Bind:
         return self._get_bind(getattr(model, "__bind_key__", "default"))
 
     @contextmanager
-    def executor(self, bind_key: str = None, model: type[Model] = None):
+    def executor(self, bind_key: Optional[str] = None, model: Optional[type] = None):
         with self._resolve_bind(bind_key, model).session() as session:
             with _Executor(session) as e: yield e
 
     @asynccontextmanager
-    async def async_executor(self, bind_key: str = None, model: type[Model] = None):
+    async def async_executor(self, bind_key: Optional[str] = None, model: Optional[type] = None):
         async with self._resolve_bind(bind_key, model).async_session() as session:
             async with _AsyncExecutor(session) as e: yield e
 

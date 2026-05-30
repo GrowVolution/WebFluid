@@ -6,10 +6,20 @@ api_router_py = """from fastapi import APIRouter
 
 api_router = APIRouter(prefix="/api")
 
-from fluid.api.v1 import v1
-api_router.include_router(v1)
+from fluid.api.v1 import setup as setup_v1
+setup_v1(api_router)
 """
 
+app_v1_py = """from fastapi import APIRouter
+
+v1 = APIRouter(prefix="/v1")
+
+
+def setup(router: APIRouter):
+    # TODO: Add your API routes here.
+    
+    router.include_router(v1)
+"""
 
 app_index_html = """{% extends "fluid_base.html" %}
 {# The base example is natively provided by WebFluid. #}
@@ -30,31 +40,32 @@ app_index_html = """{% extends "fluid_base.html" %}
 
         <div class="hero-container">
 
-            <h1 class="hero-title">
+            <h1 class="hero-title wf-rise">
                 {{ _('My') }}
                 <span class="hero-highlight">
                     {{ _('liquified Application') }}
                 </span>
             </h1>
 
-            <p class="hero-text">
+            <p class="hero-text wf-rise wf-d1">
                 {{ _('This is my brand new, super cool WebFluid project.') }}
             </p>
 
-            <div class="hero-actions">
-                <a href="https://github.com/GrowVolution/WebFluid"
-                   class="hero-button-primary" target="_blank">
+            <div class="hero-actions wf-rise wf-d2">
+                <a href="https://webfluid.dev/"
+                   class="btn btn-primary" target="_blank">
                     {{ _('Get Started') }}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </a>
 
-                <a href="https://github.com/GrowVolution/WebFluid/blob/main/DOCS.md"
-                   class="hero-button-secondary" target="_blank">
+                <a href="https://docs.webfluid.dev/latest/"
+                   class="btn btn-ghost" target="_blank">
                     {{ _('Learn More') }}
                 </a>
             </div>
 
-            <div class="hero-image">
-                <img src="/wf-static/img/banner.jpg" alt="WebFluid Banner">
+            <div class="hero-image wf-rise wf-d3">
+                <img src="{{ url_for(wf_static, path='img/banner.jpg') }}" alt="WebFluid Banner">
             </div>
 
         </div>
@@ -130,6 +141,7 @@ logs/
 messages.pot
 tailwind.css
 _my_config.py
+package-lock.json
 *.db"""
 
 
@@ -137,9 +149,28 @@ _my_config.py
 #               Additive Templates                #
 ###################################################
 
-api_py = """from .v1 import v1
+api_py = """from .health import handle_request as health
+from .v1 import setup as setup_v1
 
-__all__ = ["v1"]
+__all__ = [
+    "health",
+    "setup_v1"
+]
+"""
+
+adtv_v1_py = """from fastapi import APIRouter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from webfluid import Additive
+
+v1 = APIRouter(prefix="/v1")
+
+
+def setup(a: "Additive"):
+    # TODO: Add your API routes here.
+    
+    a.api.include_router(v1)
 """
 
 adtv_index_html = """{{% extends "fluid_base.html" %}}
@@ -153,11 +184,11 @@ adtv_index_html = """{{% extends "fluid_base.html" %}}
 
 {{% block content %}}
     <div class="page-center">
-        <div class="page-card">
+        <div class="page-card wf-rise">
 
-            <div class="flex flex-col items-center gap-2">
+            <div class="flex flex-col items-center gap-2 text-center">
 
-                <div class="text-2xl opacity-80">
+                <div class="error-icon text-2xl">
                     🧪
                 </div>
 
@@ -225,23 +256,14 @@ _my_config.py"""
 #               Shared Templates                  #
 ###################################################
 
-health_py = """from webfluid.utils import async_result
-from datetime import datetime, UTC
+health_py = """from datetime import datetime, UTC
 
 
-async def handle_request():
-    return await async_result({
+def handle_request():
+    return {
         "status": "ok",
         "timestamp": datetime.now(UTC).isoformat()
-    })
-"""
-
-v1_py = """from fastapi import APIRouter
-
-v1 = APIRouter(prefix="/v1")
-
-from .health import handle_request as health
-v1.get("/health")(health)
+    }
 """
 
 

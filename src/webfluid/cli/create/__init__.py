@@ -16,6 +16,7 @@ create = typer.Typer(help="Create a new WebFluid instances.")
 def _make_defaults(
         base: Path,
         api_init: str,
+        api_v1: str,
         app_init: str,
         index_py: str
 ):
@@ -31,12 +32,10 @@ def _make_defaults(
     (base / "templates").mkdir(exist_ok=True)
 
     (base / "api/v1").mkdir(parents=True, exist_ok=True)
-    (base / "api/v1/health.py").write_text(
+    (base / "api/health.py").write_text(
         templates.health_py
     )
-    (base / "api/v1/__init__.py").write_text(
-        templates.v1_py
-    )
+    (base / "api/v1/__init__.py").write_text(api_v1)
     (base / "api/__init__.py").write_text(api_init)
 
     (base / "app").mkdir(exist_ok=True)
@@ -206,6 +205,7 @@ def project(
         _make_defaults(
             app_dir,
             templates.api_router_py,
+            templates.app_v1_py,
             templates.app_router_py,
             templates.app_index_py
         )
@@ -377,6 +377,7 @@ def additive(additive_id: str):
     _make_defaults(
         additive_root,
         templates.api_py,
+        templates.adtv_v1_py,
         templates.app_py,
         templates.adtv_index_py
     )

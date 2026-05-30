@@ -22,3 +22,5 @@ EXT_EVENTS = enabled("EXT_EVENTS")
 EXT_CACHE = enabled("EXT_CACHE")
 EXT_MAIL = enabled("EXT_MAIL")
 EXT_JWT = enabled("EXT_JWT")
+
+DEV_AUTO_INSTALL = enabled("DEV_AUTO_INSTALL")

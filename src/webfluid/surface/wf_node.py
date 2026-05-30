@@ -40,7 +40,7 @@ def _node_cmd(cmd: str) -> str:
     if not node.exists():
         if not _sys_node()[0]:
             raise NodeError("Missing node installation / integration... "
-                            "Try running 'wf init' inside a project directory.")
+                            "Try running 'wf create project dummy -sd'.")
         return cmd
 
     if os.name == "nt":

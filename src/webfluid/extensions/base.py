@@ -9,7 +9,7 @@ class FluidExtension:
     _cli: typer.Typer
 
     def __init__(self, fluid: Optional["Fluid"] = None, *args, **kwargs):
-        if fluid is not None: self.expand_fluid(fluid, *args)
+        if fluid is not None: self.expand_fluid(fluid, *args, **kwargs)
 
     def expand_fluid(self, fluid: "Fluid", *args, **kwargs):
         raise NotImplementedError()

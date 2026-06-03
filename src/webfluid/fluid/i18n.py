@@ -15,7 +15,7 @@ _keys = [
 
 ]
 
-translations = {
+translations = lambda: {
     "en": {
         _keys[0]: {
             _default: "WebFluid"

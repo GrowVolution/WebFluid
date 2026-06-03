@@ -48,6 +48,20 @@ class DefaultConfig:
 
     BABEL_DISABLE_AUTOUPDATE = False
 
+    SECURITY_TOKEN_MAX_AGE = 3600
+    SECURITY_CSRF_COOKIE_NAME = "csrf_token"
+    SECURITY_CSRF_COOKIE_SECURE = True
+    SECURITY_HASHER_TIME_COST = 3
+    SECURITY_HASHER_MEMORY_COST = 65536
+    SECURITY_HASHER_PARALLELISM = 4
+    SECURITY_PASSWORD_MIN_LENGTH = 8
+    SECURITY_PASSWORD_REQUIREMENTS = {
+        "lower": 1,
+        "upper": 1,
+        "digits": 1,
+        "special": 1
+    }
+
     MAIL_SERVER = "localhost"
     MAIL_PORT = 587
     MAIL_USE_TLS = True

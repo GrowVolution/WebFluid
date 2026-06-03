@@ -1,10 +1,10 @@
 from babel import support
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 import os
 
 from webfluid.core.context import FluidContext
 from webfluid.extensions.babel.translations import MergedTranslations
-from webfluid.extensions.utils.babel import get_locale
+from webfluid.extensions.babel.utils import get_locale
 
 if TYPE_CHECKING:
     from os import PathLike

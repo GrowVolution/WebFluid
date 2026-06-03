@@ -12,12 +12,10 @@ from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.babel.constants import (
     DEFAULT_DATE_FORMATS,
     DEFAULT_LOCALE,
-    DEFAULT_TIMEZONE,
-    DateFormat,
-    DateFormatKey
+    DEFAULT_TIMEZONE
 )
 from webfluid.extensions.babel.speaklater import LazyString
-from webfluid.extensions.utils.babel import (
+from webfluid.extensions.babel.utils import (
     parse_best_match,
     format_message,
     format_currency,
@@ -33,7 +31,7 @@ from webfluid.extensions.utils.babel import (
 from webfluid.core.context import BaseContext
 from webfluid.core.constants import (
     FRAMEWORK_ROOT, FRAMEWORK_ID,
-    WF_STATIC,
+    WF_STATIC, EXECUTION,
     EXT_SQLALCHEMY
 )
 from webfluid.utils.framework import is_async_function
@@ -66,11 +64,6 @@ class Babel(FluidExtension):
     }
 
     def __init__(self, fluid: Optional["Fluid"] = None,
-                 default_locale: str = DEFAULT_LOCALE,
-                 default_timezone: str = DEFAULT_TIMEZONE,
-                 date_formats: dict[DateFormatKey, DateFormat] | None = None,
-                 configure_jinja: bool = True,
-                 configure_socket: bool = True,
                  default_domain: Optional["Domain"] = None):
         self.default_domain = None
         self.default_locale = None
@@ -86,20 +79,9 @@ class Babel(FluidExtension):
         self._timezone_selector_fn = None
         self.date_formats = None
 
-        super().__init__(
-            fluid,
-            default_locale, default_timezone,
-            date_formats, configure_jinja,
-            configure_socket,
-            default_domain
-        )
+        super().__init__(fluid, default_domain=default_domain)
 
-    def expand_fluid(self, fluid: "Fluid",
-                     default_locale: str = DEFAULT_LOCALE,
-                     default_timezone: str = DEFAULT_TIMEZONE,
-                     date_formats: dict[DateFormatKey, DateFormat] | None = None,
-                     configure_jinja: bool = True,
-                     configure_socket: bool = True,
+    def expand_fluid(self, fluid: "Fluid", *_,
                      default_domain: Optional["Domain"] = None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
@@ -108,18 +90,23 @@ class Babel(FluidExtension):
             from .domain import Domain
             default_domain = Domain()
         self.default_domain = default_domain
-        self.default_locale = fluid.config.get("BABEL_DEFAULT_LOCALE", default_locale)
-        self.default_timezone = fluid.config.get("BABEL_DEFAULT_TIMEZONE", default_timezone)
-        supported_locales = fluid.config.get("BABEL_SUPPORTED_LOCALES", [default_locale])
+        self.default_locale = fluid.config.get("BABEL_DEFAULT_LOCALE", DEFAULT_LOCALE)
+        self.default_timezone = fluid.config.get("BABEL_DEFAULT_TIMEZONE", DEFAULT_TIMEZONE)
+        supported_locales = fluid.config.get("BABEL_SUPPORTED_LOCALES", [DEFAULT_LOCALE])
         self.supported_locales = tuple(supported_locales)
-        self.date_formats = date_formats or DEFAULT_DATE_FORMATS.copy()
+        self.date_formats = fluid.config.get("BABEL_DATE_FORMATS", DEFAULT_DATE_FORMATS.copy())
 
         db_bind = fluid.config.get("BABEL_DATABASE_BIND")
         if db_bind is not None:
-            from .translations import I18nMessage
+            from .translations import I18nKey, I18nMessage
+            I18nKey.set_bind(db_bind)
             I18nMessage.set_bind(db_bind)
 
-        if configure_jinja:
+        elif not EXECUTION:
+            # Initialize models to ensure they are registered in the metadata
+            from .translations import I18nKey, I18nMessage
+
+        if fluid.config.get("BABEL_CONFIGURE_JINJA", True):
             fluid.jinja_env.filters.update(
                 datetimeformat=format_datetime,
                 dateformat=format_date,
@@ -138,7 +125,7 @@ class Babel(FluidExtension):
                 newstyle=True,
             )
 
-        if configure_socket:
+        if fluid.config.get("BABEL_CONFIGURE_SOCKET", True):
             fluid.websocket("/ws/i18n")(self.socket_i18n)
             fluid.sources.append(
                 Markup(f'<script src="{WF_STATIC}/js/i18n.js" type="module"></script>')
@@ -175,13 +162,13 @@ class Babel(FluidExtension):
         await asyncio.gather(*tasks)
 
     def update_translations(self, domain: str,
-                            translations: dict[
+                            translations: Callable[[], dict[
                                 str, dict[
                                     str, dict[
                                         tuple[str, str | None], str
                                     ]
                                 ]
-                            ]):
+                            ]]):
         if self._update_disabled: return
 
         if self._update_blocked:
@@ -224,7 +211,7 @@ class Babel(FluidExtension):
                         msg["data"].get("locale")
                         or ws.cookies.get("lang")
                         or parse_best_match(
-                            ws.headers.get("Accept-Language"),
+                            ws.headers.get("Accept-Language", "en-US"),
                             self.supported_locales
                         )
                         or self.default_locale
@@ -245,8 +232,13 @@ class Babel(FluidExtension):
                         response["error"] = "Only (non lazy) gettext api is supported."
 
                     else:
+                        domain = msg["data"].get("domain")
                         fn = getattr(self, fn_name)
-                        response["data"] = fn(**msg["args"])
+                        if domain: fn = self.domain_context(domain)(fn)
+                        response["data"] = fn(
+                            **msg["data"]["args"],
+                            **msg["data"]["variables"]
+                        )
 
                 else:
                     response["error"] = f"Unknown request: {request}"

@@ -2,6 +2,7 @@ import { createWS } from "./base.js"
 
 const { request } = createWS("/ws/i18n")
 
+
 export class Translations {
     constructor(locale=null, defaultDomain="messages") {
         this.locale = locale
@@ -61,82 +62,117 @@ export class Translations {
         return escalation
     }
 
-    _(message) {
-        const pluralForm = this.pluralForm(1)
-        const get = (domain) => {
-            return (
-                (this.translations[domain] || {})
-                    [`${pluralForm}:${message}`] || {}
-            )[""]
-        }
-
-        for (const domain of this.fallbackEscalation()) {
-            const msg = get(domain)
-            if (msg) return msg
-        }
-
-        return message
+    format(result, variables) {
+        for (const [key, value] of Object.entries(variables))
+            result = result.replaceAll(
+                new RegExp(`%\\(${key}\\)[a-z]`, 'g'),
+                value
+            )
     }
 
-    _n(singular, plural, num) {
-        let msg
+    _(message, variables = {}) {
+        return this.format((() => {
+            const pluralForm = this.pluralForm(1)
+            const get = (domain) => {
+                return (((this.translations[domain] || {})
+                    [message] || {})[pluralForm] || {})[""]
+            }
 
-        if (num === 1) msg = singular
-        else msg = plural
+            for (const domain of this.fallbackEscalation()) {
+                const msg = get(domain)
+                if (msg) return msg
+            }
 
-        const pluralForm = this.pluralForm(num)
-        const get = (domain) => {
-            return (
-                (this.translations[domain] || {}
-                )[`${pluralForm}:${msg}`] || {}
-            )[""]
-        }
-
-        for (const domain of this.fallbackEscalation()) {
-            const m = get(domain)
-            if (m) return m
-        }
-
-        return  msg
+            return message
+        })(), variables)
     }
 
-    _p(context, message) {
-        const pluralForm = this.pluralForm(1)
-        const get = (domain) => {
-            return (
-                (this.translations[domain] || {}
-                )[`${pluralForm}:${message}`] || {}
-            )[context]
-        }
+    _n(singular, plural, num, variables = {}) {
+        return this.format((() => {
+            let msg
 
-        for (const domain of this.fallbackEscalation()) {
-            const msg = get(domain)
-            if (msg) return msg
-        }
+            if (num === 1) msg = singular
+            else msg = plural
 
-        return this._(message)
+            const pluralForm = this.pluralForm(num)
+            const get = (domain) => {
+                return (((this.translations[domain] || {})
+                    [msg] || {})[pluralForm] || {})[""]
+            }
+
+            for (const domain of this.fallbackEscalation()) {
+                const m = get(domain)
+                if (m) return m
+            }
+
+            return  msg
+        })(), variables)
     }
 
-    _np(context, singular, plural, num) {
-        let msg
+    _p(context, message, variables = {}) {
+        return this.format((() => {
+            const pluralForm = this.pluralForm(1)
+            const get = (domain) => {
+                return (((this.translations[domain] || {})
+                    [message] || {})[pluralForm] || {})[context]
+            }
 
-        if (num === 1) msg = singular
-        else msg = plural
+            for (const domain of this.fallbackEscalation()) {
+                const msg = get(domain)
+                if (msg) return msg
+            }
 
-        const pluralForm = this.pluralForm(num)
-        const get = (domain) => {
-            return (
-                (this.translations[domain] || {}
-                )[`${pluralForm}:${msg}`] || {}
-            )[context]
-        }
+            return this._(message)
+        })(), variables)
+    }
 
-        for (const domain of this.fallbackEscalation()) {
-            const m = get(domain)
-            if (m) return m
-        }
+    _np(context, singular, plural, num, variables = {}) {
+        return this.format((() => {
+            let msg
 
-        return this._n(singular, plural, num)
+            if (num === 1) msg = singular
+            else msg = plural
+
+            const pluralForm = this.pluralForm(num)
+            const get = (domain) => {
+                return (((this.translations[domain] || {})
+                    [msg] || {})[pluralForm] || {})[context]
+            }
+
+            for (const domain of this.fallbackEscalation()) {
+                const m = get(domain)
+                if (m) return m
+            }
+
+            return this._n(singular, plural, num)
+        })(), variables)
+    }
+
+    live = {
+        _: async (string, variables = {}) => await request(
+            "translate", {
+                domain: this.currentDomain,
+                args: { string }, variables
+            }
+        ),
+        _n: async (singular, plural, num, variables = {}) => await request(
+            "translate", {
+                fn: "ngettext", domain: this.currentDomain,
+                args: { singular, plural, num }, variables
+            }
+        ),
+        _p: async (context, string, variables = {}) => await request(
+            "translate", {
+                fn: "pgettext", domain: this.currentDomain,
+                args: { string, context }, variables
+            }
+        ),
+        _np: async (context, singular, plural, num, variables = {}) => await request(
+            "translate", {
+                fn: "npgettext", domain: this.currentDomain,
+                args: { singular, plural, num, context }, variables
+            }
+        )
     }
 }
 

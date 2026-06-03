@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES
-from webfluid.extensions.utils.babel import get_locale, fake_t, fake_tn
+from webfluid.extensions.babel.utils import get_locale, fake_t, fake_tn
 from webfluid.utils.logging import factory as log_factory
 
 if TYPE_CHECKING:

@@ -448,6 +448,7 @@ def create_app(
         "EXT_SCHEDULING",
         "EXT_SQLALCHEMY",
         "EXT_BABEL",
+        "EXT_SECURITY",
         "EXT_EVENTS",
         "EXT_CACHE",
         "EXT_MAIL",
@@ -471,6 +472,11 @@ def create_app(
         config["features"][feat] = "1" if enabled else "0"
 
     _setup_additives(config)
+
+    if "EXT_SECURITY" in enable_extensions:
+        config["security"] = {
+            "SECURITY_SECRET": token_hex(32)
+        }
 
     if "EXT_MAIL" in enable_extensions:
         print()

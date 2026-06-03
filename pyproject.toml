@@ -40,6 +40,7 @@ dependencies = [
 
     "argon2_cffi",
     "itsdangerous",
+    "authlib",
     "pyjwt",
 
     "typer",
@@ -67,8 +68,7 @@ include-package-data = true
 [tool.setuptools.package-data]
 webfluid = [
     "extensions/babel/babel.cfg",
-    "fluid/templates/**/*.html",
-    "fluid/static/**/*"
+    "fluid/**/*"
 ]
 
 [project.optional-dependencies]

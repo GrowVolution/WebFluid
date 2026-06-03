@@ -19,10 +19,12 @@ from webfluid.core.constants import (
     APP_STATIC, WF_STATIC,
     THEMES, TAILWIND, PROCESSING,
     EXT_SCHEDULING, EXT_SQLALCHEMY,
-    EXT_BABEL, EXT_EVENTS, EXT_CACHE,
-    EXT_MAIL, EXT_JWT
+    EXT_BABEL, EXT_SECURITY, EXT_EVENTS,
+    EXT_CACHE, EXT_MAIL, EXT_JWT
 )
-from webfluid.core.ext import scheduler, db, babel, events, cache, mail, jwt
+from webfluid.core.ext import (
+    scheduler, db, babel, security, events, cache, mail, jwt
+)
 from webfluid.core.processing import setup_processing
 from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
@@ -126,6 +128,7 @@ class Fluid(FastAPI):
                 babel.register_domain(FRAMEWORK_ID)
                 babel.update_translations(FRAMEWORK_ID, translations)
 
+        if EXT_SECURITY: security.expand_fluid(self)
         if EXT_EVENTS: events.expand_fluid(self)
         if EXT_CACHE: cache.expand_fluid(self)
         if EXT_MAIL: mail.expand_fluid(self)

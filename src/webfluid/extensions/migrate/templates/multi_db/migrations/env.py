@@ -57,6 +57,12 @@ def get_metadata(bind):
     return target_metadata
 
 
+def is_downgrade() -> bool:
+    opts = getattr(config, "cmd_opts", None)
+    cmd = getattr(opts, "cmd", None) if opts else None
+    return bool(cmd) and getattr(cmd[0], "__name__", "") == "downgrade"
+
+
 def run_migrations_offline():
 
     engines = {
@@ -70,7 +76,11 @@ def run_migrations_offline():
             "url": context.config.get_section_option(name, "sqlalchemy.url")
         }
 
-    for name, rec in engines.items():
+    names = list(engines)
+    if is_downgrade(): names = list(reversed(names))
+
+    for name in names:
+        rec = engines[name]
 
         logger.info(f"Migrating database {name}")
 
@@ -91,7 +101,7 @@ def do_run_migrations(connection, name):
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
 
-            if script.upgrade_ops.is_empty():
+            if all(op.is_empty() for op in script.upgrade_ops_list):
                 directives[:] = []
                 logger.info("No schema changes detected.")
 
@@ -115,7 +125,11 @@ async def run_migrations_online():
     for name in bind_names:
         engines[name] = get_engine(name)
 
-    for name, engine in engines.items():
+    names = list(engines)
+    if is_downgrade(): names = list(reversed(names))
+
+    for name in names:
+        engine = engines[name]
 
         logger.info(f"Migrating database {name}")
 

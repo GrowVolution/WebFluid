@@ -100,7 +100,7 @@ def is_async_function(fn: Callable) -> bool:
 
 
 async def async_result(result: Any) -> Any:
-    if inspect.isawaitable(result):
+    if asyncio.iscoroutine(result):
         return await result
     return result
 

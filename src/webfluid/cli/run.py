@@ -237,11 +237,14 @@ def run(
             if opt == 3: _join_log()
             if opt == 4: _clear_logs(log_dir)
     else:
+        _streaming = True
+        Thread(target=_stream_log, daemon=True).start()
+
         while _proc.poll() is None:
-            if _terminate: break
-            line = _proc.stdout.readline()
-            if line: typer.echo(line, nl=False)
             time.sleep(0.05)
+            if _terminate: break
+
+        _streaming = False
 
     _stop()
     _log.close()

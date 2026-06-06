@@ -182,16 +182,18 @@ class Fluid(FastAPI):
 
         self._asgi_app = None
         self._server = None
+        self._loop = None
         self._shutdown_flag = asyncio.Event()
 
         def add_shutdown_handlers():
+            self._loop = asyncio.get_running_loop()
             if os.name == "nt":
                 signal.signal(signal.SIGINT, self._handle_shutdown)
+                signal.signal(signal.SIGBREAK, self._handle_shutdown)
                 signal.signal(signal.SIGTERM, self._handle_shutdown)
             else:
-                loop = asyncio.get_running_loop()
-                loop.add_signal_handler(signal.SIGINT, self._handle_shutdown)
-                loop.add_signal_handler(signal.SIGTERM, self._handle_shutdown)
+                self._loop.add_signal_handler(signal.SIGINT, self._handle_shutdown)
+                self._loop.add_signal_handler(signal.SIGTERM, self._handle_shutdown)
 
         self.startup_hook(add_shutdown_handlers)
         self.shutdown_hook(close_proxy_client)
@@ -248,7 +250,7 @@ class Fluid(FastAPI):
 
     def _handle_shutdown(self, *_):
         if self._shutdown_flag.is_set(): return
-        self._shutdown_flag.set()
+        self._loop.call_soon_threadsafe(self._shutdown_flag.set)
 
     def _validate_theme(self, name: str):
         if not THEMES: raise FrameworkException("Themes are not enabled.")

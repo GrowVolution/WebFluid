@@ -95,7 +95,9 @@ def _start(env: dict, project_root: Path):
         env=env,
         cwd=project_root,
         text=True,
-        bufsize=1
+        bufsize=1,
+        start_new_session=os.name != "nt",
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
     )
 
 
@@ -106,8 +108,15 @@ def _stop():
 
     if _proc.poll() is None:
         typer.secho("Stopping application...", fg=typer.colors.RED)
-        _proc.terminate()
-        _proc.wait()
+        if os.name == "nt":
+            os.kill(_proc.pid, signal.CTRL_BREAK_EVENT)
+        else:
+            _proc.send_signal(signal.SIGTERM)
+
+        try: _proc.wait(10)
+        except subprocess.TimeoutExpired:
+            _proc.kill()
+            _proc.wait()
 
 
 def _restart(env: dict, project_root: Path):
@@ -217,15 +226,13 @@ def run(
     signal.signal(signal.SIGTERM, _exit)
 
     if interactive:
-        # TODO: Fix process management on Windows
-
         while True:
             if _terminate: break
 
             typer.echo(f"\nApplication status: {_status()}")
             opt = questions.menu.ask()
 
-            if opt == 6: break
+            if opt is None or opt == 6: break
             if opt == 5:
                 os.system("cls" if os.name == "nt" else "clear")
                 continue
@@ -243,8 +250,6 @@ def run(
         while _proc.poll() is None:
             time.sleep(0.05)
             if _terminate: break
-
-        _streaming = False
 
     _stop()
     _log.close()

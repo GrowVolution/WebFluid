@@ -357,15 +357,12 @@ class Frontend:
             return
 
         if os.name == "nt":
-            subprocess.Popen(
+            subprocess.run(
                 ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=(
-                    subprocess.CREATE_NEW_PROCESS_GROUP |
-                    subprocess.DETACHED_PROCESS
-                )
+                stderr=subprocess.DEVNULL
             )
+            proc.wait()
         else:
             os.killpg(proc.pid, signal.SIGINT)
 

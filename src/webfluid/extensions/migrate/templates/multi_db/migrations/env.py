@@ -2,8 +2,8 @@ from alembic import context
 from logging.config import fileConfig
 import asyncio, logging
 
-from webfluid.core.ext import db
 from webfluid.core.context import FluidContext
+from webfluid.extensions.sqlalchemy import SQLAlchemy
 from webfluid.utils import try_import
 
 config = context.config
@@ -24,17 +24,11 @@ def get_fluid():
     return app
 
 fluid = get_fluid()
-
-
-target_metadata = db.Model.metadata
-
-
-def get_bind_names():
-    return list(db.binds.keys())
+db = SQLAlchemy.get_instance()
 
 
 def get_engine(bind_key="default"):
-    return db.binds[bind_key].async_engine
+    return db.get_bind(bind_key).async_engine
 
 
 def get_engine_url(bind_key="default"):
@@ -44,7 +38,7 @@ def get_engine_url(bind_key="default"):
 
 config.set_main_option("sqlalchemy.url", get_engine_url("default"))
 
-bind_names = [b for b in get_bind_names() if b != "default"]
+bind_names = [b for b in db.bind_keys if b != "default"]
 
 for bind in bind_names:
     context.config.set_section_option(
@@ -54,9 +48,8 @@ for bind in bind_names:
     )
 
 
-def get_metadata(bind):
-    # TODO: Upgrade to optional Multi-Metadata later
-    return target_metadata
+def get_metadata(bind_key):
+    return db.get_bind(bind_key).metadata
 
 
 def is_downgrade() -> bool:
@@ -110,6 +103,8 @@ def do_run_migrations(connection, name):
     context.configure(
         connection=connection,
         target_metadata=get_metadata(name),
+        upgrade_token="%s_upgrades" % name,
+        downgrade_token="%s_downgrades" % name,
         compare_type=True,
         process_revision_directives=process_revision_directives,
     )

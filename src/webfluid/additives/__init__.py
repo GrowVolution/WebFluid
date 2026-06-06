@@ -6,7 +6,9 @@ if TYPE_CHECKING:
 __all__ = [
     "register_additives",
     "installed_additives", "installed_bases",
-    "import_base"
+    "import_base",
+
+    "utils"
 ]
 
 

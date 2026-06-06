@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Optional
-import secrets
 
 from webfluid.core.constants import DEBUG, EXECUTION
 from webfluid.extensions.base import FluidExtension
+from webfluid.extensions.sqlalchemy.utils import update_metadata
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 
@@ -53,11 +53,16 @@ class Security(FluidExtension):
 
         bind = fluid.config.get("SECURITY_MODELS_DB_BIND")
         if bind:
-            from .models.user import User, Identity, Role, Permission
+            from .models.user import (
+                User, Identity, Role, Permission,
+                user_roles, role_permissions
+            )
             User.set_bind(bind)
             Identity.set_bind(bind)
             Role.set_bind(bind)
             Permission.set_bind(bind)
+            update_metadata(user_roles, target_model=User)
+            update_metadata(role_permissions, target_model=User)
 
             from .models.token import ExpiredToken
             ExpiredToken.set_bind(bind)

@@ -328,13 +328,11 @@ class Frontend:
                     text=True
                 )
 
-                code = await run_in_executor(cls._proc.wait)
-                if code != 0:
-                    out = cls._proc.stderr or cls._proc.stdout
-                    if out: out = out.read()
-                    else: out = "Unknown error"
-                    if "No workspaces found!" not in out:
-                        raise FrontendException(out)
+                out, err = await run_in_executor(cls._proc.communicate)
+                if cls._proc.returncode != 0:
+                    msg = err or out or "Unknown error"
+                    if "No workspaces found!" not in msg:
+                        raise FrontendException(msg)
 
             def mount():
                 for name, data in cls._static_files.items():

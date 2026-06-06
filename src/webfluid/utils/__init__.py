@@ -9,7 +9,7 @@ __all__ = [
     "check_priority", "build_sorted_tuple", "try_import", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additive", "logging"
+    "logging"
 ]
 
 

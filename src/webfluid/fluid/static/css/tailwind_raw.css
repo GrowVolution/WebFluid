@@ -258,21 +258,35 @@
     .error-frame {
         @apply rounded-3xl p-px;
         background: linear-gradient(140deg,
-        color-mix(in srgb, var(--tertiary-1) 40%, transparent),
+        color-mix(in srgb, var(--error-accent, var(--danger-1)) 45%, transparent),
         transparent 45%,
         color-mix(in srgb, var(--secondary-1) 30%, transparent));
     }
+    .error-danger  { --error-accent: var(--danger-2); }
+    .error-warning { --error-accent: var(--warning-2); }
+    .error-info    { --error-accent: var(--info-2); }
     .error-card {
-        @apply relative rounded-3xl p-10 text-center border border-primary-1/30;
+        @apply relative flex flex-col items-center gap-5 rounded-3xl p-10 text-center border border-white/10;
         background: color-mix(in srgb, var(--primary-5) 88%, #000);
         backdrop-filter: blur(12px);
-        filter: drop-shadow(0 0 10px color-mix(in srgb, var(--danger-3) 50%, transparent));
+        filter: drop-shadow(0 0 24px color-mix(in srgb, var(--error-accent, var(--danger-3)) 32%, transparent));
     }
-    .error-content {
-        @apply flex flex-col items-center gap-4;
+    .error-badge {
+        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-xs font-medium tracking-widest text-slate-300 border border-white/10;
+        background: color-mix(in srgb, var(--error-accent, var(--danger-2)) 14%, transparent);
+    }
+    .error-badge-dot {
+        @apply w-2 h-2 rounded-full;
+        background: var(--error-accent, var(--danger-1));
+        animation: error-pulse 2s ease-out infinite;
+    }
+    @keyframes error-pulse {
+        0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--error-accent, var(--danger-1)) 55%, transparent); }
+        70%  { box-shadow: 0 0 0 .5rem transparent; }
+        100% { box-shadow: 0 0 0 0 transparent; }
     }
     .error-icon {
-        @apply flex items-center justify-center text-4xl w-15 h-15;
+        @apply text-5xl;
         animation: icon-float 5s ease-in-out infinite;
     }
     @keyframes icon-float {
@@ -286,21 +300,65 @@
     .error-text {
         @apply max-w-sm leading-relaxed text-slate-400;
     }
-    .error-action, .error-action-secondary {
-        @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition mt-2;
-    }
     .error-action {
-        @apply text-primary-5 bg-gradient-to-r from-tertiary-1 to-info-1;
+        @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition text-primary-5 bg-gradient-to-r from-tertiary-1 to-info-1;
     }
     .error-action:hover {
         @apply -translate-y-0.5;
         box-shadow: 0 14px 35px color-mix(in srgb, var(--tertiary-2) 45%, transparent);
     }
-    .error-action-secondary {
-        @apply text-slate-100 bg-white/5 border border-white/10;
+
+
+    .trace-layout {
+        @apply max-w-5xl mx-auto px-6 flex flex-col gap-6;
+        padding-top: clamp(2.5rem, 5vw, 4rem);
+        padding-bottom: clamp(2.5rem, 5vw, 4rem);
     }
-    .error-action-secondary:hover {
-        @apply bg-white/10 -translate-y-0.5;
+    .trace-badge {
+        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-xs font-medium tracking-widest text-danger-1 border border-white/10 w-fit;
+        background: color-mix(in srgb, var(--danger-2) 14%, transparent);
+    }
+    .trace-badge-dot {
+        @apply w-2 h-2 rounded-full;
+        background: var(--danger-1);
+        animation: error-pulse 2s ease-out infinite;
+    }
+    .trace-title {
+        @apply font-mono font-bold tracking-tight text-danger-1 mt-4 break-words;
+        font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+    }
+    .trace-message {
+        @apply mt-2 leading-relaxed text-slate-300 break-words;
+    }
+    .trace-meta {
+        @apply mt-4 flex flex-wrap items-center gap-3 text-sm;
+    }
+    .trace-tag {
+        @apply font-mono font-semibold px-2.5 py-1 rounded-lg text-tertiary-1 border border-white/10;
+        background: color-mix(in srgb, var(--tertiary-3) 22%, transparent);
+    }
+    .trace-path {
+        @apply font-mono text-slate-400 break-all;
+    }
+    .trace-frame {
+        @apply rounded-2xl overflow-hidden border border-white/10;
+        background: color-mix(in srgb, var(--primary-5) 92%, #000);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, .45);
+    }
+    .trace-bar {
+        @apply flex items-center gap-2 px-4 py-3 border-b border-white/10;
+        background: color-mix(in srgb, var(--primary-5) 80%, #000);
+    }
+    .trace-dot {
+        @apply w-3 h-3 rounded-full;
+    }
+    .trace-bar-label {
+        @apply ml-2 font-mono text-xs tracking-widest text-slate-500;
+    }
+    .trace-body {
+        @apply p-5 overflow-x-auto font-mono text-sm leading-relaxed text-slate-300;
+        white-space: pre;
+        tab-size: 4;
     }
 
 

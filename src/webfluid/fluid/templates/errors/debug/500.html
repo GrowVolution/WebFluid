@@ -1,0 +1,34 @@
+{% extends "fluid_base.html" %}
+
+{% block title %}500 — {{ error_type }}{% endblock %}
+
+{% block content %}
+<div class="trace-layout">
+
+    <div class="trace-head wf-rise">
+        <span class="trace-badge">
+            <span class="trace-badge-dot"></span>
+            500 · Debug
+        </span>
+
+        <h1 class="trace-title">{{ error_type | e }}</h1>
+        <p class="trace-message">{{ error | e }}</p>
+
+        <div class="trace-meta">
+            <span class="trace-tag">{{ method | e }}</span>
+            <span class="trace-path">{{ path | e }}</span>
+        </div>
+    </div>
+
+    <div class="trace-frame wf-rise wf-d1">
+        <div class="trace-bar">
+            <span class="trace-dot" style="background:#ff5f57"></span>
+            <span class="trace-dot" style="background:#febc2e"></span>
+            <span class="trace-dot" style="background:#28c840"></span>
+            <span class="trace-bar-label">traceback</span>
+        </div>
+        <pre class="trace-body"><code>{{ traceback | e }}</code></pre>
+    </div>
+
+</div>
+{% endblock %}

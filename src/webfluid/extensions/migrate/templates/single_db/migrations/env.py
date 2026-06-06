@@ -2,8 +2,8 @@ from alembic import context
 from logging.config import fileConfig
 import asyncio, logging
 
-from webfluid.core.ext import db
 from webfluid.core.context import FluidContext
+from webfluid.extensions.sqlalchemy import SQLAlchemy
 from webfluid.utils import try_import
 
 config = context.config
@@ -26,11 +26,12 @@ def get_fluid():
 fluid = get_fluid()
 
 
+db = SQLAlchemy.get_instance()
 target_metadata = db.Model.metadata
 
 
 def get_engine():
-    return db.binds["default"].async_engine
+    return db.get_bind("default").async_engine
 
 
 def get_engine_url():

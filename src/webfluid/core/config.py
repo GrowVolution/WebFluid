@@ -35,7 +35,6 @@ class DefaultConfig:
     SECRET_KEY = os.getenv("SECRET_KEY")
 
     SESSION_COOKIE_NAME = "session"
-    SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_SAMESITE = "lax"
 
     PROXY_FIX = False

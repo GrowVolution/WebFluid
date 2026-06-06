@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime, UTC
 from selectolax.lexbor import LexborHTMLParser
 from typing import TYPE_CHECKING
+import traceback
 
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES, DEBUG
@@ -28,6 +29,19 @@ class ServerConfig(BaseModel):
     framework_id: str
     framework_version: str
     sources: list[Source]
+
+
+_error_templates = {
+    400: "errors/400.html",
+    401: "errors/401.html",
+    403: "errors/403.html",
+    404: "errors/404.html",
+    405: "errors/405.html",
+    429: "errors/429.html",
+    500: "errors/500.html",
+    502: "errors/502.html",
+    503: "errors/503.html"
+}
 
 
 def _timestamped(path: str) -> str:
@@ -88,41 +102,51 @@ def setup_processing(fluid: "Fluid"):
 
     @fluid.after_request
     async def after_request(response: Response):
-        content_type = response.headers.get("content-type", "")
-        if "application/json" in content_type: return response
+        r = FluidContext.current().request
+        if "text/html" not in r.headers.get("accept", ""):
+            return response
 
-        if response.status_code == 403:
-            return HTMLResponse(
-                await fluid.render("errors/403.html"),
-                status_code=403
-            )
+        template = _error_templates.get(response.status_code)
+        if template is None: return response
 
-        if response.status_code == 404:
-            return HTMLResponse(
-                await fluid.render("errors/404.html"),
-                status_code=404
-            )
-
-        return response
+        return HTMLResponse(
+            await fluid.render(template),
+            status_code=response.status_code
+        )
 
     @fluid.exception_handler(Exception)
     async def exception_handler(request: Request, exc: Exception):
         if isinstance(exc, (RequestValidationError, HTTPException)): raise
         log_factory.exception(exc, f"{request.method} {request.url.path}")
 
-        content_type = request.headers.get("content-type", "")
-        if "application/json" in content_type:
-            return JSONResponse(
-                content={
-                    "error": "Internal Server Error",
-                    "message": str(exc)
-                },
-                status_code=500
-            )
+        if "text/html" not in request.headers.get("accept", ""):
+            content = {
+                "error": "Internal Server Error",
+                "message": str(exc)
+            }
+            if DEBUG:
+                content["type"] = type(exc).__name__
+                content["method"] = request.method
+                content["path"] = request.url.path
+                content["traceback"] = traceback.format_exception(exc)
+            return JSONResponse(content=content, status_code=500)
 
         async with FluidContext(fluid, request):
+            if DEBUG:
+                return HTMLResponse(
+                    await fluid.render(
+                        "errors/debug/500.html",
+                        error_type=type(exc).__name__,
+                        error=str(exc),
+                        method=request.method,
+                        path=request.url.path,
+                        traceback="".join(traceback.format_exception(exc))
+                    ),
+                    status_code=500
+                )
+
             return HTMLResponse(
-                await fluid.render("errors/500.html", error=str(exc)),
+                await fluid.render("errors/500.html"),
                 status_code=500
             )
 

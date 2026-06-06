@@ -1,21 +1,8 @@
 {% extends "base_error.html" %}
 
-{% block error %}
-<div class="error-content error-notfound wf-rise">
+{% block accent %}info{% endblock %}
+{% block code %}404{% endblock %}
+{% block icon %}👀{% endblock %}
 
-  <div class="error-icon">👀</div>
-
-  <h1 class="error-title">
-    {{ _('NOT_FOUND_TITLE') }}
-  </h1>
-
-  <p class="error-text">
-    {{ _("NOT_FOUND_MSG") }}
-  </p>
-
-  <a href="/" class="error-action-secondary">
-    {{ _("BACK_HOME") }}
-  </a>
-
-</div>
-{% endblock %}
+{% block heading %}{{ _('NOT_FOUND_TITLE') }}{% endblock %}
+{% block message %}{{ _("NOT_FOUND_MSG") }}{% endblock %}

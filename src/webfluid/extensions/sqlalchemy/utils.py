@@ -1,4 +1,4 @@
-from sqlalchemy import ScalarResult, Result, Select, create_engine, inspect
+from sqlalchemy import ScalarResult, Result, Select, MetaData, Table, create_engine, inspect
 from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextvars import ContextVar
@@ -14,6 +14,13 @@ class Model(DeclarativeBase):
     __tablename__: Optional[str]
     __bind_key__: Optional[str]
     __bind_set__ = False
+    __metadata__ = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        key = cls.__dict__.get("__bind_key__")
+        if key and not cls.__bind_set__:
+            cls.set_bind(key)
 
     def __hash__(self):
         state = inspect(self)
@@ -27,6 +34,15 @@ class Model(DeclarativeBase):
         return camel_to_snake(cls.__name__)
 
     @classmethod
+    def metadata_for(cls, key: str) -> MetaData:
+        if key == "default": return Model.metadata
+        md = Model.__metadata__.get(key)
+        if md is None:
+            md = MetaData()
+            Model.__metadata__[key] = md
+        return md
+
+    @classmethod
     def set_bind(cls, key: str):
         if cls.__bind_set__:
             raise FrameworkException(
@@ -35,12 +51,21 @@ class Model(DeclarativeBase):
         cls.__bind_key__ = key
         cls.__bind_set__ = True
 
+        table: Optional[Table] = getattr(cls, "__table__", None)
+        target = cls.metadata_for(key)
+        if table is None or table.metadata is target: return
+
+        update_metadata(table, target)
+
 
 class Bind:
-    def __init__(self, key: str, uris: tuple[str, str]):
+    def __init__(self, key: str, uris: tuple[str, str],
+                 metadata: Optional[MetaData] = None):
+
         sync_uri, async_uri = uris
 
         self.name = key
+        self.metadata = metadata if metadata else Model.metadata_for(key)
         self.sync_engine = create_engine(sync_uri)
         self.async_engine = create_async_engine(async_uri)
         self._sync_session = sessionmaker(self.sync_engine)
@@ -136,3 +161,28 @@ def database_uris(uri: str) -> tuple[str, str]:
         raise ValueError(f"Invalid database URI '{uri}': Unsupported database type.")
 
     return sync_uri, async_uri
+
+
+def update_metadata(
+        table: Table, target_md: Optional[MetaData] = None,
+        target_bind: Optional[str] = None,
+        target_model: Optional[type] = None
+):
+    if target_md: md = target_md
+
+    elif target_bind:
+        from .sqlalchemy import SQLAlchemy
+        db = SQLAlchemy.get_instance()
+        bind = db.get_bind(target_bind)
+        md = bind.metadata
+
+    elif target_model:
+        if not issubclass(target_model, DeclarativeBase):
+            raise ValueError(f"Invalid model type '{target_model}'.")
+        md = getattr(target_model.__table__, "metadata", target_model.metadata)
+
+    else: raise ValueError("Failed to resolve metadata.")
+
+    table.metadata._remove_table(table.name, table.schema)
+    table.metadata = md
+    md._add_table(table.name, table.schema, table)

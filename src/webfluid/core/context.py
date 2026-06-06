@@ -1,5 +1,6 @@
-from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Optional
+from contextvars import ContextVar, Token
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Optional, Generator
 
 if TYPE_CHECKING:
     from fastapi import Request
@@ -34,6 +35,23 @@ class BaseContext:
         try: return cls._ctx.get()
         except LookupError:
             raise RuntimeError(f"No active {cls.__name__}.")
+
+    @classmethod
+    @contextmanager
+    def outer(cls, depth: int = 1) -> Generator[Optional["BaseContext"], None, None]:
+        target = cls._ctx.get(None)
+
+        for _ in range(depth):
+            tokens = getattr(target, "_tokens", None)
+            old = tokens[-1].old_value if tokens else Token.MISSING
+            if old is Token.MISSING:
+                yield None
+                return
+            target = old
+
+        token = cls._ctx.set(target)
+        try: yield target
+        finally: cls._ctx.reset(token)
 
 
 class FluidContext(BaseContext):

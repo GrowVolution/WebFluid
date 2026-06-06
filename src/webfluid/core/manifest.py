@@ -1,10 +1,10 @@
 from pathlib import Path
 import json
 
-from webfluid.utils.framework import check_required_version, enabled
-from webfluid.utils.additive import id_check, version_check, type_check
-from webfluid.utils.logging import factory as log_factory
+from webfluid.additives.utils import id_check, version_check, type_check
 from webfluid.surface import validate_frontend_config as frontend_check
+from webfluid.utils.framework import check_required_version, enabled
+from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
 
 

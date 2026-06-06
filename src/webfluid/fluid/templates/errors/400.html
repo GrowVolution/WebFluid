@@ -1,0 +1,8 @@
+{% extends "base_error.html" %}
+
+{% block accent %}warning{% endblock %}
+{% block code %}400{% endblock %}
+{% block icon %}🚧{% endblock %}
+
+{% block heading %}{{ _('BAD_REQUEST_TITLE') }}{% endblock %}
+{% block message %}{{ _('BAD_REQUEST_MSG') }}{% endblock %}

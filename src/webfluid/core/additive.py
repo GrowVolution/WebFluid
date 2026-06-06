@@ -15,6 +15,7 @@ import subprocess, sys, typer
 
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import PROCESSING
+from webfluid.additives.utils import require_extensions
 from webfluid.surface.frontend import Frontend
 from webfluid.utils.framework import (final_version, get_root_path, required_arg_count,
                                       safe_execute, async_result, try_import)
@@ -147,7 +148,6 @@ class Additive:
             await self._after_enable()
             if base: await base._after_enable()
 
-        from webfluid.utils.additive import require_extensions
         if base: self.required_extensions.extend(base.required_extensions or [])
         self.enable = log_factory.additive_context(
             require_extensions(*self.required_extensions)(enable)

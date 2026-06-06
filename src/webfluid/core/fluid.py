@@ -164,19 +164,25 @@ class Fluid(FastAPI):
                     response = await safe_execute(processor, True, response)
                 return response
 
+        session_secure = self.config.get(
+            "SESSION_COOKIE_SECURE", not DEBUG
+        )
         self.add_middleware(
             SessionMiddleware,
             secret_key=secret,
             session_cookie=self.config.get(
                 "SESSION_COOKIE_NAME", "session"
             ),
-            https_only=self.config.get(
-                "SESSION_COOKIE_SECURE", False
-            ),
+            https_only=session_secure,
             same_site=self.config.get(
                 "SESSION_COOKIE_SAMESITE", "lax"
             )
         )
+        if not session_secure and not DEBUG:
+            self.startup_hook(lambda: log_factory.warning(
+                "Session cookies are not secure. "
+                "Consider setting SESSION_COOKIE_SECURE=True."
+            ))
 
         if PROCESSING: setup_processing(self)
 
@@ -326,10 +332,6 @@ class Fluid(FastAPI):
 
     async def start(self):
         log_factory.start_session()
-
-        cookie_secure = self.config.get("SESSION_COOKIE_SECURE", False)
-        if not cookie_secure and not DEBUG:
-            log_factory.warning("Session cookies are not secure. Consider setting SESSION_COOKIE_SECURE=True.")
 
         await self._startup()
         serve = asyncio.create_task(self._run_server())

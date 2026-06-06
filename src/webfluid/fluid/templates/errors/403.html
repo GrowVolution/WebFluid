@@ -1,21 +1,8 @@
 {% extends "base_error.html" %}
 
-{% block error %}
-<div class="error-content error-notfound wf-rise">
+{% block accent %}danger{% endblock %}
+{% block code %}403{% endblock %}
+{% block icon %}🚫{% endblock %}
 
-  <div class="error-icon">🚫</div>
-
-  <h1 class="error-title">
-    {{ _('FORBIDDEN_TITLE') }}
-  </h1>
-
-  <p class="error-text">
-    {{ _("FORBIDDEN_MSG") }}
-  </p>
-
-  <a href="/" class="error-action-secondary">
-    {{ _("BACK_HOME") }}
-  </a>
-
-</div>
-{% endblock %}
+{% block heading %}{{ _('FORBIDDEN_TITLE') }}{% endblock %}
+{% block message %}{{ _("FORBIDDEN_MSG") }}{% endblock %}

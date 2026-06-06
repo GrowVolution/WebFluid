@@ -65,6 +65,14 @@ class SQLAlchemy(FluidExtension):
         async with self._resolve_bind(bind_key, model).async_session() as session:
             async with AsyncExecutor(session) as e: yield e
 
+    @property
+    def current_executor(self) -> Executor:
+        return Executor.current()
+
+    @property
+    def current_async_executor(self) -> AsyncExecutor:
+        return AsyncExecutor.current()
+
     @classmethod
     def get_instance(cls) -> "SQLAlchemy":
         if cls._instance is None:

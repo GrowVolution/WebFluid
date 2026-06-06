@@ -179,11 +179,11 @@ def check_required_version(requirement: str, version_type: str = "wf",
     target_stage = _stage_map.get(target.stage, 3)
 
     return {
-        ">":  current > target and current_stage > target_stage and current.build > target.build,
-        ">=": current >= target and current_stage >= target_stage and current.build >= target.build,
-        "<":  current < target and current_stage < target_stage and current.build < target.build,
-        "<=": current <= target and current_stage <= target_stage and current.build <= target.build,
-        "==": current == target and current_stage == target_stage and current.build == target.build,
+        ">":  current > target and (current_stage > target_stage or current.build > target.build),
+        ">=": current >= target and (current_stage >= target_stage or current.build >= target.build),
+        "<":  current < target and (current_stage < target_stage or current.build < target.build),
+        "<=": current <= target and (current_stage <= target_stage or current.build <= target.build),
+        "==": current == target and (current_stage == target_stage or current.build == target.build),
     }.get(op, False)
 
 

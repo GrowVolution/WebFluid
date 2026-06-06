@@ -3,6 +3,7 @@ from logging.config import fileConfig
 import asyncio, logging
 
 from webfluid.core.ext import db
+from webfluid.core.context import FluidContext
 from webfluid.utils import try_import
 
 config = context.config
@@ -14,10 +15,11 @@ def get_fluid():
     from main import create_app
     app = create_app()
 
-    try_import("fluid.models")
-    for pkg in (app.app_root / "additives").iterdir():
-        if not pkg.is_dir(): continue
-        try_import(f"additives.{pkg.name}.models")
+    with FluidContext(app):
+        try_import("fluid.models")
+        for pkg in (app.app_root / "additives").iterdir():
+            if not pkg.is_dir(): continue
+            try_import(f"additives.{pkg.name}.models")
 
     return app
 

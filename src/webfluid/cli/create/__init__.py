@@ -74,6 +74,7 @@ def _frontend_conf() -> dict:
     elif conf["type"] == "vite":
         conf["framework"] = questions.frontend_framework.ask()
         conf["typescript"] = questions.use_typescript.ask()
+        conf["register_index"] = questions.register_index.ask()
 
     return conf
 

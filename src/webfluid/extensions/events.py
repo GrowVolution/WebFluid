@@ -61,10 +61,11 @@ class EventManager(FluidExtension):
             "EVENTS_EVENT_QUEUE_SIZE", self._event_queue_size
         )
 
-        fluid.websocket("/ws/events")(self._socket_manager)
-        fluid.sources.append(
-            Markup(f'<script src="{WF_STATIC}/js/events.js" type="module"></script>')
-        )
+        if fluid.config.get("EVENTS_CONFIGURE_SOCKET", True):
+            fluid.websocket("/ws/events")(self._socket_manager)
+            fluid.sources.append(
+                Markup(f'<script src="{WF_STATIC}/js/events.js" type="module"></script>')
+            )
 
         def ctx_decorator(fn):
             async def ctx_wrapper(event: str, data: Any):
@@ -289,7 +290,7 @@ class EventManager(FluidExtension):
             return fn
         return decorator
 
-    async def trigger(self, event: str, data: Optional[Any] = None):
+    def trigger(self, event: str, data: Optional[Any] = None):
         if event not in self._broadcasters:
             raise ValueError(f"Event '{event}' does not exist.")
 

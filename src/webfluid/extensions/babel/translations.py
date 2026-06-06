@@ -11,7 +11,8 @@ from webfluid.utils.logging import factory as log_factory
 
 @lru_cache(maxsize=None)
 def _plural_rule(locale: str):
-    return babel.load_locale(locale).plural_form
+    from .utils import load_locale
+    return load_locale(locale).plural_form
 
 
 def _plural_form(locale: str, num: int) -> str:

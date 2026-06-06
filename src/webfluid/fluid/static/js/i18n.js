@@ -68,6 +68,7 @@ export class Translations {
                 new RegExp(`%\\(${key}\\)[a-z]`, 'g'),
                 value
             )
+        return result
     }
 
     _(message, variables = {}) {
@@ -88,6 +89,8 @@ export class Translations {
     }
 
     _n(singular, plural, num, variables = {}) {
+        variables["num"] = num
+
         return this.format((() => {
             let msg
 
@@ -152,25 +155,25 @@ export class Translations {
         _: async (string, variables = {}) => await request(
             "translate", {
                 domain: this.currentDomain,
-                args: { string }, variables
+                args: [ string ], variables
             }
         ),
         _n: async (singular, plural, num, variables = {}) => await request(
             "translate", {
                 fn: "ngettext", domain: this.currentDomain,
-                args: { singular, plural, num }, variables
+                args: [ singular, plural, num ], variables
             }
         ),
         _p: async (context, string, variables = {}) => await request(
             "translate", {
                 fn: "pgettext", domain: this.currentDomain,
-                args: { string, context }, variables
+                args: [ string, context ], variables
             }
         ),
         _np: async (context, singular, plural, num, variables = {}) => await request(
             "translate", {
                 fn: "npgettext", domain: this.currentDomain,
-                args: { singular, plural, num, context }, variables
+                args: [ singular, plural, num, context ], variables
             }
         )
     }

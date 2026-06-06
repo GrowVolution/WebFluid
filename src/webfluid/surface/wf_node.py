@@ -1,17 +1,13 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
+from webfluid.core.constants import EXECUTION
 from webfluid.surface import dist
+from webfluid.surface.src import node_standalone
 from webfluid.exceptions import NodeError
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-node_standalone = {
-    "linux": "https://nodejs.org/dist/v24.13.1/node-v24.13.1-linux-{architecture}.tar.xz",
-    "windows": "https://nodejs.org/dist/v24.13.1/node-v24.13.1-win-{architecture}.zip",
-    "darwin": "https://nodejs.org/dist/v24.13.1/node-v24.13.1-darwin-{architecture}.tar.gz"
-}
 
 
 def _sys_node() -> tuple[bool, str]:
@@ -76,6 +72,8 @@ def node_cmd(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
 
     if result.returncode != 0:
         raise NodeError(result.stderr or result.stdout)
+
+    if not EXECUTION: typer.echo(result.stdout or result.stderr)
 
 
 def node_proc(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs) -> subprocess.Popen:

@@ -1,4 +1,5 @@
 from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 
 class HashService:
@@ -12,4 +13,5 @@ class HashService:
         return self._hasher.hash(password)
 
     def verify(self, password_hash: str, password: str) -> bool:
-        return self._hasher.verify(password_hash, password)
+        try: return self._hasher.verify(password_hash, password)
+        except VerifyMismatchError: return False

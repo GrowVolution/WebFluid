@@ -26,7 +26,8 @@ class User(db.Model):
 
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[Optional[str]]
-    confirmed: Mapped[bool] = mapped_column(default=True)
+    pending_email: Mapped[Optional[str]]
+    email_verified: Mapped[bool] = mapped_column(default=False)
     psw_hash: Mapped[Optional[str]]
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()

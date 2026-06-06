@@ -7,7 +7,7 @@ from selectolax.lexbor import LexborHTMLParser
 from typing import TYPE_CHECKING
 
 from webfluid.core.context import FluidContext
-from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES
+from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES, DEBUG
 from webfluid.extensions.babel.utils import get_locale, fake_t, fake_tn
 from webfluid.utils.logging import factory as log_factory
 
@@ -28,6 +28,10 @@ class ServerConfig(BaseModel):
     framework_id: str
     framework_version: str
     sources: list[Source]
+
+
+def _timestamped(path: str) -> str:
+    return path + f"?t={datetime.now(UTC).timestamp()}"
 
 
 def setup_processing(fluid: "Fluid"):
@@ -54,8 +58,14 @@ def setup_processing(fluid: "Fluid"):
         def wrapper(endpoint: str, **path_params):
             external = path_params.pop("external", False)
             url = fn(endpoint, **path_params)
-            if external: return str(url)
-            return url.path
+
+            if external: result = str(url)
+            else: result = url.path
+
+            if DEBUG and "static" in result:
+                result = _timestamped(result)
+
+            return result
         return wrapper
 
     fluid.context_processor(lambda: {
@@ -124,6 +134,10 @@ def setup_processing(fluid: "Fluid"):
             node = LexborHTMLParser(
                 fluid.get_theme(), True
             ).root
+
+            if DEBUG and "href" in node.attributes:
+                node.attrs["href"] = _timestamped(node.attrs["href"])
+
             source = {
                 "tag": node.tag,
                 "attrs": node.attributes,
@@ -135,6 +149,13 @@ def setup_processing(fluid: "Fluid"):
             node = LexborHTMLParser(
                 src, True
             ).root
+
+            if DEBUG and "src" in node.attributes:
+                node.attrs["src"] = _timestamped(node.attrs["src"])
+
+            elif DEBUG and "href" in node.attributes:
+                node.attrs["href"] = _timestamped(node.attrs["href"])
+
             source = {
                 "tag": node.tag,
                 "attrs": node.attributes,

@@ -17,6 +17,7 @@ from webfluid.extensions.babel.constants import (
 from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.babel.utils import (
     parse_best_match,
+    load_locale,
     format_message,
     format_currency,
     format_date,
@@ -39,6 +40,7 @@ from webfluid.exceptions import FrameworkException
 
 
 if TYPE_CHECKING:
+    from zoneinfo import ZoneInfo
     from webfluid.core.fluid import Fluid
     from webfluid.extensions.babel.domain import Domain
 
@@ -51,7 +53,9 @@ class _DomainContext(BaseContext):
 
 class SelectorContext(BaseContext):
     _ctx = ContextVar("babel.selector")
-    def __init__(self, locale_selector: Callable, timezone_selector: Callable):
+    def __init__(self,
+                 locale_selector: Optional[Callable],
+                 timezone_selector: Optional[Callable]):
         self.locale_selector = locale_selector
         self.timezone_selector = timezone_selector
 
@@ -69,7 +73,6 @@ class Babel(FluidExtension):
         self.default_locale = None
         self.default_timezone = None
         self.supported_locales = None
-        self._locale_cache = {}
         self._domains = {}
         self._update_tasks = []
         self._update_disabled = False
@@ -207,7 +210,7 @@ class Babel(FluidExtension):
 
                 request = msg["type"]
                 if request == "cache":
-                    locale = str(self.load_locale(
+                    locale = str(load_locale(
                         msg["data"].get("locale")
                         or ws.cookies.get("lang")
                         or parse_best_match(
@@ -228,7 +231,7 @@ class Babel(FluidExtension):
 
                 elif request == "translate":
                     fn_name = msg["data"].get("fn", "gettext")
-                    if fn_name not in  Babel._api_whitelist:
+                    if fn_name not in Babel._api_whitelist:
                         response["error"] = "Only (non lazy) gettext api is supported."
 
                     else:
@@ -236,7 +239,7 @@ class Babel(FluidExtension):
                         fn = getattr(self, fn_name)
                         if domain: fn = self.domain_context(domain)(fn)
                         response["data"] = fn(
-                            **msg["data"]["args"],
+                            *msg["data"]["args"],
                             **msg["data"]["variables"]
                         )
 
@@ -252,15 +255,6 @@ class Babel(FluidExtension):
     def timezone_selector(self, fn: Callable) -> Callable:
         self._timezone_selector_fn = fn
         return fn
-
-    def load_locale(self, locale: str) -> Locale:
-        locale_key = locale.replace("-", "_")
-        cached = self._locale_cache.get(locale_key)
-        if cached: return cached
-
-        parsed = Locale.parse(locale_key)
-        self._locale_cache[locale_key] = parsed
-        return parsed
 
     def domain_context(self, domain: str) -> Callable:
         def decorator(fn):
@@ -337,7 +331,7 @@ class Babel(FluidExtension):
         return LazyString(self.npgettext, context, singular, plural, num, **variables)
 
     @property
-    def _fallback_escalation(self) -> "list[Domain]":
+    def _fallback_escalation(self) -> list["Domain"]:
         current = self.current_domain
         domains = [current]
 
@@ -375,7 +369,10 @@ class Babel(FluidExtension):
 
     @staticmethod
     @contextmanager
-    def force(locale: str = None, timezone: str = None):
+    def force(
+            locale: Optional[str | Locale] = None,
+            timezone: Optional["str | ZoneInfo"] = None
+    ):
         with SelectorContext(
                 (lambda: locale) if locale is not None else None,
                 (lambda: timezone) if timezone is not None else None
@@ -383,7 +380,10 @@ class Babel(FluidExtension):
 
     @staticmethod
     @asynccontextmanager
-    async def aforce(locale: str = None, timezone: str = None):
+    async def aforce(
+            locale: Optional[str | Locale] = None,
+            timezone: Optional["str | ZoneInfo"] = None
+    ):
         async with SelectorContext(
                 (lambda: locale) if locale is not None else None,
                 (lambda: timezone) if timezone is not None else None

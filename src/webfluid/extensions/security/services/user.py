@@ -32,84 +32,136 @@ class UserService:
 
     def _require_user(self, token_service: "TokenService") -> Callable:
         async def wrapped(
-                request: Request,
                 user: User = self.current_user,
                 _ = token_service.csrf_protect
         ) -> AsyncGenerator[User]:
             if not user:
                 raise HTTPException(status_code=401, detail="NOT_AUTHENTICATED")
-
-            if "pending_email" in request.session \
-                    and user.email == request.session["pending_email"]:
-                request.session.pop("pending_email")
-
             yield user
         return wrapped
+
+    @staticmethod
+    def is_admin(user: User) -> bool:
+        for role in user.roles:
+            if role.is_admin: return True
+        return False
 
     def _require_admin(self) -> Callable:
         async def wrapped(
                 user: User = self.require_user
         ) -> AsyncGenerator[Optional[User]]:
-            for role in user.roles:
-                if role.is_admin:
-                    yield user
-                    return
-            raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            if not UserService.is_admin(user):
+                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            yield user
         return wrapped
+
+    @staticmethod
+    def has_roles(user: User, roles: list[str]) -> bool:
+        required_roles = set(roles)
+        for role in user.roles:
+            if role.name in roles:
+                required_roles.remove(role.name)
+        return len(required_roles) == 0
 
     def require_roles(self, roles: list[str]) -> Any["DependsParam"]:
         async def wrapped(
                 user: User = self.require_user
         ) -> AsyncGenerator[User]:
-            required_roles = set(roles)
-            for role in user.roles:
-                if role.name in roles:
-                    required_roles.remove(role.name)
-
-            if len(required_roles) > 0:
+            if not UserService.has_roles(user, roles):
                 raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
-
             yield user
         return Depends(wrapped)
+
+    @staticmethod
+    def has_any_role(user: User, roles: list[str]) -> bool:
+        for role in user.roles:
+            if role.name in roles:
+                return True
+        return False
 
     def require_any_role(self, roles: list[str]) -> Any["DependsParam"]:
         async def wrapped(
                 user: User = self.require_user
         ) -> AsyncGenerator[User]:
-            for role in user.roles:
-                if role.name in roles:
-                    yield user
-                    return
-
-            raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            if not UserService.has_any_role(user, roles):
+                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            yield user
         return Depends(wrapped)
+
+    @staticmethod
+    def has_permissions(user: User, permissions: list[str]) -> bool:
+        required_permissions = set(permissions)
+        for role in user.roles:
+            for perm in role.permissions:
+                if perm.name in permissions:
+                    required_permissions.remove(perm.name)
+
+            if len(required_permissions) == 0:
+                return True
+        return False
 
     def require_permissions(self, permissions: list[str]) -> Any["DependsParam"]:
         async def wrapped(
                 user: User = self.require_user
         ) -> AsyncGenerator[User]:
-            required_permissions = set(permissions)
-            for role in user.roles:
-                for perm in role.permissions:
-                    if perm.name in permissions:
-                        required_permissions.remove(perm.name)
-
-                if len(required_permissions) == 0:
-                    yield user
-                    return
-
-            raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            if not UserService.has_permissions(user, permissions):
+                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            yield user
         return Depends(wrapped)
+
+    @staticmethod
+    def has_any_permission(user: User, permissions: list[str]) -> bool:
+        for role in user.roles:
+            for perm in role.permissions:
+                if perm.name in permissions:
+                    return True
+        return False
 
     def require_any_permission(self, permissions: list[str]) -> Any["DependsParam"]:
         async def wrapped(
                 user: User = self.require_user
         ) -> AsyncGenerator[User]:
-            for role in user.roles:
-                for perm in role.permissions:
-                    if perm.name in permissions:
-                        yield user
-                        return
-
-            raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            if not UserService.has_any_permission(user, permissions):
+                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            yield user
         return Depends(wrapped)
+
+    @classmethod
+    def check_requirement(cls, user: User, r: dict) -> bool:
+        requirement = r.get("requirement")
+        if not requirement or not isinstance(requirement, str):
+            raise ValueError("Invalid requirement format.")
+
+        if requirement == "is_authenticated":
+            return user is not None
+
+        if requirement not in {
+            "is_admin", "has_roles", "has_any_role",
+            "has_permissions", "has_any_permission"
+        }:
+            raise ValueError("Invalid requirement format: Invalid requirement.")
+
+        param = None
+
+        if requirement in {
+            "has_roles", "has_any_role"
+        } and ("roles" not in r or not isinstance(r["roles"], list)):
+            raise ValueError("Invalid requirement format: Invalid or missing 'roles' field.")
+
+        elif requirement in {
+            "has_roles", "has_any_role"
+        }:
+            param = r["roles"]
+
+        if requirement in {
+            "has_permissions", "has_any_permission"
+        } and ("permissions" not in r or not isinstance(r["permissions"], list)):
+            raise ValueError("Invalid requirement format: Invalid or missing 'permissions' field.")
+
+        elif requirement in {
+            "has_permissions", "has_any_permission"
+        }:
+            param = r["permissions"]
+
+        check = getattr(cls, requirement)
+        return check(user, param) if param else check(user)

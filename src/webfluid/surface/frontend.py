@@ -12,6 +12,7 @@ import typer, requests, shutil, subprocess, os, signal
 
 from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
 from webfluid.surface import dist
+from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
 from webfluid.utils.framework import add_proxy, run_in_executor, get_proxy
@@ -22,177 +23,6 @@ if TYPE_CHECKING:
     from webfluid.core.additive import Additive
 
 _static_js = (Path(__file__).parent.parent / "fluid" / "static" / "js").resolve()
-
-package_json = """
-{{
-    "name": "{project}",
-    "version": "1.0.0",
-    "private": true,
-    "workspaces": [
-      "additives/*/frontend",
-      "fluid/frontend"
-    ],
-    "scripts": {{
-      "dev": "vite dev"
-    }},
-    "devDependencies": {{
-      "vite": "^8.0.0"
-    }}
-}}
-"""
-
-vite_dev = r"""
-import {defineConfig, loadConfigFromFile, mergeConfig} from "vite"
-import fs from "fs"
-import path from "path"
-
-async function loadConfigs(command) {
-  const additivesDir = path.resolve(__dirname, "additives")
-  const configs = []
-
-  for (const name of fs.readdirSync(additivesDir)) {
-    let configPath = path.join(additivesDir, name, "frontend", "vite.config.ts")
-
-    if (!fs.existsSync(configPath))
-      configPath = path.join(additivesDir, name, "frontend", "vite.config.js")
-    if (!fs.existsSync(configPath)) continue
-
-    const loaded = await loadConfigFromFile(
-        { command, mode: "development" },
-        configPath
-    )
-
-    if (loaded?.config) configs.push(loaded.config)
-  }
-
-  let fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.ts")
-  if (!fs.existsSync(fluidConfig))
-    fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.js")
-  if (fs.existsSync(fluidConfig)) {
-    const loaded = await loadConfigFromFile(
-        { command, mode: "development" },
-        fluidConfig
-    )
-    if (loaded?.config) configs.push(loaded.config)
-  }
-
-  return configs
-}
-
-function mergeConfigs(configs) {
-  let merged = {}
-
-  for (const config of configs)
-    merged = mergeConfig(merged, config)
-
-  if (merged.plugins) {
-    const seen = new Set()
-
-    const updatedPlugins = []
-
-    merged.plugins.forEach(plugin => {
-      if (!Array.isArray(plugin)) {
-        const key = plugin?.name || plugin
-        if (seen.has(key)) return
-        seen.add(key)
-        updatedPlugins.push(plugin)
-        return
-      }
-
-      const updatedPlugin = []
-
-      for (const conf of plugin) {
-        const name = conf?.name || conf
-        if (seen.has(name)) continue
-        seen.add(name)
-        updatedPlugin.push(conf)
-      }
-
-      if (updatedPlugin.length === 0) return
-      updatedPlugins.push(updatedPlugin)
-    })
-
-    merged.plugins = updatedPlugins
-  }
-
-  return merged
-}
-
-function wfDevPlugin() {
-
-  const namespaceRegex = /(fluid\/frontend|additives\/[^/]+\/frontend)/
-
-  return {
-
-    name: "wf-dev-plugin",
-    enforce: "pre",
-
-    resolveId(id, importer) {
-
-      if (!id.startsWith("/")) return null
-
-      if (
-          id.startsWith("/@") ||
-          id.startsWith("/node_modules")
-      ) {
-        return null
-      }
-
-      if (!importer) return null
-
-      const match = importer.match(namespaceRegex)
-      if (!match) return null
-
-      const namespace = match[1]
-      const projectRoot = process.cwd()
-
-      const asset = id.slice(1)
-
-      const publicPath = path.resolve(
-          projectRoot,
-          namespace,
-          "public",
-          asset
-      )
-
-      if (fs.existsSync(publicPath)) return publicPath
-
-      const normalPath = path.resolve(
-          projectRoot,
-          namespace,
-          asset
-      )
-
-      if (fs.existsSync(normalPath)) return normalPath
-
-      return null
-    },
-  }
-}
-
-export default defineConfig(async ({ command }) => {
-  const configs = await loadConfigs(command)
-
-  let config = {
-    server: {
-      fs: {
-        allow: ["."]
-      }
-    },
-    plugins: []
-  }
-  configs.push(config)
-
-  config = mergeConfigs(configs)
-  config.plugins.push(wfDevPlugin())
-
-  return config
-})
-"""
-
-htmx = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
-alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js"
-vite = "https://github.com/vitejs/vite.git"
 
 
 def _download_file(url: str, dest: Path):
@@ -292,6 +122,8 @@ def validate_config(f: dict) -> tuple[bool, str | dict]:
             return False, "Invalid frontend framework."
         if "typescript" in f and not isinstance(f["typescript"], bool):
             return False, "Invalid typescript value."
+        if "register_index" in f and not isinstance(f["register_index"], bool):
+            return False, "Invalid register_index value."
 
     elif t == "htmx":
         if "alpine" in f and not isinstance(f["alpine"], bool):
@@ -321,6 +153,7 @@ class Frontend:
         self.type = "none"
         self.framework = "none"
         self.typescript = False
+        self.register_index = True
         self.alpine = False
         self.prefix: str
         self.root: Path
@@ -328,7 +161,6 @@ class Frontend:
         self.rel: str
         self.generate_tailwind: Callable
         self.tailwind: str
-        self._update_index = True
 
         if fluid is not None: self.cover_fluid(fluid)
         if additive is not None: self.cover_additive(additive)
@@ -337,6 +169,7 @@ class Frontend:
         self.type = frontend["type"]
         self.framework = frontend.get("framework", self.framework)
         self.typescript = frontend.get("typescript", self.typescript)
+        self.register_index = frontend.get("register_index", self.register_index)
         self.alpine = frontend.get("alpine", self.alpine)
 
         if self.type == "vite":
@@ -405,10 +238,18 @@ class Frontend:
 
         return html.html
 
-    def _vite_index(self):
-        response = HTMLResponse(self.vite())
-        response.set_cookie("vite_ns", self.rel)
-        return response
+    def _vite(self) -> str:
+        if self.type != "vite": return ""
+
+        if DEBUG:
+            if TAILWIND: self.generate_tailwind()
+            index_file = self.root / "index.html"
+            return self._updated_index(
+                index_file.read_text()
+            )
+
+        index_file = self.dist / "index.html"
+        return index_file.read_text()
 
     def cover_fluid(self, fluid: "Fluid"):
         self.prefix = "/frontend"
@@ -418,8 +259,8 @@ class Frontend:
             fluid.app_root / "fluid"
         )
 
-        if self.type == "vite":
-            fluid.get("/")(self._vite_index)
+        if self.type == "vite" and self.register_index:
+            fluid.get("/")(self.vite)
 
     def cover_additive(self, additive: "Additive"):
         self.prefix = f"{additive.prefix}/frontend"
@@ -430,8 +271,8 @@ class Frontend:
             additive.id
         )
 
-        if self.type == "vite":
-            additive.app.get("/")(self._vite_index)
+        if self.type == "vite" and self.register_index:
+            additive.app.get("/")(self.vite)
 
     def include(self) -> Markup:
         template = ""
@@ -444,18 +285,10 @@ class Frontend:
 
         return Markup(template)
 
-    def vite(self) -> str:
-        if self.type != "vite": return ""
-
-        if DEBUG:
-            if TAILWIND: self.generate_tailwind()
-            index_file = self.root / "index.html"
-            return self._updated_index(
-                index_file.read_text()
-            )
-
-        index_file = self.dist / "index.html"
-        return index_file.read_text()
+    def vite(self):
+        response = HTMLResponse(self._vite())
+        response.set_cookie("vite_ns", self.rel)
+        return response
 
     @classmethod
     def prepare(cls, fluid: "Fluid"):

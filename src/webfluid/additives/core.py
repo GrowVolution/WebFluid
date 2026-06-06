@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import json
 
 from webfluid.core.additive import Additive, AdditiveVersion
-from webfluid.core.constants import DEV_AUTO_INSTALL
+from webfluid.core.constants import DEBUG, DEV_AUTO_INSTALL
 from webfluid.utils.framework import enabled, try_import
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import ManifestError
@@ -64,7 +64,7 @@ async def register_additives(fluid: "Fluid"):
 
             try:
                 log_factory.log(f"Registering: {additive}")
-                if DEV_AUTO_INSTALL: additive.install()
+                if DEBUG and DEV_AUTO_INSTALL: additive.install()
                 await additive.enable(fluid)
                 loaders.append(additive.loader)
                 log_factory.log(f"[{additive.name}] Additive successfully registered.")

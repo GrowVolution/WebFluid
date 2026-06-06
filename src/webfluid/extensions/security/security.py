@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional
 import secrets
 
-from webfluid.core.constants import DEBUG
+from webfluid.core.constants import DEBUG, EXECUTION
 from webfluid.extensions.base import FluidExtension
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
@@ -24,11 +24,16 @@ class Security(FluidExtension):
 
     def expand_fluid(self, fluid: "Fluid", *_, **__):
         secret = fluid.config.get("SECURITY_SECRET")
-        if not secret and DEBUG:
-            log_factory.warning("[Security] Missing SECURITY_SECRET, using a random secret key.")
-            secret = secrets.token_urlsafe(32)
-        elif not secret:
-            raise ValueError("SECURITY_SECRET must be configured in production.")
+        if EXECUTION:
+            if not secret and DEBUG:
+                fluid.startup_hook(lambda: log_factory.warning(
+                    "[Security] Missing SECURITY_SECRET, using a consistent debug secret."
+                ))
+                secret = "super-secret-key"
+            elif not secret:
+                raise ValueError("SECURITY_SECRET must be configured in production.")
+        else:
+            secret = ""
 
         from .services import UserService, TokenService, HashService, OAuthService
         self._token_service = TokenService(

@@ -1,5 +1,5 @@
 from babel import support
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import os
 
 from webfluid.core.context import FluidContext
@@ -12,13 +12,13 @@ if TYPE_CHECKING:
 
 
 class Domain:
-    def __init__(self, dir_path: "str | PathLike[str] | None" = None, domain: str = "messages"):
+    def __init__(self, dir_path: Optional["str | PathLike[str]"] = None, domain: str = "messages"):
         self.dir = dir_path
         self.domain = domain
 
         self.cache: dict[str, MergedTranslations] = {}
 
-    def get_translations_path(self, fluid: "Fluid | None") -> "PathLike[str] | str":
+    def get_translations_path(self, fluid: Optional["Fluid"]) -> "PathLike[str] | str":
         if fluid: return self.dir or os.path.join(str(fluid.app_root), "translations")
         return self.dir or os.path.join(os.getcwd(), "translations")
 

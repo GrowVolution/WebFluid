@@ -20,7 +20,6 @@ def _manipulated_env(app: str) -> dict:
         for k, v in cfg[section].items():
             env[k] = v
     env["EXT_SQLALCHEMY"] = "1"
-    env["EXT_BABEL"] = "1"
     return env
 
 

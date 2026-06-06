@@ -1,9 +1,9 @@
-from sqlalchemy import ScalarResult, Result, Select, create_engine
+from sqlalchemy import ScalarResult, Result, Select, create_engine, inspect
 from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextvars import ContextVar
 from contextlib import asynccontextmanager, contextmanager
-from typing import Optional
+from typing import Optional, Any
 
 from webfluid.core.context import BaseContext
 from webfluid.utils.framework import async_result, camel_to_snake
@@ -14,6 +14,10 @@ class Model(DeclarativeBase):
     __tablename__: Optional[str]
     __bind_key__: Optional[str]
     __bind_set__ = False
+
+    def __hash__(self):
+        state = inspect(self)
+        return hash(state.identity)
 
     @declared_attr
     def __tablename__(cls) -> str:
@@ -78,12 +82,12 @@ class Executor(BaseContext):
         if scalars: return results.scalars()
         return results
 
-    def insert(self, obj: Model, flush: bool = False) -> Model:
+    def insert(self, obj: Any, flush: bool = False) -> Any:
         self.session.add(obj)
         if flush: self.flush()
         return obj
 
-    def delete(self, obj: Model, flush: bool = False):
+    def delete(self, obj: Any, flush: bool = False):
         self.session.delete(obj)
         if flush: self.flush()
 
@@ -102,12 +106,12 @@ class AsyncExecutor(BaseContext):
         if scalars: return results.scalars()
         return results
 
-    async def insert(self, obj: Model, flush: bool = False) -> Model:
+    async def insert(self, obj: Any, flush: bool = False) -> Any:
         self.session.add(obj)
         if flush: await self.flush()
         return obj
 
-    async def delete(self, obj: Model, flush: bool = False):
+    async def delete(self, obj: Any, flush: bool = False):
         await async_result(self.session.delete(obj))
         if flush: await self.flush()
 

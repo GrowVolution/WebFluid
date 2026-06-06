@@ -1,18 +1,14 @@
 from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
+from webfluid.core.constants import EXECUTION
 from webfluid.surface import dist
+from webfluid.surface.src import tailwind_cli
 from webfluid.exceptions import TailwindError
 
 if TYPE_CHECKING:
     from pathlib import Path
     from webfluid.core.fluid import Fluid
-
-tailwind_cli = {
-    "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-linux-{architecture}",
-    "windows": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-windows-x64.exe",
-    "darwin": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-macos-{architecture}"
-}
 
 
 def _get_cli_data():
@@ -54,6 +50,8 @@ def tailwind_cmd(args: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
 
     if result.returncode != 0:
         raise TailwindError(result.stderr or result.stdout)
+
+    if not EXECUTION: typer.echo(result.stdout or result.stderr)
 
 
 def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):

@@ -2,7 +2,8 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from babel import Locale, dates, numbers
-from typing import TYPE_CHECKING, Callable, Literal, Any
+from functools import lru_cache
+from typing import TYPE_CHECKING, Callable, Literal, Any, Optional
 
 from webfluid.core.context import FluidContext
 
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
     from webfluid.extensions.babel.constants import DateFormat, DateFormatKey
 
 
-def parse_best_match(accept_header: str, available: tuple[str]) -> str | None:
+def parse_best_match(accept_header: Optional[str], available: tuple[str]) -> str | None:
         if not accept_header: return available[0] if available else None
 
         parsed = []
@@ -38,17 +39,23 @@ def parse_best_match(accept_header: str, available: tuple[str]) -> str | None:
         return None
 
 
+@lru_cache(maxsize=512)
+def load_locale(locale: str) -> Locale:
+    locale_key = locale.replace("-", "_")
+    return Locale.parse(locale_key)
+
+
 def get_locale() -> Locale:
     from webfluid.core.ext import babel
 
     try: ctx = FluidContext.current()
     except RuntimeError:
-        return babel.load_locale(babel.default_locale)
+        return load_locale(babel.default_locale)
 
     if babel.locale_selector_fn is not None:
         locale = babel.locale_selector_fn()
         if isinstance(locale, Locale): return locale
-        return babel.load_locale(babel.locale_selector_fn())
+        return load_locale(babel.locale_selector_fn())
 
     locale = (
         ctx.request.cookies.get("lang")
@@ -58,7 +65,7 @@ def get_locale() -> Locale:
         )
         or babel.default_locale
     )
-    return babel.load_locale(locale)
+    return load_locale(locale)
 
 
 def get_timezone() -> ZoneInfo:

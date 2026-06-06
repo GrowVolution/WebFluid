@@ -67,10 +67,9 @@ class Fluid(FastAPI):
         self._static_prefixes = None
 
         self.jinja_env = Environment(enable_async=True)
-        self.sources = []
-        self.sources.append(
+        self.sources = [
             Markup(f'<script src="{WF_STATIC}/js/base.js" type="module"></script>')
-        )
+        ]
         self._themes = {}
 
         template_path = f"{FRAMEWORK_ID}/templates"
@@ -217,7 +216,7 @@ class Fluid(FastAPI):
         hooks = []
         for hook in self._hooks["startup"]:
             hooks.append(safe_execute(hook, False))
-        await asyncio.gather(*hooks)
+        await asyncio.gather(*hooks, return_exceptions=True)
 
     async def _shutdown(self):
         self._shutdown_lock = True
@@ -226,7 +225,7 @@ class Fluid(FastAPI):
         hooks = []
         for hook in reversed(self._hooks["shutdown"]):
             hooks.append(safe_execute(hook, False))
-        await asyncio.gather(*hooks)
+        await asyncio.gather(*hooks, return_exceptions=True)
 
     async def _run_server(self):
         host = os.getenv("SERVER_HOST", "127.0.0.1")

@@ -128,6 +128,11 @@ use_typescript = confirm(
     default=False
 )
 
+register_index = confirm(
+    "Automatically register the Vite index page on startup?",
+    default=True
+)
+
 use_alpine = confirm(
     "Do you want to use AlpineJS?",
     default=False

@@ -89,7 +89,7 @@ class TokenService:
             csrf_session = request.session.get("csrf_token", "")
 
             if not csrf_cookie or not csrf_header or not csrf_session:
-                raise HTTPException(status_code=403, detail="Missing CSRF token")
+                raise HTTPException(status_code=403, detail="MISSING_CSRF")
 
             cookie_data = await self.validate_token(csrf_cookie)
             header_data = await self.validate_token(csrf_header)
@@ -98,12 +98,12 @@ class TokenService:
 
 
             if not (cookie_val and header_val):
-                raise HTTPException(status_code=403, detail="Invalid CSRF token")
+                raise HTTPException(status_code=403, detail="INVALID_CSRF")
 
             if not (
                     hmac.compare_digest(cookie_val, csrf_session) and
                     hmac.compare_digest(header_val, csrf_session)
             ):
-                raise HTTPException(status_code=403, detail="CSRF mismatch")
+                raise HTTPException(status_code=403, detail="CSRF_MISMATCH")
 
         return wrapped

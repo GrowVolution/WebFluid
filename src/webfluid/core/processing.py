@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, UTC
-from selectolax.lexbor import LexborHTMLParser
-from typing import TYPE_CHECKING
+from selectolax.lexbor import LexborHTMLParser, LexborNode
+from typing import TYPE_CHECKING, Any
 import traceback
 
 from webfluid.core.context import FluidContext
@@ -16,19 +16,10 @@ if TYPE_CHECKING:
     from webfluid.core.fluid import Fluid
 
 
-class Source(BaseModel):
-    tag: str
-    attrs: dict[str, str]
-    text: str
-
-
-class ServerConfig(BaseModel):
-    base_url: str
-    app_name: str
-    app_version: str
-    framework_id: str
-    framework_version: str
-    sources: list[Source]
+class UrlFor(BaseModel):
+    endpoint: str
+    path_params: dict[str, Any]
+    external: bool = False
 
 
 _error_templates = {
@@ -44,8 +35,21 @@ _error_templates = {
 }
 
 
-def _timestamped(path: str) -> str:
-    return path + f"?t={datetime.now(UTC).timestamp()}"
+def _timestamped(path: str, ts: float) -> str:
+    return path + f"?t={ts}"
+
+
+def _timestamped_node(src: str, ts: float) -> LexborNode:
+    node = LexborHTMLParser(src, True).root
+    if not node: raise ValueError("Invalid HTML source.")
+
+    if "src" in node.attributes:
+        node.attrs["src"] = _timestamped(node.attrs["src"], ts)
+
+    elif "href" in node.attributes:
+        node.attrs["href"] = _timestamped(node.attrs["href"], ts)
+
+    return node
 
 
 def setup_processing(fluid: "Fluid"):
@@ -62,7 +66,19 @@ def setup_processing(fluid: "Fluid"):
         if not THEMES: return ""
         return fluid.get_theme()
 
-    def url_for():
+    def sources():
+        def get():
+            if not DEBUG: return fluid.sources
+
+            ts = datetime.now(UTC).timestamp()
+            timestamped = []
+            for src in fluid.sources:
+                timestamped.append(_timestamped_node(src, ts).html)
+            return timestamped
+        cached = "\n\t".join(get())
+        return "\n\t".join(get()) if DEBUG else cached
+
+    def _url_for():
         try:
             ctx = FluidContext.current()
             if not ctx.request: return None
@@ -73,11 +89,11 @@ def setup_processing(fluid: "Fluid"):
             external = path_params.pop("external", False)
             url = fn(endpoint, **path_params)
 
-            if external: result = str(url)
-            else: result = url.path
-
+            result = str(url) if external else url.path
             if DEBUG and "static" in result:
-                result = _timestamped(result)
+                result = _timestamped(
+                    result, datetime.now(UTC).timestamp()
+                )
 
             return result
         return wrapper
@@ -88,8 +104,8 @@ def setup_processing(fluid: "Fluid"):
 
         "id": FRAMEWORK_ID,
         "theme": theme(),
-        "src": "\n\t".join(fluid.sources),
-        "url_for": url_for()
+        "src": sources,
+        "url_for": _url_for()
     })
 
     @fluid.before_request
@@ -150,51 +166,12 @@ def setup_processing(fluid: "Fluid"):
                 status_code=500
             )
 
-    @fluid.get("/server-config")
-    async def config(request: Request):
-        sources = []
-
-        if THEMES:
-            node = LexborHTMLParser(
-                fluid.get_theme(), True
-            ).root
-
-            if DEBUG and "href" in node.attributes:
-                node.attrs["href"] = _timestamped(node.attrs["href"])
-
-            source = {
-                "tag": node.tag,
-                "attrs": node.attributes,
-                "text": node.text()
-            }
-            sources.append(source)
-
-        for src in fluid.sources:
-            node = LexborHTMLParser(
-                src, True
-            ).root
-
-            if DEBUG and "src" in node.attributes:
-                node.attrs["src"] = _timestamped(node.attrs["src"])
-
-            elif DEBUG and "href" in node.attributes:
-                node.attrs["href"] = _timestamped(node.attrs["href"])
-
-            source = {
-                "tag": node.tag,
-                "attrs": node.attributes,
-                "text": node.text()
-            }
-            sources.append(source)
-
-        from webfluid import version
+    @fluid.post("/url-for")
+    async def url_for(request: Request, data: UrlFor):
+        url = request.url_for(data.endpoint, **data.path_params)
+        result = str(url) if data.external else url.path
         return {
-            "base_url": str(request.base_url).rstrip("/"),
-            "app_name": fluid.name,
-            "app_version": fluid.config.get(
-                "APP_CONFIG", {}
-            ).get("version", "unknown"),
-            "framework_id": FRAMEWORK_ID,
-            "framework_version": str(version()).lstrip("v"),
-            "sources": sources
+            "url": _timestamped(
+                result, datetime.now(UTC).timestamp()
+            ) if DEBUG else result
         }

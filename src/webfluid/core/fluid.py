@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from jinja2 import Environment, ChoiceLoader, PrefixLoader, FileSystemLoader
 from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from selectolax.lexbor import LexborHTMLParser
 from pathlib import Path
 from typing import Callable
 import os, asyncio, uvicorn, signal
@@ -29,8 +30,11 @@ from webfluid.core.processing import setup_processing
 from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
 from webfluid.surface.wf_tailwind import generate_tailwind_css
-from webfluid.utils.framework import (get_root_path, safe_string, safe_execute,
-                            required_arg_count, close_proxy_client)
+from webfluid.utils.framework import (
+    get_root_path, safe_string, safe_execute,
+    required_arg_count, close_proxy_client,
+    check_priority, build_sorted_tuple
+)
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 
@@ -67,10 +71,15 @@ class Fluid(FastAPI):
         self._static_prefixes = None
 
         self.jinja_env = Environment(enable_async=True)
-        self.sources = [
-            Markup(f'<script src="{WF_STATIC}/js/base.js" type="module"></script>')
-        ]
+        self._sources = {}
+        self._sources_seen = set()
+        self.sources = None
         self._themes = {}
+
+        self.add_source(
+            f'<script src="{WF_STATIC}/js/base.js" type="module"></script>',
+            priority=5
+        )
 
         template_path = f"{FRAMEWORK_ID}/templates"
         app_templates = FileSystemLoader(self.app_root / template_path)
@@ -213,6 +222,12 @@ class Fluid(FastAPI):
         if self.app_static:
             self.mount(APP_STATIC, self.app_static, "static")
 
+        self.sources = tuple()
+        for sources in build_sorted_tuple(self._sources):
+            self.sources += tuple(sources)
+        del self._sources
+        del self._sources_seen
+
         wf_static = f"{FRAMEWORK_ID}_static"
         self.mount(WF_STATIC, self.framework_static, wf_static)
         self.jinja_env.globals["wf_static"] = wf_static
@@ -282,6 +297,24 @@ class Fluid(FastAPI):
         self._hooks["shutdown"].append(fn)
         return fn
 
+    def add_source(self, src: str, priority: int = 1):
+        if self.sources is not None:
+            raise RuntimeError("Sources cannot be added after the server was started.")
+
+        check_priority(priority)
+        node = LexborHTMLParser(src, True).root
+        if not node: raise ValueError("Invalid HTML source.")
+
+        if priority not in self._sources:
+            self._sources[priority] = []
+
+        if src in self._sources_seen:
+            log_factory.warning(f"Source '{src}' already added, skipping...")
+            return
+
+        self._sources[priority].append(Markup(src))
+        self._sources_seen.add(src)
+
     def add_theme(self, name: str, link: Markup):
         self._validate_theme(name)
         self._themes[name] = link
@@ -324,11 +357,17 @@ class Fluid(FastAPI):
         return fn
 
     async def render(self, template: str, **ctx) -> str:
+        is_string = ctx.get("is_string", False)
+
         for processor in self._context_processors:
             result = await safe_execute(processor, False)
             if not isinstance(result, dict): continue
             ctx = result | ctx
-        return await self.jinja_env.get_template(template).render_async(**ctx)
+
+        target = self.jinja_env.from_string(template) \
+            if is_string else self.jinja_env.get_template(template)
+
+        return await target.render_async(**ctx)
 
     async def start(self):
         log_factory.start_session()

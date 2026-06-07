@@ -1,5 +1,5 @@
 from fastapi import Request, Depends, HTTPException
-from webfluid.core.ext import db
+from webfluid.extensions.sqlalchemy import SQLAlchemy
 from sqlalchemy import select
 from typing import TYPE_CHECKING, Optional, AsyncGenerator, Callable, Any
 
@@ -22,6 +22,7 @@ class UserService:
             yield None
             return
 
+        db = SQLAlchemy.get_instance()
         async with db.async_executor(model=User) as e:
             results = await e.exec(
                 select(User).where(

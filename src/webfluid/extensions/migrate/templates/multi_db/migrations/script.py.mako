@@ -30,7 +30,7 @@ def downgrade(engine_name):
 %>
 
 ## generate an "upgrade_<xyz>() / downgrade_<xyz>()" function
-## for each database name in the ini file.
+## for each bind key in the config.
 
 % for db_name in db_names:
 

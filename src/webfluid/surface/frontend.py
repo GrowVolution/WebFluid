@@ -7,10 +7,12 @@ from tqdm import tqdm
 from markupsafe import Markup
 from selectolax.lexbor import LexborHTMLParser, create_tag
 from mimetypes import guess_type
+from datetime import datetime, UTC
 from typing import TYPE_CHECKING, Callable
 import typer, requests, shutil, subprocess, os, signal
 
-from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC
+from webfluid.core.context import FluidContext
+from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC, THEMES, PROCESSING
 from webfluid.surface import dist
 from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
@@ -172,17 +174,30 @@ class Frontend:
         self.register_index = frontend.get("register_index", self.register_index)
         self.alpine = frontend.get("alpine", self.alpine)
 
+        raw_tailwind = f"tailwind{'_raw' if THEMES else '_no_themes'}.css"
+        frontend_path = root_path / "frontend"
+        static = root_path / "static" / "css"
+        def generate_tailwind(f, s):
+            if f:
+                generate_asset(
+                    src / raw_tailwind,
+                    src / "tailwind.css",
+                    getattr(self, "root", frontend_path)
+                )
+
+            if s:
+                generate_asset(
+                    static / raw_tailwind,
+                    static / "tailwind.css",
+                    root_path
+                )
+
+        self.generate_tailwind = generate_tailwind
+
         if self.type == "vite":
-            self.root = root_path / "frontend"
+            self.root = frontend_path
             self.dist = self.root / "dist"
             src = self.root / "src"
-            self.generate_tailwind = (
-                lambda: generate_asset(
-                    src / "tailwind_raw.css",
-                    src / "tailwind.css",
-                    self.dist.parent
-                )
-            )
 
             if not DEBUG:
                 self.dist.mkdir(parents=True, exist_ok=True)
@@ -190,66 +205,79 @@ class Frontend:
                     self.prefix, StaticFiles(directory=self.dist)
                 )
 
-            if TAILWIND: self.generate_tailwind()
+            if TAILWIND: self.generate_tailwind(True, False)
 
         if TAILWIND:
             if not (root_path / "static" / "css" / "tailwind_raw.css").exists():
                 self.tailwind = ""
                 return
 
-            self.tailwind = ('<link rel="stylesheet" '
-                            f'href="{self.prefix.removesuffix("/frontend")}'
-                             '/static/css/tailwind.css">')
+            self.tailwind = (
+                f"{self.prefix.removesuffix("/frontend")}/static/css/tailwind.css"
+            )
 
-    def _updated_index(self, index: str) -> str:
-        if not DEBUG: return index
+    async def _updated_index(self, index: str) -> str:
+        try: ctx = FluidContext.current()
+        except RuntimeError: return index
         html = LexborHTMLParser(index)
 
-        for script in html.css("script"):
-            src_old = script.attributes.get("src")
-            if src_old is None: continue
-            script.attrs["src"] = f"{Frontend._dev_prefix}/{self.rel}{src_old}"
+        if DEBUG:
+            for script in html.css("script"):
+                src_old = script.attributes.get("src")
+                if src_old is None: continue
+                script.attrs["src"] = f"{Frontend._dev_prefix}/{self.rel}{src_old}"
 
-        for link in html.css("link"):
-            href_old = link.attributes.get("href")
-            if href_old is None: continue
-            href_old = href_old.lstrip("/")
-            if (self.root / "public" / href_old).exists():
-                link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/public/{href_old}"
-            else:
-                link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/{href_old}"
+            for link in html.css("link"):
+                href_old = link.attributes.get("href")
+                if href_old is None: continue
+                href_old = href_old.lstrip("/")
+                if (self.root / "public" / href_old).exists():
+                    link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/public/{href_old}"
+                else:
+                    link.attrs["href"] = f"{Frontend._dev_prefix}/{self.rel}/{href_old}"
 
-        client = create_tag("script")
-        client.attrs["type"] = "module"
-        client.attrs["src"] = f"{Frontend._dev_prefix}/@vite/client"
-        html.head.insert_child(client)
+            client = create_tag("script")
+            client.attrs["type"] = "module"
+            client.attrs["src"] = f"{Frontend._dev_prefix}/@vite/client"
+            html.head.insert_child(client)
 
-        if self.framework == "react":
-            refresh = create_tag("script")
-            refresh.attrs["type"] = "module"
-            refresh.insert_child(f"""
-                import RefreshRuntime from "{Frontend._dev_prefix}/@react-refresh";
-                RefreshRuntime.injectIntoGlobalHook(window);
-                window.$RefreshReg$ = () => {{}};
-                window.$RefreshSig$ = () => (type) => type;
-                window.__vite_plugin_react_preamble_installed__ = true;
-            """)
-            html.head.insert_child(refresh)
+            if self.framework == "react":
+                refresh = create_tag("script")
+                refresh.attrs["type"] = "module"
+                refresh.insert_child(f"""
+                    import RefreshRuntime from "{Frontend._dev_prefix}/@react-refresh";
+                    RefreshRuntime.injectIntoGlobalHook(window);
+                    window.$RefreshReg$ = () => {{}};
+                    window.$RefreshSig$ = () => (type) => type;
+                    window.__vite_plugin_react_preamble_installed__ = true;
+                """)
+                html.head.insert_child(refresh)
+
+        theme = ctx.fluid.get_theme() if THEMES else ""
+        if PROCESSING:
+            src = await ctx.fluid.render(
+                f"{theme}" + "{{ src() }}",
+                is_string=True
+            )
+
+        else: src = "\n\t".join([theme, *ctx.fluid.sources])
+
+        node = LexborHTMLParser(src).head
+        if node: html.head.insert_child(node)
 
         return html.html
 
-    def _vite(self) -> str:
+    async def _vite(self) -> str:
         if self.type != "vite": return ""
 
         if DEBUG:
-            if TAILWIND: self.generate_tailwind()
+            if TAILWIND: self.generate_tailwind(True, True)
             index_file = self.root / "index.html"
-            return self._updated_index(
-                index_file.read_text()
-            )
+        else: index_file = self.dist / "index.html"
 
-        index_file = self.dist / "index.html"
-        return index_file.read_text()
+        return await self._updated_index(
+            index_file.read_text()
+        )
 
     def cover_fluid(self, fluid: "Fluid"):
         self.prefix = "/frontend"
@@ -281,12 +309,16 @@ class Frontend:
             if self.alpine: template += f'<script src="{Frontend.alpine}" defer></script>\n'
 
         if TAILWIND:
-            template += self.tailwind
+            if DEBUG:
+                self.generate_tailwind(False, True)
+                src = self.tailwind + f"?t={datetime.now(UTC).timestamp()}"
+            else: src = self.tailwind
+            template += f'<link rel="stylesheet" href="{src}">\n'
 
         return Markup(template)
 
-    def vite(self):
-        response = HTMLResponse(self._vite())
+    async def vite(self):
+        response = HTMLResponse(await self._vite())
         response.set_cookie("vite_ns", self.rel)
         return response
 

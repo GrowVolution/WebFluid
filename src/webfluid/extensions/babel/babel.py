@@ -130,8 +130,9 @@ class Babel(FluidExtension):
 
         if fluid.config.get("BABEL_CONFIGURE_SOCKET", True):
             fluid.websocket("/ws/i18n")(self.socket_i18n)
-            fluid.sources.append(
-                Markup(f'<script src="{WF_STATIC}/js/i18n.js" type="module"></script>')
+            fluid.add_source(
+                f'<script src="{WF_STATIC}/js/i18n.js" type="module"></script>',
+                priority=5
             )
 
         fluid.startup_hook(self.load_translations)

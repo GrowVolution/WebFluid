@@ -63,8 +63,9 @@ class EventManager(FluidExtension):
 
         if fluid.config.get("EVENTS_CONFIGURE_SOCKET", True):
             fluid.websocket("/ws/events")(self._socket_manager)
-            fluid.sources.append(
-                Markup(f'<script src="{WF_STATIC}/js/events.js" type="module"></script>')
+            fluid.add_source(
+                f'<script src="{WF_STATIC}/js/events.js" type="module"></script>',
+                priority=5
             )
 
         def ctx_decorator(fn):

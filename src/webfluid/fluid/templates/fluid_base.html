@@ -1,15 +1,20 @@
 <!DOCTYPE html>
+
+{% macro _url_for(ep) %}
+    {{ url_for(ep, **kwargs) if url_for else "#" }}
+{% endmacro %}
+
 <html lang="{{ LANG }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="{{ url_for(wf_static, path='img/favicon.ico') }}" type="image/ico">
+    <link rel="icon" href="{{ _url_for(wf_static, path='img/favicon.ico') }}" type="image/ico">
 
     <title>{% block title %}WebFluid App{% endblock %}</title>
 
-    {{ theme }}
-    {{ wf_tailwind }}
-    {{ src }}
+    {{ theme if theme else "" }}
+    {{ wf_tailwind if wf_tailwind else "" }}
+    {{ src() if src else "" }}
 
     {% block head %}{% endblock %}
 </head>
@@ -20,7 +25,7 @@
         {% block nav %}
         <div class="navbar">
             <a class="nav-brand group" href="/">
-                <img src="{{ url_for(wf_static, path='img/logo.png') }}" class="nav-logo nav-logo-glow" alt="Logo">
+                <img src="{{ _url_for(wf_static, path='img/logo.png') }}" class="nav-logo nav-logo-glow" alt="Logo">
                 <span class="nav-title">
                     {{ _('BRAND') }}
                 </span>

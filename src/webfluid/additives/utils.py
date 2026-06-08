@@ -1,6 +1,90 @@
+from pathlib import Path
 from functools import wraps
+from typing import TYPE_CHECKING, Optional
+import json
 
-from webfluid.utils.framework import safe_string, final_version, enabled, async_result
+from webfluid.utils.logging import factory as log_factory
+from webfluid.exceptions import ManifestError
+from webfluid.utils.framework import (
+    try_import, safe_string, final_version, enabled, async_result
+)
+
+if TYPE_CHECKING:
+    from webfluid import Additive
+
+_additives = {
+    "additives": {},
+    "bases": {}
+}
+
+
+def _load_additives(package: Path, target: str, additive_type: str, do_log: bool):
+    from webfluid.core.additive import AdditiveVersion
+    from webfluid.core.manifest import Manifest
+
+    for additive in package.iterdir():
+        if not additive.is_dir(): continue
+        elif additive.name == "__pycache__": continue
+
+        try:
+            manifest = Manifest(additive / "manifest.json")
+            if manifest["type"] != additive_type: continue
+            version = AdditiveVersion(*manifest["version"].split("."))
+            _additives[target][package].append(
+                (manifest.get("id", additive.name), version, additive.name)
+            )
+        except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
+            if do_log: log_factory.warning(f"Invalid additive package '{additive.name}' in {package}:\n{e}")
+            continue
+
+
+def installed_additives(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
+    if  _additives["additives"].get(package):
+        return _additives["additives"][package]
+
+    if not package.name == "additives":
+        raise ValueError(f"Invalid package name '{package.name}'.")
+
+    _additives["additives"][package] = []
+    _load_additives(
+        package, "additives", "default", do_log
+    )
+
+    return _additives["additives"][package] if cache else _additives["additives"].pop(package)
+
+
+def installed_bases(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
+    if _additives["bases"].get(package):
+        return _additives["bases"][package]
+
+    _additives["bases"][package] = []
+    _load_additives(
+        package, "bases", "base", do_log
+    )
+
+    return _additives["bases"][package] if cache else _additives["bases"].pop(package)
+
+
+def import_base(base_id: str) -> Optional[Additive]:
+    entry_point = try_import("main")
+    if not entry_point: return None
+
+    for base in installed_bases(Path(
+            entry_point.__file__
+    ).parent / "additives"):
+        if base[0] == base_id:
+            pkg = base[2]
+            break
+    else: return None
+
+    mod = try_import(f"additives.{pkg}")
+    if not mod: return None
+
+    additive = getattr(mod, "additive", None)
+    if not additive or not additive.is_base:
+        return None
+
+    return additive
 
 
 def id_check(additive_id: str) -> tuple[bool, str]:

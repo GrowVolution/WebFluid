@@ -38,11 +38,12 @@ class JWTManager(FluidExtension):
             self._secret_rotary_interval * 24 * 60 * 60
         )
 
-    def _encode(self, payload: dict, audience: str, secret: str) -> str:
+    def _encode(self, payload: dict, audience: str,
+                secret: str, expire: Optional[int], kid: str) -> str:
         payload = payload.copy()
         now = datetime.now(UTC)
         payload.update({
-            "exp": now + timedelta(days=self._token_expiry_days),
+            "exp": now + timedelta(days=expire or self._token_expiry_days),
             "iat": now,
             "nbf": now,
             "iss": self._token_issuer,
@@ -50,7 +51,7 @@ class JWTManager(FluidExtension):
         })
         return jwt.encode(
             payload, secret,
-            headers={ "kid": self._current_key },
+            headers={ "kid": kid },
             algorithm=self._token_algorithm
         )
 
@@ -91,17 +92,19 @@ class JWTManager(FluidExtension):
         self._token_issuer = fluid.config.get("JWT_ISSUER", self._token_issuer)
         self._token_audiences = fluid.config.get("JWT_AUDIENCES", self._token_audiences)
 
-    def encode(self, payload: dict, audience: str = "default") -> str:
+    def encode(self, payload: dict, audience: str = "default",
+               expire: Optional[int] = None) -> str:
         from webfluid.core.ext import cache
         current_key = self._current_key(cache)
         secret = cache.get(f"jwt:{current_key}")
-        return self._encode(payload, audience, secret)
+        return self._encode(payload, audience, secret, expire, current_key)
 
-    async def aencode(self, payload: dict, audience: str = "default") -> str:
+    async def aencode(self, payload: dict, audience: str = "default",
+                      expire: Optional[int] = None) -> str:
         from webfluid.core.ext import cache
         current_key = await self._acurrent_key(cache)
         secret = await cache.aget(f"jwt:{current_key}")
-        return self._encode(payload, audience, secret)
+        return self._encode(payload, audience, secret, expire, current_key)
 
     def decode(self, token: str, audience: str = "default") -> dict:
         from webfluid.core.ext import cache

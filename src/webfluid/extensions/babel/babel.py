@@ -1,7 +1,6 @@
 from fastapi import WebSocket
 from contextvars import ContextVar
 from contextlib import contextmanager, asynccontextmanager
-from markupsafe import Markup
 from babel import Locale
 from pathlib import Path
 from functools import wraps
@@ -41,8 +40,8 @@ from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
     from zoneinfo import ZoneInfo
-    from webfluid.core.fluid import Fluid
-    from webfluid.extensions.babel.domain import Domain
+    from webfluid import Fluid
+    from webfluid.extensions.babel import Domain
 
 
 class _DomainContext(BaseContext):
@@ -135,9 +134,12 @@ class Babel(FluidExtension):
                 priority=5
             )
 
-        fluid.startup_hook(self.load_translations)
         self._update_disabled = fluid.config.get("BABEL_DISABLE_AUTOUPDATE", False)
-        if not self._update_disabled: fluid.startup_hook(self._update_translations)
+        async def hook():
+            if not self._update_disabled: await self._update_translations()
+            await self.load_translations()
+
+        fluid.startup_hook(hook)
 
     def register_domain(self, name: str, package: Path | None = None):
         if name in self._domains:
@@ -163,7 +165,7 @@ class Babel(FluidExtension):
                     MergedTranslations.db_load(locale, domain)
                 )
 
-        await asyncio.gather(*tasks)
+        for task in tasks: await task
 
     def update_translations(self, domain: str,
                             translations: Callable[[], dict[
@@ -186,8 +188,8 @@ class Babel(FluidExtension):
     async def _update_translations(self):
         self._update_blocked = True
         if not self._update_tasks: return
-        await asyncio.gather(*self._update_tasks)
-        self._update_tasks.clear()
+        for task in self._update_tasks: await task
+        del self._update_tasks
 
     async def socket_i18n(self, ws: WebSocket):
         await ws.accept()

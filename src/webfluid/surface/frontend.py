@@ -21,8 +21,7 @@ from webfluid.utils.framework import add_proxy, run_in_executor, get_proxy
 from webfluid.exceptions import FrontendException, NodeError
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
-    from webfluid.core.additive import Additive
+    from webfluid import Fluid, Additive
 
 _static_js = (Path(__file__).parent.parent / "fluid" / "static" / "js").resolve()
 

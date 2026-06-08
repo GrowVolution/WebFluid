@@ -1,6 +1,6 @@
 from fastapi import WebSocket
-from markupsafe import Markup
 from uuid import uuid4
+from collections import deque
 from typing import TYPE_CHECKING, Callable, Optional, Any, AsyncGenerator
 import asyncio, json
 
@@ -11,7 +11,15 @@ from webfluid.utils import required_arg_count, safe_execute
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
+
+
+class _Listener:
+    __slots__ = ("buffer", "event")
+
+    def __init__(self, maxlen: Optional[int]):
+        self.buffer = deque(maxlen=maxlen)
+        self.event = asyncio.Event()
 
 
 class _BroadCaster:
@@ -20,29 +28,21 @@ class _BroadCaster:
         self.queue_size = queue_size
 
     async def stream(self):
-        queue = asyncio.Queue(self.queue_size)
-        self.listeners.add(queue)
+        listener = _Listener(self.queue_size or None)
+        self.listeners.add(listener)
         try:
             while True:
-                yield await queue.get()
-                queue.task_done()
-        finally: self.listeners.remove(queue)
+                while listener.buffer:
+                    yield listener.buffer.popleft()
+                listener.event.clear()
+                if not listener.buffer:
+                    await listener.event.wait()
+        finally: self.listeners.discard(listener)
 
     def publish(self, data: Any):
-        dead = []
-
-        for queue in list(self.listeners):
-            try:
-                queue.put_nowait(data)
-            except asyncio.QueueFull:
-                try:
-                    queue.get_nowait()
-                    queue.put_nowait(data)
-                except asyncio.QueueEmpty:
-                    dead.append(queue)
-
-        for q in dead:
-            self.listeners.discard(q)
+        for listener in self.listeners:
+            listener.buffer.append(data)
+            listener.event.set()
 
 
 class EventManager(FluidExtension):
@@ -171,7 +171,7 @@ class EventManager(FluidExtension):
                             await ws.send_text(json.dumps(response))
                             continue
 
-                        await self.trigger(event, data.get("data"))
+                        self.trigger(event, data.get("data"))
                         response["data"] = True
 
                     elif request == "listen":

@@ -1,24 +1,20 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from webfluid.additives.core import *
+    from webfluid.additives.utils import *
 
 __all__ = [
-    "register_additives",
     "installed_additives", "installed_bases",
     "import_base",
-
-    "utils"
 ]
 
 
 def __getattr__(name):
     if name in {
-        "register_additives",
         "installed_additives", "installed_bases",
         "import_base"
     }:
-        from . import core
-        return getattr(core, name)
+        from . import utils
+        return getattr(utils, name)
 
     raise AttributeError(name)

@@ -8,8 +8,7 @@ import os, inspect, random, string, re, asyncio, \
 
 if TYPE_CHECKING:
     from types import ModuleType
-    from webfluid.core.fluid import Fluid
-    from webfluid.core.additive import  Additive, AdditiveVersion
+    from webfluid import Fluid, Additive, AdditiveVersion
 
 _stage_map = {
     "a": 0,

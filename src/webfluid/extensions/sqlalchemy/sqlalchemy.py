@@ -9,7 +9,7 @@ from webfluid.extensions.sqlalchemy.utils import (
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class SQLAlchemy(FluidExtension):

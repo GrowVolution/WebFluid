@@ -31,8 +31,6 @@ def _read_key() -> str:
     if os.name == "nt":
         import msvcrt
         c = msvcrt.getch()
-        if c == '' or c == 'à':
-            c = msvcrt.getch()
         return c.decode()
 
     import termios, tty
@@ -59,6 +57,7 @@ def _stream_log():
     if _proc is None or _proc.stdout is None: return
 
     while _streaming:
+        if _proc is None: break
         line = _proc.stdout.readline()
         if not _streaming: break
         if line: typer.echo(line, nl=False)
@@ -68,7 +67,7 @@ def _join_log():
     if _proc is None: return
 
     typer.secho("Joining application log...", bold=True)
-    typer.secho("Press STRG+Q to return to menu.\n", fg=typer.colors.YELLOW)
+    typer.secho("Press ESC to return to menu.\n", fg=typer.colors.YELLOW)
     time.sleep(1)
 
     global _streaming
@@ -76,7 +75,7 @@ def _join_log():
     Thread(target=_stream_log, daemon=True).start()
 
     while _proc.poll() is None:
-        if _read_key() == "\x11": break
+        if _read_key() == '\x1b': break
 
     _streaming = False
 
@@ -102,6 +101,7 @@ def _start(env: dict, project_root: Path):
 
 
 def _stop():
+    global _proc
     if _proc is None:
         typer.secho("Application not running.", fg=typer.colors.YELLOW)
         return
@@ -117,6 +117,8 @@ def _stop():
         except subprocess.TimeoutExpired:
             _proc.kill()
             _proc.wait()
+
+        _proc = None
 
 
 def _restart(env: dict, project_root: Path):
@@ -225,34 +227,36 @@ def run(
     signal.signal(signal.SIGINT, _exit)
     signal.signal(signal.SIGTERM, _exit)
 
-    if interactive:
-        while True:
-            if _terminate: break
+    try:
+        if interactive:
+            while True:
+                if _terminate: break
 
-            typer.echo(f"\nApplication status: {_status()}")
-            opt = questions.menu.ask()
+                typer.echo(f"\nApplication status: {_status()}")
+                opt = questions.menu.ask()
 
-            if opt is None or opt == 6: break
-            if opt == 5:
-                os.system("cls" if os.name == "nt" else "clear")
-                continue
+                if opt is None or opt == 6: break
+                if opt == 5:
+                    os.system("cls" if os.name == "nt" else "clear")
+                    continue
 
-            if opt == 0: _restart(env, project_root)
-            if opt == 1: _stop()
-            if opt == 2: _start(env, project_root)
+                if opt == 0: _restart(env, project_root)
+                if opt == 1: _stop()
+                if opt == 2: _start(env, project_root)
 
-            if opt == 3: _join_log()
-            if opt == 4: _clear_logs(log_dir)
-    else:
-        _streaming = True
-        Thread(target=_stream_log, daemon=True).start()
+                if opt == 3: _join_log()
+                if opt == 4: _clear_logs(log_dir)
+        else:
+            _streaming = True
+            Thread(target=_stream_log, daemon=True).start()
 
-        while _proc.poll() is None:
-            time.sleep(0.05)
-            if _terminate: break
+            while _proc.poll() is None:
+                time.sleep(0.05)
+                if _terminate: break
 
-    _stop()
-    _log.close()
+        _stop()
+
+    finally: _log.close()
 
     typer.secho("Thank you for playing the game of life... Bye!", bold=True)
 

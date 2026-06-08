@@ -13,7 +13,13 @@ from webfluid.extensions.babel.utils import get_locale, fake_t, fake_tn
 from webfluid.utils.logging import factory as log_factory
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
+
+
+class FrameworkIdentity(BaseModel):
+    id: str
+    version: str
+    timestamp: str
 
 
 class UrlFor(BaseModel):
@@ -165,6 +171,15 @@ def setup_processing(fluid: "Fluid"):
                 await fluid.render("errors/500.html"),
                 status_code=500
             )
+
+    from webfluid import version
+    @fluid.get("/wf-identity", response_model=FrameworkIdentity)
+    def identity():
+        return {
+            "id": FRAMEWORK_ID,
+            "version": str(version()),
+            "timestamp": datetime.now(UTC).isoformat()
+        }
 
     @fluid.post("/url-for")
     async def url_for(request: Request, data: UrlFor):

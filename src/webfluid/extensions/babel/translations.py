@@ -1,12 +1,25 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import UniqueConstraint, ForeignKey, select
+from sqlalchemy.exc import OperationalError
 from babel.support import Translations
 from typing import Optional, Callable
 from functools import lru_cache
 import asyncio, json
 
-from webfluid.core.ext import db, babel
+from webfluid.core.ext import db
 from webfluid.utils.logging import factory as log_factory
+
+
+async def _retry_locked(fn, *, attempts: int = 6, delay: float = 0.1):
+    for i in range(attempts):
+        try: return await fn()
+        except OperationalError as e:
+            if "database is locked" not in str(e).lower() or i == attempts - 1:
+                raise
+            log_factory.warning(
+                f"[Babel] Database locked, retrying ({i + 1}/{attempts - 1})."
+            )
+            await asyncio.sleep(delay * (2 ** i))
 
 
 @lru_cache(maxsize=None)
@@ -214,34 +227,40 @@ class MergedTranslations(Translations):
 
     @classmethod
     async def _kid(cls, domain: str, key: str) -> int:
-        async with db.async_executor(model=I18nKey) as e:
-            result = await e.exec(select(I18nKey).where(I18nKey.key == key))
-            row = result.first()
-            if row: return row.id
+        async def run():
+            async with db.async_executor(model=I18nKey) as e:
+                result = await e.exec(select(I18nKey).where(I18nKey.key == key))
+                row = result.first()
+                if row: return row.id
 
-            await e.insert(I18nKey(key, domain))
+                await e.insert(I18nKey(key, domain))
 
-            result = await e.exec(select(I18nKey).where(I18nKey.key == key))
-            return result.first().id
+                result = await e.exec(select(I18nKey).where(I18nKey.key == key))
+                return result.first().id
+
+        return await _retry_locked(run)
 
     @classmethod
     async def _resolve_keys(cls, domain: str, keys: set[str]) -> dict[str, int]:
-        kids = {}
+        async def run():
+            kids = {}
 
-        async with db.async_executor(model=I18nKey) as e:
-            result = await e.exec(select(I18nKey).where(I18nKey.key.in_(keys)))
-            for row in result.all(): kids[row.key] = row.id
-
-            missing = [k for k in keys if k not in kids]
-            for k in missing: await e.insert(I18nKey(k, domain))
-
-            if missing:
-                result = await e.exec(select(I18nKey).where(
-                    I18nKey.key.in_(missing)
-                ))
+            async with db.async_executor(model=I18nKey) as e:
+                result = await e.exec(select(I18nKey).where(I18nKey.key.in_(keys)))
                 for row in result.all(): kids[row.key] = row.id
 
-        return kids
+                missing = [k for k in keys if k not in kids]
+                for k in missing: await e.insert(I18nKey(k, domain))
+
+                if missing:
+                    result = await e.exec(select(I18nKey).where(
+                        I18nKey.key.in_(missing)
+                    ))
+                    for row in result.all(): kids[row.key] = row.id
+
+            return kids
+
+        return await _retry_locked(run)
 
     @classmethod
     async def _set(cls, locale: str, domain: str, key: str,
@@ -250,21 +269,25 @@ class MergedTranslations(Translations):
 
         lock = cls._ensure_cache_and_lock(locale, domain)
         async with lock:
-            async with db.async_executor(model=I18nMessage) as e:
-                result = await e.exec(
-                    select(I18nMessage).where(
-                        I18nMessage.locale == locale,
-                        I18nMessage.kid == kid,
-                        I18nMessage.pf == pf,
-                        I18nMessage.ctx == ctx
-                    )
-                )
+            async def write():
+                async with db.async_executor(model=I18nMessage) as e:
+                    with e.session.no_autoflush:
+                        result = await e.exec(
+                            select(I18nMessage).where(
+                                I18nMessage.locale == locale,
+                                I18nMessage.kid == kid,
+                                I18nMessage.pf == pf,
+                                I18nMessage.ctx == ctx
+                            )
+                        )
 
-                row = result.first()
-                if row: row.text = message
-                else: await e.insert(
-                    I18nMessage(kid, locale, message, pf, ctx)
-                )
+                        row = result.first()
+                    if row: row.text = message
+                    else: await e.insert(
+                        I18nMessage(kid, locale, message, pf, ctx)
+                    )
+
+            await _retry_locked(write)
 
             if key in cls._uncached.get(domain, ()):
                 return
@@ -303,30 +326,33 @@ class MergedTranslations(Translations):
         lock = cls._ensure_cache_and_lock(locale, domain)
 
         async with lock:
-            async with db.async_executor(model=I18nMessage) as e:
-                results = await e.exec(
-                    select(I18nMessage).where(
-                        I18nMessage.locale == locale,
-                        I18nMessage.key.has(I18nKey.domain == domain)
+            async def read():
+                async with db.async_executor(model=I18nMessage) as e:
+                    results = await e.exec(
+                        select(I18nMessage).where(
+                            I18nMessage.locale == locale,
+                            I18nMessage.key.has(I18nKey.domain == domain)
+                        )
                     )
-                )
-                rows = results.all()
+                    return results.all()
 
-                new_cache = {}
-                uncached = cls._uncached.setdefault(domain, set())
+            rows = await _retry_locked(read)
 
-                for msg in rows:
-                    if not msg.key.cached:
-                        uncached.add(msg.key.key)
-                        continue
+            new_cache = {}
+            uncached = cls._uncached.setdefault(domain, set())
 
-                    if msg.key.key not in new_cache:
-                        new_cache[msg.key.key] = {}
+            for msg in rows:
+                if not msg.key.cached:
+                    uncached.add(msg.key.key)
+                    continue
 
-                    if msg.pf not in new_cache[msg.key.key]:
-                        new_cache[msg.key.key][msg.pf] = {}
+                if msg.key.key not in new_cache:
+                    new_cache[msg.key.key] = {}
 
-                    new_cache[msg.key.key][msg.pf][msg.ctx or ""] = msg.text
+                if msg.pf not in new_cache[msg.key.key]:
+                    new_cache[msg.key.key][msg.pf] = {}
+
+                new_cache[msg.key.key][msg.pf][msg.ctx or ""] = msg.text
 
             cls._db_cache[locale][domain] = new_cache
 
@@ -347,52 +373,63 @@ class MergedTranslations(Translations):
 
         kids = await cls._resolve_keys(domain, all_keys)
 
-        async with db.async_executor(model=I18nMessage) as e:
-            for locale, keys in translations.items():
+        for locale, keys in translations.items():
 
-                lock = cls._ensure_cache_and_lock(locale, domain)
-                async with lock:
+            lock = cls._ensure_cache_and_lock(locale, domain)
+            async with lock:
 
-                    new_cache = cls._db_cache[locale][domain]
-                    uncached = cls._uncached.get(domain, ())
+                new_cache = cls._db_cache[locale][domain]
+                uncached = cls._uncached.get(domain, ())
 
-                    for key, forms in keys.items():
-                        kid = kids[key]
+                async def write():
+                    async with db.async_executor(model=I18nMessage) as e:
+                        for key, forms in keys.items():
+                            kid = kids[key]
 
-                        for data, msg in forms.items():
-                            data = json.loads(data)
-                            pf = data.get("pf", "one")
-                            ctx = data.get("ctx")
+                            for data, msg in forms.items():
+                                data = json.loads(data)
+                                pf = data.get("pf", "one")
+                                ctx = data.get("ctx")
 
-                            if not msg:
-                                log_factory.warning(
-                                    "[Babel] Missing message for "
-                                    f"locale '{locale}' and key '{key}' "
-                                    f"at domain '{domain}'."
+                                if not msg:
+                                    log_factory.warning(
+                                        "[Babel] Missing message for "
+                                        f"locale '{locale}' and key '{key}' "
+                                        f"at domain '{domain}'."
+                                    )
+                                    continue
+
+                                with e.session.no_autoflush:
+                                    result = await e.exec(
+                                        select(I18nMessage).where(
+                                            I18nMessage.locale == locale,
+                                            I18nMessage.kid == kid,
+                                            I18nMessage.pf == pf,
+                                            I18nMessage.ctx == ctx
+                                        )
+                                    )
+                                    row = result.first()
+
+                                if row: row.text = msg
+                                else: await e.insert(
+                                    I18nMessage(kid, locale, msg, pf, ctx)
                                 )
-                                continue
 
-                            result = await e.exec(
-                                select(I18nMessage).where(
-                                    I18nMessage.locale == locale,
-                                    I18nMessage.kid == kid,
-                                    I18nMessage.pf == pf,
-                                    I18nMessage.ctx == ctx
-                                )
-                            )
+                await _retry_locked(write)
 
-                            row = result.first()
-                            if row: row.text = msg
-                            else: await e.insert(
-                                I18nMessage(kid, locale, msg, pf, ctx)
-                            )
+                for key, forms in keys.items():
+                    for data, msg in forms.items():
+                        if not msg: continue
+                        data = json.loads(data)
+                        pf = data.get("pf", "one")
+                        ctx = data.get("ctx")
 
-                            if key in uncached: continue
+                        if key in uncached: continue
 
-                            if key not in new_cache:
-                                new_cache[key] = {}
+                        if key not in new_cache:
+                            new_cache[key] = {}
 
-                            if pf not in new_cache[key]:
-                                new_cache[key][pf] = {}
+                        if pf not in new_cache[key]:
+                            new_cache[key][pf] = {}
 
-                            new_cache[key][pf][ctx or ""] = msg
+                        new_cache[key][pf][ctx or ""] = msg

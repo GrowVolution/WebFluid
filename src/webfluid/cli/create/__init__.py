@@ -8,7 +8,7 @@ from webfluid.cli import questions
 from webfluid.cli.create import templates
 from webfluid.core.constants import FRAMEWORK_ID
 from webfluid.surface import node_cmd, dist
-from webfluid.additives.core import installed_additives
+from webfluid.additives.utils import installed_additives
 from webfluid.utils.framework import safe_string
 
 create = typer.Typer(help="Create a new WebFluid instances.")
@@ -340,7 +340,7 @@ def additive(additive_id: str):
         extend = questions.extend.ask()
         if extend:
             selected_base = questions.select_base()
-            import_base_fn = "from webfluid.additives.core import import_base\n"
+            import_base_fn = "from webfluid.additives import import_base\n"
             base_import = f'\n\timport_base("{selected_base}"),'
 
         manifest["frontend"] = _frontend_conf()

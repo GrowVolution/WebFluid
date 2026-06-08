@@ -7,7 +7,7 @@ from webfluid.extensions.security.models.user import User
 
 if TYPE_CHECKING:
     from fastapi.params import Depends as DependsParam
-    from webfluid.extensions.security.services.token import TokenService
+    from webfluid.extensions.security.services import TokenService
 
 
 class UserService:
@@ -141,6 +141,8 @@ class UserService:
             "has_permissions", "has_any_permission"
         }:
             raise ValueError("Invalid requirement format: Invalid requirement.")
+
+        if requirement != "is_admin" and cls.is_admin(user): return True
 
         param = None
 

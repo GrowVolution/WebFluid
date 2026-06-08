@@ -8,14 +8,22 @@ from webfluid.core.ext import db
 
 user_roles = Table(
     "user_roles", db.Model.metadata,
-    Column("user_id", Integer, ForeignKey("users.id")),
-    Column("role_id", Integer, ForeignKey("roles.id"))
+
+    Column("user_id", Integer,
+           ForeignKey("users.id", ondelete="CASCADE")),
+
+    Column("role_id", Integer,
+           ForeignKey("roles.id", ondelete="CASCADE"))
 )
 
 role_permissions = Table(
     "role_permissions", db.Model.metadata,
-    Column("role_id", Integer, ForeignKey("roles.id")),
-    Column("permission_id", Integer, ForeignKey("permissions.id"))
+
+    Column("role_id", Integer,
+           ForeignKey("roles.id", ondelete="CASCADE")),
+
+    Column("permission_id", Integer,
+           ForeignKey("permissions.id", ondelete="CASCADE"))
 )
 
 
@@ -35,7 +43,8 @@ class User(db.Model):
 
     identities: Mapped[list[Identity]] = relationship(
         back_populates="user",
-        lazy="selectin"
+        lazy="selectin",
+        cascade="all, delete-orphan"
     )
     roles: Mapped[list[Role]] = relationship(
         secondary=user_roles,
@@ -57,7 +66,7 @@ class Identity(db.Model):
     __table_args__ = (UniqueConstraint("sub", "provider"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
 
     sub: Mapped[str]
     provider: Mapped[str]

@@ -30,10 +30,10 @@ export class Translations {
             }
         }
 
-        const config = await fetch("/server-config")
+        const identity = await fetch("/wf-identity")
             .then(res => res.json())
-            .catch(() => ({}))
-        this.frameworkFallback = config?.framework_id
+            .catch(() => ({ id: "fluid" }))
+        this.frameworkFallback = identity?.id
 
         return this
     }

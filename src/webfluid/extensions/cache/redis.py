@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from webfluid.extensions.cache.base import BaseCache
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class RedisCache(BaseCache):

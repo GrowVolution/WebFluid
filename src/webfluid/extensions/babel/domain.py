@@ -8,7 +8,7 @@ from webfluid.extensions.babel.utils import get_locale
 
 if TYPE_CHECKING:
     from os import PathLike
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class Domain:

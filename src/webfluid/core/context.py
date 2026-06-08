@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Optional, Generator
 
 if TYPE_CHECKING:
     from fastapi import Request
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class BaseContext:

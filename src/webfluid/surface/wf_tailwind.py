@@ -8,7 +8,7 @@ from webfluid.exceptions import TailwindError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 def _get_cli_data():

@@ -24,7 +24,7 @@ from webfluid.exceptions import AdditiveException, ManifestError
 
 if TYPE_CHECKING:
     from configparser import ConfigParser
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class AdditiveVersion(tuple):

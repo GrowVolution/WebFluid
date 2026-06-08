@@ -98,7 +98,7 @@ class Manifest:
             if not isinstance(requirement, dict):
                 raise ManifestError(f"[{self['name']}] Invalid additives requirement type: {type(requirement)}")
 
-            from webfluid.additives.core import installed_additives, installed_bases
+            from webfluid.additives import installed_additives, installed_bases
 
             additives = installed_additives(additive_root)
             for additive in additives:

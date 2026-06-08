@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Optional
 import typer
 
 if TYPE_CHECKING:
-    from webfluid.core.fluid import Fluid
+    from webfluid import Fluid
 
 
 class FluidExtension:

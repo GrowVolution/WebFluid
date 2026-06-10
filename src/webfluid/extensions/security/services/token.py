@@ -9,7 +9,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import delete, select
 from secrets import token_urlsafe
 from datetime import timedelta, datetime, UTC
-from typing import Callable
 import hmac
 
 from webfluid.extensions.security.models.token import ExpiredToken
@@ -21,7 +20,7 @@ class TokenService:
         self._max_age = max_age
         self._csrf_cookie = csrf_cookie
         self._csrf_secure = csrf_secure
-        self.csrf_protect = Depends(self._csrf_protect())
+        self.csrf_protect = Depends(self.csrf_protect_fn)
 
         async def db_cleaner():
             async with db.async_executor(model=ExpiredToken) as e:
@@ -79,31 +78,28 @@ class TokenService:
         )
         return response
 
-    def _csrf_protect(self) -> Callable:
-        async def wrapped(request: Request):
-            if request.method in {"GET", "HEAD", "OPTIONS"}:
-                return
+    async def csrf_protect_fn(self, request: Request):
+        if request.method in {"GET", "HEAD", "OPTIONS"}:
+            return
 
-            csrf_cookie = request.cookies.get("csrf_token")
-            csrf_header = request.headers.get("X-CSRF-Token")
-            csrf_session = request.session.get("csrf_token", "")
+        csrf_cookie = request.cookies.get("csrf_token")
+        csrf_header = request.headers.get("X-CSRF-Token")
+        csrf_session = request.session.get("csrf_token", "")
 
-            if not csrf_cookie or not csrf_header or not csrf_session:
-                raise HTTPException(status_code=403, detail="MISSING_CSRF")
+        if not csrf_cookie or not csrf_header or not csrf_session:
+            raise HTTPException(status_code=403, detail="MISSING_CSRF")
 
-            cookie_data = await self.validate_token(csrf_cookie)
-            header_data = await self.validate_token(csrf_header)
-            cookie_val = cookie_data.get("csrf", "")
-            header_val = header_data.get("csrf", "")
+        cookie_data = await self.validate_token(csrf_cookie)
+        header_data = await self.validate_token(csrf_header)
+        cookie_val = cookie_data.get("csrf", "")
+        header_val = header_data.get("csrf", "")
 
 
-            if not (cookie_val and header_val):
-                raise HTTPException(status_code=403, detail="INVALID_CSRF")
+        if not (cookie_val and header_val):
+            raise HTTPException(status_code=403, detail="INVALID_CSRF")
 
-            if not (
-                    hmac.compare_digest(cookie_val, csrf_session) and
-                    hmac.compare_digest(header_val, csrf_session)
-            ):
-                raise HTTPException(status_code=403, detail="CSRF_MISMATCH")
-
-        return wrapped
+        if not (
+                hmac.compare_digest(cookie_val, csrf_session) and
+                hmac.compare_digest(header_val, csrf_session)
+        ):
+            raise HTTPException(status_code=403, detail="CSRF_MISMATCH")

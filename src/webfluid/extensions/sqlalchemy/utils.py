@@ -1,13 +1,16 @@
-from sqlalchemy import ScalarResult, Result, Select, MetaData, Table, create_engine, inspect
+from sqlalchemy import ScalarResult, Result, MetaData, Table, create_engine, inspect
 from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from contextvars import ContextVar
 from contextlib import asynccontextmanager, contextmanager
-from typing import Optional, Any
+from typing import TYPE_CHECKING, Optional, Any
 
 from webfluid.core.context import BaseContext
 from webfluid.utils.framework import async_result, camel_to_snake
 from webfluid.exceptions import FrameworkException
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.expression import Insert, Select, Update, Delete
 
 
 class Model(DeclarativeBase):
@@ -101,7 +104,7 @@ class Executor(BaseContext):
     def __init__(self, session: Session):
         self.session = session
 
-    def exec(self, statement: Select,
+    def exec(self, statement: "Insert | Select | Update | Delete",
              scalars: bool = True) -> ScalarResult | Result:
         results = self.session.execute(statement)
         if scalars: return results.scalars()
@@ -125,7 +128,7 @@ class AsyncExecutor(BaseContext):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def exec(self, statement: Select,
+    async def exec(self, statement: "Insert | Select | Update | Delete",
                    scalars: bool = True) -> ScalarResult | Result:
         results = await self.session.execute(statement)
         if scalars: return results.scalars()

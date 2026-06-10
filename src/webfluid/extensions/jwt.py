@@ -31,11 +31,11 @@ class JWTManager(FluidExtension):
         await cache.aset(
             f"jwt:{current_key}",
             secrets.token_hex(self._secret_length),
-            self._secret_rotary_interval * 24 * 60 * 60
+            365 * 24 * 60 * 60
         )
         await cache.aset(
             "jwt:current", current_key,
-            self._secret_rotary_interval * 24 * 60 * 60
+            365 * 24 * 60 * 60
         )
 
     def _encode(self, payload: dict, audience: str,
@@ -56,13 +56,18 @@ class JWTManager(FluidExtension):
         )
 
     def _decode(self, token: str, audience: str, secret: str) -> dict:
-        return jwt.decode(
+        token = jwt.decode(
             token, secret,
             algorithms=[self._token_algorithm],
             issuer=self._token_issuer,
             audience=self._token_audiences.get(audience, audience),
             verify=True
         )
+        if "jti" in token:
+            from webfluid.core.ext import cache
+            revoked = cache.get(f"jwt:revoked:{token['jti']}")
+            if revoked: raise jwt.InvalidTokenError("Token revoked.")
+        return token
 
     def expand_fluid(self, fluid: "Fluid", *_, **__):
         if not EXT_SCHEDULING:

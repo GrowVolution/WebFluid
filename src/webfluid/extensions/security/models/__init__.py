@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 __all__ = [
     "User", "Identity",
     "Role", "Permission",
+    "TOTPSecret", "WebAuthnCredential", "BackupCode",
 
     "ExpiredToken"
 ]
@@ -15,7 +16,8 @@ __all__ = [
 def __getattr__(name):
     if name in {
         "User", "Identity",
-        "Role", "Permission"
+        "Role", "Permission",
+        "TOTPSecret", "WebAuthnCredential", "BackupCode"
     }:
         from . import user
         return getattr(user, name)

@@ -235,20 +235,14 @@ class Fluid(FastAPI):
     async def _startup(self):
         self._startup_lock = True
         log_factory.log("Running startup hooks...")
-
-        hooks = []
         for hook in self._hooks["startup"]:
-            hooks.append(safe_execute(hook, False))
-        await asyncio.gather(*hooks, return_exceptions=True)
+            await safe_execute(hook, False)
 
     async def _shutdown(self):
         self._shutdown_lock = True
         log_factory.log("Running shutdown hooks...")
-
-        hooks = []
         for hook in reversed(self._hooks["shutdown"]):
-            hooks.append(safe_execute(hook, False))
-        await asyncio.gather(*hooks, return_exceptions=True)
+            await safe_execute(hook, False)
 
     async def _run_server(self):
         host = os.getenv("SERVER_HOST", "127.0.0.1")

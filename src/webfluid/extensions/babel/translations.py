@@ -326,6 +326,8 @@ class MergedTranslations(Translations):
         lock = cls._ensure_cache_and_lock(locale, domain)
 
         async with lock:
+            uncached = cls._uncached.setdefault(domain, set())
+
             async def read():
                 async with db.async_executor(model=I18nMessage) as e:
                     results = await e.exec(
@@ -334,27 +336,24 @@ class MergedTranslations(Translations):
                             I18nMessage.key.has(I18nKey.domain == domain)
                         )
                     )
-                    return results.all()
 
-            rows = await _retry_locked(read)
+                    cache = {}
+                    for msg in results.all():
+                        if not msg.key.cached:
+                            uncached.add(msg.key.key)
+                            continue
 
-            new_cache = {}
-            uncached = cls._uncached.setdefault(domain, set())
+                        if msg.key.key not in cache:
+                            cache[msg.key.key] = {}
 
-            for msg in rows:
-                if not msg.key.cached:
-                    uncached.add(msg.key.key)
-                    continue
+                        if msg.pf not in cache[msg.key.key]:
+                            cache[msg.key.key][msg.pf] = {}
 
-                if msg.key.key not in new_cache:
-                    new_cache[msg.key.key] = {}
+                        cache[msg.key.key][msg.pf][msg.ctx or ""] = msg.text
 
-                if msg.pf not in new_cache[msg.key.key]:
-                    new_cache[msg.key.key][msg.pf] = {}
+                    return cache
 
-                new_cache[msg.key.key][msg.pf][msg.ctx or ""] = msg.text
-
-            cls._db_cache[locale][domain] = new_cache
+            cls._db_cache[locale][domain] = await _retry_locked(read)
 
     @classmethod
     async def update(cls, domain: str,

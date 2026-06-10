@@ -59,10 +59,10 @@ def run_migrations_offline():
 def do_run_migrations(connection):
 
     def process_revision_directives(context_, revision, directives):
+        if not directives: return
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
-                directives[:] = []
                 logger.info("No schema changes detected.")
 
     context.configure(

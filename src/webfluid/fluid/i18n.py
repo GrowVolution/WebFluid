@@ -34,6 +34,9 @@ _keys = [
     "UNKNOWN_PROVIDER",
     "INVALID_STATE",
     "INVALID_DEVICE",
+    "NOT_AUTHORIZED",
+    "NOT_AUTHENTICATED",
+    "TWO_FA_REQUIRED",
 
 ]
 
@@ -71,6 +74,9 @@ translations = lambda: {
         _keys[26]: { _default: "Unknown provider" },
         _keys[27]: { _default: "Invalid state" },
         _keys[28]: { _default: "Invalid device" },
+        _keys[29]: { _default: "Not authorized" },
+        _keys[30]: { _default: "Not authenticated" },
+        _keys[31]: { _default: "Two-factor authentication required" },
 
     },
     "de": {
@@ -104,7 +110,11 @@ translations = lambda: {
         _keys[24]: { _default: "CSRF-Token ungültig" },
         _keys[25]: { _default: "Keine CSRF-Token Übereinstimmung" },
         _keys[26]: { _default: "Unbekannter Provider" },
-        _keys[27]: { _default: "Ungültiges Endgerät" },
+        _keys[27]: { _default: "Ungültiger Zustand" },
+        _keys[28]: { _default: "Ungültiges Endgerät" },
+        _keys[29]: { _default: "Nicht autorisiert" },
+        _keys[30]: { _default: "Nicht authentifiziert" },
+        _keys[31]: { _default: "Zwei-Faktor-Authentifizierung erforderlich" },
 
     }
 }

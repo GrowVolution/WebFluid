@@ -55,12 +55,16 @@ class Security(FluidExtension):
         if bind:
             from .models.user import (
                 User, Identity, Role, Permission,
+                TOTPSecret, WebAuthnCredential, BackupCode,
                 user_roles, role_permissions
             )
             User.set_bind(bind)
             Identity.set_bind(bind)
             Role.set_bind(bind)
             Permission.set_bind(bind)
+            TOTPSecret.set_bind(bind)
+            WebAuthnCredential.set_bind(bind)
+            BackupCode.set_bind(bind)
             update_metadata(user_roles, target_model=User)
             update_metadata(role_permissions, target_model=User)
 

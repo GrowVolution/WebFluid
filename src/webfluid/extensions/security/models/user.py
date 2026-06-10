@@ -52,6 +52,23 @@ class User(db.Model):
         lazy="selectin"
     )
 
+    totp_secret: Mapped[Optional[TOTPSecret]] = relationship(
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        uselist=False
+    )
+    webauthn_credentials: Mapped[list[WebAuthnCredential]] = relationship(
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+    backup_codes: Mapped[list[BackupCode]] = relationship(
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
     def __init__(self, username: str, email: Optional[str],
                  psw_hash: Optional[str] = None):
         self.username = username
@@ -82,12 +99,90 @@ class Identity(db.Model):
         self.provider = provider
 
 
+class TOTPSecret(db.Model):
+    __tablename__ = "totp_secrets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey(User.id, ondelete="CASCADE"), unique=True
+    )
+
+    secret: Mapped[str]
+    confirmed: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(
+        back_populates="totp_secret",
+        lazy="selectin"
+    )
+
+    def __init__(self, user_id: int, secret: str):
+        self.user_id = user_id
+        self.secret = secret
+
+
+class WebAuthnCredential(db.Model):
+    __tablename__ = "webauthn_credentials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+
+    credential_id: Mapped[str] = mapped_column(unique=True)
+    public_key: Mapped[str]
+    sign_count: Mapped[int] = mapped_column(default=0)
+    transports: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(
+        back_populates="webauthn_credentials",
+        lazy="selectin"
+    )
+
+    def __init__(self, user_id: int, credential_id: str, public_key: str,
+                 sign_count: int = 0, transports: Optional[str] = None,
+                 name: Optional[str] = None):
+        self.user_id = user_id
+        self.credential_id = credential_id
+        self.public_key = public_key
+        self.sign_count = sign_count
+        self.transports = transports
+        self.name = name
+
+
+class BackupCode(db.Model):
+    __tablename__ = "backup_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+
+    code_hash: Mapped[str]
+    used: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship(
+        back_populates="backup_codes",
+        lazy="selectin"
+    )
+
+    def __init__(self, user_id: int, code_hash: str):
+        self.user_id = user_id
+        self.code_hash = code_hash
+
+
 class Role(db.Model):
     __tablename__ = "roles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
     is_admin: Mapped[bool] = mapped_column(default=False)
+    requires_2fa: Mapped[bool] = mapped_column(default=False)
 
     users: Mapped[list[User]] = relationship(
         secondary=user_roles,
@@ -100,8 +195,9 @@ class Role(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, require_2fa: bool = False):
         self.name = name
+        self.requires_2fa = require_2fa
         self.users = []
         self.permissions = []
 

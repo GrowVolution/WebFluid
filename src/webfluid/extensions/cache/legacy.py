@@ -3,7 +3,7 @@ from apscheduler.triggers.date import DateTrigger
 from typing import TYPE_CHECKING, Any, Optional
 
 from webfluid.extensions.cache.base import BaseCache
-from webfluid.utils.framework import async_result, enabled
+from webfluid.utils.core import async_result, enabled
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:

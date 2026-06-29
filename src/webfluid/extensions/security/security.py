@@ -65,8 +65,8 @@ class Security(FluidExtension):
             TOTPSecret.set_bind(bind)
             WebAuthnCredential.set_bind(bind)
             BackupCode.set_bind(bind)
-            update_metadata(user_roles, target_model=User)
-            update_metadata(role_permissions, target_model=User)
+            update_metadata(user_roles, target_bind=bind)
+            update_metadata(role_permissions, target_bind=bind)
 
             from .models.token import ExpiredToken
             ExpiredToken.set_bind(bind)

@@ -1,6 +1,6 @@
 from importlib.metadata import version as _version
 
-from webfluid.utils.framework import final_version
+from webfluid.utils.core import final_version
 
 
 class FluidVersion(tuple):

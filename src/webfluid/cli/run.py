@@ -217,9 +217,12 @@ def run(
     env["SERVER_HOST"] = host
     env["SERVER_PORT"] = str(port)
     env["IN_EXECUTION"] = "1"
-    env["LOG_LEVEL"] = loglevel
     env["PYTHONUNBUFFERED"] = "1"
-    if debug: env["DEBUG_MODE"] = "1"
+    if debug:
+        env["DEBUG_MODE"] = "1"
+        env["LOG_LEVEL"] = "debug"
+    else:
+        env["LOG_LEVEL"] = loglevel
 
     _log = open(log_file, "w", buffering=1)
     _start(env, project_root)

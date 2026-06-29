@@ -151,7 +151,8 @@ window.wf = {
     switchTheme,
     createWS,
 
-    ext: {}
+    ext: {},
+    adt: {}
 }
 
 updateTheme()

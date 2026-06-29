@@ -17,7 +17,7 @@ from webfluid.surface import dist
 from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
 from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
-from webfluid.utils.framework import add_proxy, run_in_executor, get_proxy
+from webfluid.utils.core import add_proxy, run_in_executor, get_proxy
 from webfluid.exceptions import FrontendException, NodeError
 
 if TYPE_CHECKING:

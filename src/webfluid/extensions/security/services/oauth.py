@@ -46,6 +46,14 @@ class OAuthService:
             return userinfo
         return wrapped
 
+    def register_provider(self, name: str, client: dict):
+        self._client.register(name, **client)
+        self._allowed_providers.add(name)
+
+    def unregister_provider(self, name: str):
+        self._client.unregister(name)
+        self._allowed_providers.remove(name)
+
     @staticmethod
     async def _prepare_session(request: Request):
         device = request.query_params.get("device", "mobile")

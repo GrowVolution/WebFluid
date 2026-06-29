@@ -2,6 +2,7 @@ from importlib.metadata import entry_points
 import typer
 
 from webfluid.cli.create import cli_entry as create_cli
+from webfluid.cli.ocean import cli_entry as ocean_cli
 from webfluid.cli.run import cli_entry as run_cli
 from webfluid.surface import node_cli, tailwind_cli
 from webfluid.extensions.base import FluidExtension
@@ -11,6 +12,7 @@ app = typer.Typer(name="WebFluid CLI")
 
 def cli():
     create_cli(app)
+    ocean_cli(app)
     run_cli(app)
 
     node_cli(app)

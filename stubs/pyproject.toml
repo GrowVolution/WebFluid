@@ -1,0 +1,11 @@
+[project]
+name = "webfluid-stubs"
+version = "1.0.0a2"
+requires-python = ">=3.14"
+dependencies = ["webfluid==1.0.0a2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+webfluid = ["**/*.pyi"]

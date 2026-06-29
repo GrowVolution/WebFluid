@@ -2,8 +2,8 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Callable
 import os
 
-from webfluid.additives.utils import installed_additives
-from webfluid.utils.framework import enabled, check_priority, build_sorted_tuple, try_import
+from webfluid.utils.core import enabled, check_priority, build_sorted_tuple, try_import
+from webfluid.utils.additives import installed_additives
 
 if TYPE_CHECKING:
     from webfluid import Fluid

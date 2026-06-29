@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Optional, Any
 
 from webfluid.core.context import BaseContext
-from webfluid.utils.framework import async_result, camel_to_snake
+from webfluid.utils.core import async_result, camel_to_snake
 from webfluid.exceptions import FrameworkException
 
 if TYPE_CHECKING:

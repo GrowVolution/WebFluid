@@ -15,12 +15,12 @@ import subprocess, sys, typer
 
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import PROCESSING
-from webfluid.additives.utils import require_extensions
 from webfluid.surface.frontend import Frontend
-from webfluid.utils.framework import (final_version, get_root_path, required_arg_count,
-                                      safe_execute, async_result, try_import)
+from webfluid.utils.core import (final_version, get_root_path, required_arg_count,
+                                 safe_execute, async_result, try_import)
+from webfluid.utils.additives import require_extensions
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import AdditiveException, ManifestError
+from webfluid.exceptions import AdditiveException, ManifestError, OceanError
 
 if TYPE_CHECKING:
     from configparser import ConfigParser
@@ -394,7 +394,146 @@ class Additive:
         if self.parent: return self.parent.unique_name(name)
         return f"{self.id}_{name}"
 
-    def install(self):
+    @staticmethod
+    def _normalize_requirements(requirement) -> dict:
+        if isinstance(requirement, list):
+            normalized = {}
+            for entry in requirement:
+                if not isinstance(entry, str): continue
+                parts = entry.split("@")
+                normalized[parts[0]] = parts[1] if len(parts) == 2 else "*"
+            return normalized
+        return requirement if isinstance(requirement, dict) else {}
+
+    def _required_additives(self) -> dict:
+        if "requires" not in self.manifest: return {}
+        return self._normalize_requirements(
+            self.manifest["requires"].get("additives") or {}
+        )
+
+    @staticmethod
+    def _match_version(meta: dict, constraint: str) -> str | None:
+        from webfluid.utils.core import check_required_version
+
+        matching = []
+        for release in meta.get("releases", []):
+            version = release["version"]
+            try:
+                candidate = AdditiveVersion(*version.split("."))
+                if candidate.stage != "": continue
+                if constraint != "*" and not check_required_version(
+                        constraint, "additive", candidate
+                ): continue
+                matching.append((tuple(candidate), version))
+            except (ValueError, TypeError): continue
+
+        if not matching: return None
+        matching.sort()
+        return matching[-1][1]
+
+    def _pull_dependency(self, rid: str, constraint: str,
+                         additive_root: Path, seen: set):
+        from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
+
+        target = additive_root / rid
+        if target.exists() and any(target.iterdir()): return
+
+        ocean = Ocean()
+        try: meta = ocean.resolve("additives", rid)
+        except OceanError as e:
+            typer.echo(typer.style(
+                f"[{self.name}] Could not resolve required additive '{rid}': "
+                f"{humanize_error(e.detail)}",
+                fg=typer.colors.RED, bold=True
+            ))
+            return
+
+        version = self._match_version(meta, constraint)
+        if version is None:
+            typer.echo(typer.style(
+                f"[{self.name}] No stable release of '{rid}' matches '{constraint}'.",
+                fg=typer.colors.RED, bold=True
+            ))
+            return
+
+        if not meta.get("oss") and not meta.get("owned"):
+            typer.echo(typer.style(
+                f"[{self.name}] Required additive '{rid}' is paid and not owned. "
+                "Install it manually with 'wf ocean install'.",
+                fg=typer.colors.RED, bold=True
+            ))
+            return
+
+        try: data = ocean.download("additives", rid, version)
+        except OceanError as e:
+            typer.echo(typer.style(
+                f"[{self.name}] Failed to download '{rid}': "
+                f"{humanize_error(e.detail)}",
+                fg=typer.colors.RED, bold=True
+            ))
+            return
+
+        extract_archive(data, target)
+        typer.echo(typer.style(
+            f"[{self.name}] Pulled required additive '{rid}' {version}.",
+            fg=typer.colors.GREEN
+        ))
+
+        from importlib import import_module
+        project_root = Path.cwd()
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        try:
+            mod = import_module(f"additives.{target.name}")
+            dependency = getattr(mod, "additive", None)
+            if dependency is not None and not dependency.is_base:
+                dependency.install(seen)
+        except Exception as e:
+            typer.echo(typer.style(
+                f"[{self.name}] Failed to install pulled additive '{rid}': {e}",
+                fg=typer.colors.RED, bold=True
+            ))
+
+    def _resolve_dependencies(self, seen: set):
+        required = self._required_additives()
+        if not required: return
+
+        from webfluid.utils.core import check_required_version
+        from webfluid.utils.additives import installed_additives, installed_bases
+
+        additive_root = Path.cwd() / "additives"
+        additive_root.mkdir(exist_ok=True)
+
+        installed = {}
+        for entry in installed_additives(additive_root, cache=False):
+            installed[entry[0]] = entry[1]
+        for entry in installed_bases(additive_root, cache=False):
+            installed[entry[0]] = entry[1]
+
+        for rid, constraint in required.items():
+            if rid in seen: continue
+
+            if rid in installed:
+                version = installed[rid]
+                try: matches = check_required_version(constraint, "additive", version)
+                except ValueError: matches = True
+                if not matches:
+                    typer.echo(typer.style(
+                        f"[{self.name}] Installed additive '{rid}' ({version}) does not "
+                        f"match the required version '{constraint}'.",
+                        fg=typer.colors.YELLOW, bold=True
+                    ))
+                continue
+
+            self._pull_dependency(rid, constraint, additive_root, seen)
+
+    def install(self, _seen: set = None):
+        seen = _seen if _seen is not None else set()
+        if self.id in seen: return
+        seen.add(self.id)
+
+        self._resolve_dependencies(seen)
+
         if self.base:
             self.base._extract()
             self.base._install_packages()

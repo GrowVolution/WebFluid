@@ -1,9 +1,9 @@
 from pathlib import Path
 import json
 
-from webfluid.additives.utils import id_check, version_check, type_check
 from webfluid.surface import validate_frontend_config as frontend_check
-from webfluid.utils.framework import check_required_version, enabled
+from webfluid.utils.core import check_required_version, enabled
+from webfluid.utils.additives import id_check, version_check, type_check
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
 
@@ -30,26 +30,7 @@ class Manifest:
         except json.decoder.JSONDecodeError:
             raise ManifestError("Invalid manifest format.")
 
-        for field, info in self.structure.items():
-            if not info[1]: continue
-
-            data = self.get(field)
-            if not data:
-                raise ManifestError(f"Missing required field '{field}'.")
-
-            data_type = info[0]
-            if not isinstance(data, data_type):
-                try: data = data_type(data)
-                except (ValueError, TypeError) as e:
-                    raise ManifestError(f"Invalid data type '{data_type}' for field '{field}': {e}")
-
-            result = info[2](data)
-            if not result[0]:
-                raise ManifestError(result[1])
-            self[field] = result[1]
-
-        if self["type"] == "base" and self["frontend"]["type"] != "none":
-            raise ManifestError("Base additives cannot have a frontend.")
+        self._data = Manifest.validated_data(self._data)
 
     def __repr__(self): return f"<Manifest {self['id']}>"
     def __getitem__(self, key): return self._data[key]
@@ -98,7 +79,7 @@ class Manifest:
             if not isinstance(requirement, dict):
                 raise ManifestError(f"[{self['name']}] Invalid additives requirement type: {type(requirement)}")
 
-            from webfluid.additives import installed_additives, installed_bases
+            from webfluid.utils.additives import installed_additives, installed_bases
 
             additives = installed_additives(additive_root)
             for additive in additives:
@@ -126,3 +107,28 @@ class Manifest:
                 raise AdditiveException(
                     f"[{self['name']}] Missing or mismatching additive requirements: {[a for a in requirement]}"
                 )
+
+    @classmethod
+    def validated_data(cls, target: dict) -> dict:
+        for field, info in cls.structure.items():
+            if not info[1]: continue
+
+            data = target.get(field)
+            if not data:
+                raise ManifestError(f"Missing required field '{field}'.")
+
+            data_type = info[0]
+            if not isinstance(data, data_type):
+                try: data = data_type(data)
+                except (ValueError, TypeError) as e:
+                    raise ManifestError(f"Invalid data type '{data_type}' for field '{field}': {e}")
+
+            result = info[2](data)
+            if not result[0]:
+                raise ManifestError(result[1])
+            target[field] = result[1]
+
+        if target["type"] == "base" and target["frontend"]["type"] != "none":
+            raise ManifestError("Base additives cannot have a frontend.")
+
+        return target

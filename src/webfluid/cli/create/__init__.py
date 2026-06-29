@@ -8,10 +8,10 @@ from webfluid.cli import questions
 from webfluid.cli.create import templates
 from webfluid.core.constants import FRAMEWORK_ID
 from webfluid.surface import node_cmd, dist
-from webfluid.additives.utils import installed_additives
-from webfluid.utils.framework import safe_string
+from webfluid.utils.additives import installed_additives
+from webfluid.utils.core import safe_string
 
-create = typer.Typer(help="Create a new WebFluid instances.")
+create = typer.Typer(help="Create new WebFluid instances.")
 
 def _make_defaults(
         base: Path,
@@ -326,8 +326,9 @@ def additive(additive_id: str):
     if author: manifest["authors"].append(author)
 
     as_base = questions.as_base.ask()
-    base_import = ""
     import_base_fn = ""
+    base_import = ""
+
     if as_base:
         manifest["type"] = "base"
         manifest["frontend"] = { "type": "none" }
@@ -340,8 +341,9 @@ def additive(additive_id: str):
         extend = questions.extend.ask()
         if extend:
             selected_base = questions.select_base()
-            import_base_fn = "from webfluid.additives import import_base\n"
+            import_base_fn = "from webfluid.utils.additives import import_base\n"
             base_import = f'\n\timport_base("{selected_base}"),'
+            manifest["requires"]["additives"][selected_base] = "*"
 
         manifest["frontend"] = _frontend_conf()
         if _create_frontend(
@@ -438,12 +440,6 @@ def create_app(
         "SECRET_KEY": token_hex(secret_length)
     }
 
-    config["data"] = {
-        "DATABASE_URI": questions.database_uri(name),
-        "REDIS_URI": questions.redis_uri.ask()
-    }
-
-    print()
     config["extensions"] = {}
     extensions = (
         "EXT_SCHEDULING",
@@ -478,6 +474,12 @@ def create_app(
         config["security"] = {
             "SECURITY_SECRET": token_hex(32)
         }
+
+    print()
+    config["data"] = {
+        "DATABASE_URI": questions.database_uri(name),
+        "REDIS_URI": questions.redis_uri.ask()
+    }
 
     if "EXT_MAIL" in enable_extensions:
         print()

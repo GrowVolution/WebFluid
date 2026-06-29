@@ -68,25 +68,27 @@ class SQLAlchemy(FluidExtension):
             model: Optional[type] = None
     ) -> AsyncGenerator[AsyncExecutor, None]:
         async with self._resolve_bind(bind_key, model).async_session() as session:
-            async with AsyncExecutor(session) as e: yield e
+            with AsyncExecutor(session) as e: yield e
 
     @contextmanager
-    def outer_executor(self, depth: int = 1) -> Generator[Executor, None, None]:
-        with Executor.outer(depth) as e:
-            if not e: raise FrameworkException(
-                f"No outer executor found at depth {depth}!"
-            )
-            yield e
+    def ensured_executor(
+            self, bind_key: Optional[str] = None,
+            model: Optional[type] = None
+    ) -> Generator[Executor, None, None]:
+        try: yield self.current_executor
+        except RuntimeError:
+            with self.executor(bind_key, model) as e:
+                yield e
 
-    @contextmanager
-    def outer_async_executor(
-            self, depth: int = 1
-    ) -> Generator[AsyncExecutor, None, None]:
-        with AsyncExecutor.outer(depth) as e:
-            if not e: raise FrameworkException(
-                f"No outer async executor found at depth {depth}!"
-            )
-            yield e
+    @asynccontextmanager
+    async def ensured_async_executor(
+            self, bind_key: Optional[str] = None,
+            model: Optional[type] = None
+    ) -> AsyncGenerator[AsyncExecutor, None]:
+        try: yield self.current_async_executor
+        except RuntimeError:
+            async with self.async_executor(bind_key, model) as e:
+                yield e
 
     @property
     def current_executor(self) -> Executor:

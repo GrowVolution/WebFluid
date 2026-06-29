@@ -6,7 +6,7 @@ import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
 from webfluid.core.constants import EXECUTION
-from webfluid.utils.framework import async_result
+from webfluid.utils.core import async_result
 
 
 class _LogContext(BaseContext):

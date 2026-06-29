@@ -1,12 +1,15 @@
 from pathlib import Path
+import os
 
-from webfluid.utils.framework import enabled
+from webfluid.utils.core import enabled
 
 FRAMEWORK_ROOT = Path(__file__).parent.parent.resolve()
 FRAMEWORK_ID = "fluid"
 
 APP_STATIC = "/static"
 WF_STATIC = f"/{FRAMEWORK_ID}/static"
+WF_OCEAN = os.getenv("OCEAN_API", "https://ocean.webfluid.dev/hub/api/v1")
+OCEAN_AUTH = os.getenv("AUTH_API", "https://ocean.webfluid.dev/auth/api/v1")
 
 DEBUG = enabled("DEBUG_MODE")
 EXECUTION = enabled("IN_EXECUTION")

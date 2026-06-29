@@ -27,14 +27,14 @@ from webfluid.core.ext import (
     scheduler, db, babel, security, events, cache, mail, jwt
 )
 from webfluid.core.processing import setup_processing
-from webfluid.additives.core import register_additives
 from webfluid.surface.frontend import Frontend, validate_config
 from webfluid.surface.wf_tailwind import generate_tailwind_css
-from webfluid.utils.framework import (
+from webfluid.utils.core import (
     get_root_path, safe_string, safe_execute,
     required_arg_count, close_proxy_client,
     check_priority, build_sorted_tuple
 )
+from webfluid.utils.additives import register_additives
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 

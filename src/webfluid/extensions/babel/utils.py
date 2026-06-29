@@ -3,7 +3,9 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 from babel import Locale, dates, numbers
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal, Any, Optional
+import json
 
 from webfluid.core.context import FluidContext
 
@@ -11,7 +13,31 @@ if TYPE_CHECKING:
     from webfluid.extensions.babel.constants import DateFormat, DateFormatKey
 
 
-def parse_best_match(accept_header: Optional[str], available: tuple[str]) -> str | None:
+def translation_resolver(path: Path, locale_map: dict) -> Callable[[], dict]:
+    def resolver() -> dict:
+        translations = { locale: {} for locale in locale_map }
+        for t_file in path.glob("*.json"):
+            with t_file.open("r", encoding="utf-8") as f:
+                messages = json.load(f)
+
+            message_data = "{}" if t_file.stem == "default" else json.dumps(
+                dict(
+                    pair.split("-", 1)
+                    for pair in t_file.stem.split("_")
+                )
+            )
+
+            for key, texts in messages.items():
+                for locale, index in locale_map.items():
+                    if key not in translations[locale]:
+                        translations[locale][key] = {}
+                    translations[locale][key][message_data] = texts[index]
+
+        return translations
+    return resolver
+
+
+def parse_best_match(accept_header: Optional[str], available: tuple[str, ...]) -> str | None:
         if not accept_header: return available[0] if available else None
 
         parsed = []
@@ -57,10 +83,14 @@ def get_locale() -> Locale:
         if isinstance(locale, Locale): return locale
         return load_locale(babel.locale_selector_fn())
 
+    request = ctx.request
+    if request is None:
+        return load_locale(babel.default_locale)
+
     locale = (
-        ctx.request.cookies.get("lang")
+        request.cookies.get("lang")
         or parse_best_match(
-            ctx.request.headers.get("Accept-Language"),
+            request.headers.get("Accept-Language"),
             babel.supported_locales
         )
         or babel.default_locale

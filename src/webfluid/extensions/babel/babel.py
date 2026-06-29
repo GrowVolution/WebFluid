@@ -5,7 +5,7 @@ from babel import Locale
 from pathlib import Path
 from functools import wraps
 from typing import TYPE_CHECKING, Callable, Any, Optional
-import sys, subprocess, typer, json, asyncio
+import sys, subprocess, typer, json
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.babel.constants import (
@@ -34,7 +34,7 @@ from webfluid.core.constants import (
     WF_STATIC, EXECUTION,
     EXT_SQLALCHEMY
 )
-from webfluid.utils.framework import is_async_function
+from webfluid.utils.core import is_async_function
 from webfluid.exceptions import FrameworkException
 
 

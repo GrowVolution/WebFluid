@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from webfluid.utils.framework import *
+    from webfluid.utils.core import *
 
 __all__ = [
     "enabled", "random_code", "safe_string", "camel_to_snake", "final_version", "get_root_path",
@@ -9,7 +9,7 @@ __all__ = [
     "check_priority", "build_sorted_tuple", "try_import", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "logging"
+    "additives", "ocean", "countries", "logging"
 ]
 
 
@@ -20,7 +20,7 @@ def __getattr__(name):
         "check_priority", "build_sorted_tuple", "try_import", "check_required_version",
         "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
     }:
-        from . import framework
-        return getattr(framework, name)
+        from . import core
+        return getattr(core, name)
 
     raise AttributeError(name)

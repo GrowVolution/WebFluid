@@ -70,7 +70,12 @@ class EventManager(FluidExtension):
 
         def ctx_decorator(fn):
             async def ctx_wrapper(event: str, data: Any):
-                async with FluidContext(fluid, event=event, event_data=data):
+                try: parent = FluidContext.current()
+                except RuntimeError: parent = None
+                async with FluidContext(
+                    fluid, parent.request if parent is not None else None,
+                    event=event, event_data=data
+                ):
                     return await safe_execute(fn, False, data)
             return ctx_wrapper
 

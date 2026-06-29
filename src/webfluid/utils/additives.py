@@ -1,16 +1,15 @@
 from pathlib import Path
 from functools import wraps
+from jinja2 import ChoiceLoader
+from importlib import import_module
 from typing import TYPE_CHECKING, Optional
 import json
 
-from webfluid.utils.logging import factory as log_factory
+from webfluid.core.constants import DEBUG, DEV_AUTO_INSTALL
 from webfluid.exceptions import ManifestError
-from webfluid.utils.framework import (
-    try_import, safe_string, final_version, enabled, async_result
-)
 
 if TYPE_CHECKING:
-    from webfluid import Additive
+    from webfluid import Fluid, Additive
 
 _additives = {
     "additives": {},
@@ -34,7 +33,9 @@ def _load_additives(package: Path, target: str, additive_type: str, do_log: bool
                 (manifest.get("id", additive.name), version, additive.name)
             )
         except (ModuleNotFoundError, FileNotFoundError, AttributeError, ManifestError, json.JSONDecodeError) as e:
-            if do_log: log_factory.warning(f"Invalid additive package '{additive.name}' in {package}:\n{e}")
+            if do_log:
+                from .logging import factory as log_factory
+                log_factory.warning(f"Invalid additive package '{additive.name}' in {package}:\n{e}")
             continue
 
 
@@ -65,7 +66,8 @@ def installed_bases(package: Path, do_log: bool = False, cache: bool = True) -> 
     return _additives["bases"][package] if cache else _additives["bases"].pop(package)
 
 
-def import_base(base_id: str) -> Optional[Additive]:
+def import_base(base_id: str) -> Optional["Additive"]:
+    from .core import try_import
     entry_point = try_import("main")
     if not entry_point: return None
 
@@ -88,6 +90,7 @@ def import_base(base_id: str) -> Optional[Additive]:
 
 
 def id_check(additive_id: str) -> tuple[bool, str]:
+    from .core import safe_string
     safe_id = safe_string(additive_id)
     if additive_id != safe_id:
         return False, f"Invalid id format '{additive_id}'. Try '{safe_id}' for example."
@@ -125,6 +128,7 @@ def version_check(v: str) -> tuple[bool, str]:
                 return False, "Version number cannot be negative or greater than 999."
 
         else:
+            from .core import final_version
             v, _, b = final_version(v_number)
             if v < 0 or v > 999:
                 return False, "Version number cannot be negative or greater than 999."
@@ -142,7 +146,8 @@ def type_check(t: str) -> tuple[bool, str]:
 
 def require_extensions(*extensions):
     def decorator(fn):
-        from webfluid.utils.logging import factory as log_factory
+        from .core import enabled, async_result
+        from .logging import factory as log_factory
 
         @wraps(fn)
         async def wrapper(*args, **kwargs):
@@ -157,3 +162,45 @@ def require_extensions(*extensions):
 
         return wrapper
     return decorator
+
+
+async def register_additives(fluid: "Fluid"):
+    from webfluid.core.constants import ADDITIVES
+    loaders = []
+
+    async def register():
+        from webfluid.core.additive import Additive
+        from .core import enabled
+        from .logging import factory as log_factory
+        nonlocal loaders
+
+        from webfluid.utils.additives import installed_additives
+        for additive_info in installed_additives(fluid.additive_root, True):
+            additive_id = additive_info[0]
+            if not enabled(additive_id):
+                continue
+
+            try: mod = import_module(f"additives.{additive_info[2]}")
+            except ModuleNotFoundError as e:
+                log_factory.exception(e, f"Could not import additive '{additive_id}' for app '{fluid.name}'.")
+                continue
+
+            additive = getattr(mod, "additive", None)
+            if not isinstance(additive, Additive):
+                log_factory.error(f"Missing 'additive: Additive' in additive package of '{additive_id}'.")
+                continue
+
+            try:
+                log_factory.log(f"Registering: {additive}")
+                if DEBUG and DEV_AUTO_INSTALL: additive.install()
+                await additive.enable(fluid)
+                loaders.append(additive.loader)
+                log_factory.log(f"[{additive.name}] Additive successfully registered.")
+            except Exception as e:
+                log_factory.exception(e, f"[{additive.name}] Failed registering additive.")
+
+    loaders.append(fluid.app_loader)
+    if ADDITIVES: await register()
+    loaders.append(fluid.framework_loader)
+
+    fluid.jinja_env.loader = ChoiceLoader(loaders)

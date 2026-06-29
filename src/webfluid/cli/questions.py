@@ -94,6 +94,17 @@ def confirm(message: str, **kwargs) -> questionary.Question:
     )
 
 
+def password(message: str, **kwargs) -> questionary.Question:
+    std = {
+        "qmark": qmark,
+        "style": style
+    }
+    return questionary.password(
+        message,
+        **(std | kwargs)
+    )
+
+
 ###################################################
 #                   wf create                     #
 ###################################################
@@ -149,7 +160,7 @@ def confirm_safe_id(given: str, suggestion: str) -> bool:
 
 
 def select_base() -> str:
-    from webfluid.additives.core import installed_bases
+    from webfluid.utils.additives import installed_bases
     bases = installed_bases(Path.cwd() / "additives")
     if len(bases) == 0:
         raise ValueError("There are no base additives installed.")
@@ -321,3 +332,83 @@ menu = select(
         fixed_choice("🚪  Exit", 6)
     ]
 )
+
+###################################################
+#                   wf ocean                      #
+###################################################
+
+ocean_token = password(
+    "Paste your Ocean JWT token:"
+)
+
+ocean_license_query = text(
+    "Search for a license (e.g. MIT, Apache-2.0):",
+    default=""
+)
+
+
+def ocean_confirm_overwrite(username: str, days) -> questionary.Question:
+    return confirm(
+        f"You are already logged in as {username}. Your token is valid for "
+        f"{days} more days. Do you really want to overwrite it?",
+        default=False
+    )
+
+
+def ocean_confirm_overwrite_invalid() -> questionary.Question:
+    return confirm(
+        "Your existing token could not be validated. "
+        "Do you want to replace it?",
+        default=True
+    )
+
+
+def ocean_confirm_waiver(package_id: str) -> questionary.Question:
+    return confirm(
+        f"Installing '{package_id}' starts delivery of paid digital content "
+        "and waives your right of withdrawal. Do you want to continue?",
+        default=False
+    )
+
+
+def _valid_price(value: str, required: bool) -> Any:
+    value = value.strip()
+    if not value:
+        return True if not required else "A price is required for extensions."
+    try: price = float(value)
+    except ValueError: return "Enter a number like 9.99."
+    if price <= 0: return "Price must be greater than 0."
+    return True
+
+
+def ocean_price(required: bool) -> questionary.Question:
+    message = "Price in € (required):" if required \
+        else "Price in € (empty for OSS/free):"
+    return text(
+        message,
+        default="",
+        validate=lambda value: _valid_price(value, required)
+    )
+
+
+def ocean_maintainer(options: list[tuple[str, Any]]) -> questionary.Question:
+    return select(
+        "Publish as:",
+        choices=[fixed_choice(label, value) for label, value in options]
+    )
+
+
+def ocean_license_choice(matches: list[dict]) -> questionary.Question:
+    choices = [
+        fixed_choice(
+            f"{match['license_id']} — {match['name']}"
+            f"{' (OSI)' if match.get('osi_approved') else ''}",
+            match["license_id"]
+        )
+        for match in matches
+    ]
+    choices.append(fixed_choice("🔁  Search again", "__search__"))
+    return select(
+        "Select a license:",
+        choices=choices
+    )

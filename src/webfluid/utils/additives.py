@@ -2,14 +2,10 @@ from pathlib import Path
 from functools import wraps
 from jinja2 import ChoiceLoader
 from importlib import import_module
-from typing import TYPE_CHECKING, Optional
 import json
 
 from webfluid.core.constants import DEBUG, DEV_AUTO_INSTALL
 from webfluid.exceptions import ManifestError
-
-if TYPE_CHECKING:
-    from webfluid import Fluid, Additive
 
 _additives = {
     "additives": {},
@@ -17,7 +13,7 @@ _additives = {
 }
 
 
-def _load_additives(package: Path, target: str, additive_type: str, do_log: bool):
+def _load_additives(package, target, additive_type, do_log):
     from webfluid.core.additive import AdditiveVersion
     from webfluid.core.manifest import Manifest
 
@@ -39,7 +35,7 @@ def _load_additives(package: Path, target: str, additive_type: str, do_log: bool
             continue
 
 
-def installed_additives(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
+def installed_additives(package, do_log=False, cache=True):
     if  _additives["additives"].get(package):
         return _additives["additives"][package]
 
@@ -54,7 +50,7 @@ def installed_additives(package: Path, do_log: bool = False, cache: bool = True)
     return _additives["additives"][package] if cache else _additives["additives"].pop(package)
 
 
-def installed_bases(package: Path, do_log: bool = False, cache: bool = True) -> list[tuple[str, str, str]]:
+def installed_bases(package, do_log=False, cache=True):
     if _additives["bases"].get(package):
         return _additives["bases"][package]
 
@@ -66,7 +62,7 @@ def installed_bases(package: Path, do_log: bool = False, cache: bool = True) -> 
     return _additives["bases"][package] if cache else _additives["bases"].pop(package)
 
 
-def import_base(base_id: str) -> Optional["Additive"]:
+def import_base(base_id):
     from .core import try_import
     entry_point = try_import("main")
     if not entry_point: return None
@@ -89,7 +85,7 @@ def import_base(base_id: str) -> Optional["Additive"]:
     return additive
 
 
-def id_check(additive_id: str) -> tuple[bool, str]:
+def id_check(additive_id):
     from .core import safe_string
     safe_id = safe_string(additive_id)
     if additive_id != safe_id:
@@ -97,7 +93,7 @@ def id_check(additive_id: str) -> tuple[bool, str]:
     return True, additive_id
 
 
-def version_check(v: str) -> tuple[bool, str]:
+def version_check(v):
     version_str = v.lower().strip()
     if not version_str:
         return False, "Additive version not defined."
@@ -138,7 +134,7 @@ def version_check(v: str) -> tuple[bool, str]:
     return True, version_str
 
 
-def type_check(t: str) -> tuple[bool, str]:
+def type_check(t):
     if t not in ("base", "default"):
         return False, f"Invalid type string '{t}'."
     return True, t
@@ -164,7 +160,7 @@ def require_extensions(*extensions):
     return decorator
 
 
-async def register_additives(fluid: "Fluid"):
+async def register_additives(fluid):
     from webfluid.core.constants import ADDITIVES
     loaders = []
 

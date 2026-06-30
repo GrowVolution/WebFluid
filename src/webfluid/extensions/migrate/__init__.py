@@ -1,8 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.migrate.migrate import Migrate
-
 __all__ = ["Migrate"]
 
 

@@ -1,6 +1,4 @@
-from sqlalchemy.orm import DeclarativeBase
 from contextlib import asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Optional, Generator, AsyncGenerator
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.sqlalchemy.utils import (
@@ -8,16 +6,11 @@ from webfluid.extensions.sqlalchemy.utils import (
 )
 from webfluid.exceptions import FrameworkException
 
-if TYPE_CHECKING:
-    from webfluid import Fluid
-
 
 class SQLAlchemy(FluidExtension):
     _instance = None
 
-    def __init__(self,
-                 fluid: Optional["Fluid"] = None,
-                 base: type[DeclarativeBase] = Model):
+    def __init__(self, fluid=None, base=Model):
         if SQLAlchemy._instance is not None:
             raise FrameworkException("SQLAlchemy.expand_fluid() has already been called!")
 
@@ -26,7 +19,7 @@ class SQLAlchemy(FluidExtension):
 
         super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid", *_, **__):
+    def expand_fluid(self, fluid, *_, **__):
         default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
         uris = database_uris(default_uri)
         self._binds["default"] = Bind("default", uris)
@@ -38,72 +31,60 @@ class SQLAlchemy(FluidExtension):
 
         SQLAlchemy._instance = self
 
-    def _resolve_bind(self, bind_key: Optional[str], model: Optional[type]) -> Bind:
+    def _resolve_bind(self, bind_key, model):
         if not (bind_key or model): bind = self._binds["default"]
         elif bind_key: bind = self.get_bind(bind_key)
         else: bind = self.get_bind_for_model(model)
         return bind
 
-    def get_bind(self, bind_key: str) -> Bind:
-        bind: Optional[Bind] = self._binds.get(bind_key)
+    def get_bind(self, bind_key):
+        bind = self._binds.get(bind_key)
         if not bind: raise KeyError(
             f"Unknown bind key: '{bind_key}'"
         )
         return bind
 
-    def get_bind_for_model(self, model: Optional[type]) -> Bind:
+    def get_bind_for_model(self, model):
         return self.get_bind(getattr(model, "__bind_key__", "default"))
 
     @contextmanager
-    def executor(
-            self, bind_key: Optional[str] = None,
-            model: Optional[type] = None
-    ) -> Generator[Executor, None, None]:
+    def executor(self, bind_key=None, model=None):
         with self._resolve_bind(bind_key, model).session() as session:
             with Executor(session) as e: yield e
 
     @asynccontextmanager
-    async def async_executor(
-            self, bind_key: Optional[str] = None,
-            model: Optional[type] = None
-    ) -> AsyncGenerator[AsyncExecutor, None]:
+    async def async_executor(self, bind_key=None, model=None):
         async with self._resolve_bind(bind_key, model).async_session() as session:
             with AsyncExecutor(session) as e: yield e
 
     @contextmanager
-    def ensured_executor(
-            self, bind_key: Optional[str] = None,
-            model: Optional[type] = None
-    ) -> Generator[Executor, None, None]:
+    def ensured_executor(self, bind_key=None, model=None):
         try: yield self.current_executor
         except RuntimeError:
             with self.executor(bind_key, model) as e:
                 yield e
 
     @asynccontextmanager
-    async def ensured_async_executor(
-            self, bind_key: Optional[str] = None,
-            model: Optional[type] = None
-    ) -> AsyncGenerator[AsyncExecutor, None]:
+    async def ensured_async_executor(self, bind_key=None, model=None):
         try: yield self.current_async_executor
         except RuntimeError:
             async with self.async_executor(bind_key, model) as e:
                 yield e
 
     @property
-    def current_executor(self) -> Executor:
+    def current_executor(self):
         return Executor.current()
 
     @property
-    def current_async_executor(self) -> AsyncExecutor:
+    def current_async_executor(self):
         return AsyncExecutor.current()
 
     @property
-    def bind_keys(self) -> list[str]:
+    def bind_keys(self):
         return list(self._binds.keys())
 
     @classmethod
-    def get_instance(cls) -> "SQLAlchemy":
+    def get_instance(cls):
         if cls._instance is None:
             raise FrameworkException("SQLAlchemy.expand_fluid() was never called!")
         return cls._instance

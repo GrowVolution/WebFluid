@@ -1,19 +1,16 @@
-from fastapi import Request, Response
+from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, UTC
-from selectolax.lexbor import LexborHTMLParser, LexborNode
-from typing import TYPE_CHECKING, Any
+from selectolax.lexbor import LexborHTMLParser
+from typing import Any
 import traceback
 
 from webfluid.core.context import FluidContext
 from webfluid.core.constants import FRAMEWORK_ID, EXT_BABEL, THEMES, DEBUG
 from webfluid.extensions.babel.utils import get_locale, fake_t, fake_tn
 from webfluid.utils.logging import factory as log_factory
-
-if TYPE_CHECKING:
-    from webfluid import Fluid
 
 
 class FrameworkIdentity(BaseModel):
@@ -41,11 +38,11 @@ _error_templates = {
 }
 
 
-def _timestamped(path: str, ts: float) -> str:
+def _timestamped(path, ts):
     return path + f"?t={ts}"
 
 
-def _timestamped_node(src: str, ts: float) -> LexborNode:
+def _timestamped_node(src, ts):
     node = LexborHTMLParser(src, True).root
     if not node: raise ValueError("Invalid HTML source.")
 
@@ -58,7 +55,7 @@ def _timestamped_node(src: str, ts: float) -> LexborNode:
     return node
 
 
-def setup_processing(fluid: "Fluid"):
+def setup_processing(fluid):
     if not EXT_BABEL:
         fluid.jinja_env.add_extension("jinja2.ext.i18n")
         fluid.jinja_env.install_gettext_callables(
@@ -91,7 +88,7 @@ def setup_processing(fluid: "Fluid"):
             fn = FluidContext.current().request.url_for
         except RuntimeError: return None
 
-        def wrapper(endpoint: str, **path_params):
+        def wrapper(endpoint, **path_params):
             external = path_params.pop("external", False)
             url = fn(endpoint, **path_params)
 
@@ -123,7 +120,7 @@ def setup_processing(fluid: "Fluid"):
         )
 
     @fluid.after_request
-    async def after_request(response: Response):
+    async def after_request(response):
         r = FluidContext.current().request
         if "text/html" not in r.headers.get("accept", ""):
             return response
@@ -137,7 +134,7 @@ def setup_processing(fluid: "Fluid"):
         )
 
     @fluid.exception_handler(Exception)
-    async def exception_handler(request: Request, exc: Exception):
+    async def exception_handler(request, exc):
         if isinstance(exc, (RequestValidationError, HTTPException)): raise
         log_factory.exception(exc, f"{request.method} {request.url.path}")
 

@@ -1,20 +1,12 @@
-from typing import TYPE_CHECKING, Optional
-
 from webfluid.core.constants import DEBUG, EXECUTION
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.sqlalchemy.utils import update_metadata
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 
-if TYPE_CHECKING:
-    from webfluid import Fluid
-    from webfluid.extensions.security.services import (
-        UserService, TokenService, HashService, OAuthService
-    )
-
 
 class Security(FluidExtension):
-    def __init__(self, fluid: Optional["Fluid"] = None):
+    def __init__(self, fluid=None):
         self._user_service = None
         self._token_service = None
         self._hash_service = None
@@ -22,7 +14,7 @@ class Security(FluidExtension):
 
         super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid", *_, **__):
+    def expand_fluid(self, fluid, *_, **__):
         secret = fluid.config.get("SECURITY_SECRET")
         if EXECUTION:
             if not secret and DEBUG:
@@ -72,25 +64,25 @@ class Security(FluidExtension):
             ExpiredToken.set_bind(bind)
 
     @property
-    def user_service(self) -> "UserService":
+    def user_service(self):
         if self._user_service is None:
             raise FrameworkException("Security not initialized.")
         return self._user_service
 
     @property
-    def token_service(self) -> "TokenService":
+    def token_service(self):
         if self._token_service is None:
             raise FrameworkException("Security not initialized.")
         return self._token_service
 
     @property
-    def hash_service(self) -> "HashService":
+    def hash_service(self):
         if self._hash_service is None:
             raise FrameworkException("Security not initialized.")
         return self._hash_service
 
     @property
-    def oauth_service(self) -> "OAuthService":
+    def oauth_service(self):
         if self._oauth_service is None:
             raise FrameworkException("Security not initialized.")
         return self._oauth_service

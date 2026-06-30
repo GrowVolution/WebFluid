@@ -6,13 +6,13 @@ import typer, subprocess, sys, os, signal, time
 
 from webfluid.cli import questions
 
-_proc: subprocess.Popen | None = None
+_proc = None
 _streaming = False
 _terminate = False
 _log = None
 
 
-def _env_from_config(config_file: Path, debug: bool) -> dict:
+def _env_from_config(config_file, debug):
     env = os.environ.copy()
     cfg = ConfigParser()
     cfg.optionxform = str
@@ -27,7 +27,7 @@ def _env_from_config(config_file: Path, debug: bool) -> dict:
     return env
 
 
-def _read_key() -> str:
+def _read_key():
     if os.name == "nt":
         import msvcrt
         c = msvcrt.getch()
@@ -46,7 +46,7 @@ def _read_key() -> str:
     return key
 
 
-def _exit(signum: int, _):
+def _exit(signum, _):
     typer.secho(f"Handling signal {'SIGINT' if signum == signal.SIGINT else 'SIGTERM'}, "
                  "shutting down...", fg=typer.colors.YELLOW)
     global _terminate
@@ -80,7 +80,7 @@ def _join_log():
     _streaming = False
 
 
-def _start(env: dict, project_root: Path):
+def _start(env, project_root):
     global _proc
     if _proc and _proc.poll() is None:
         typer.secho("Application already running.", fg=typer.colors.YELLOW)
@@ -121,12 +121,12 @@ def _stop():
         _proc = None
 
 
-def _restart(env: dict, project_root: Path):
+def _restart(env, project_root):
     _stop()
     _start(env, project_root)
 
 
-def _status() -> str:
+def _status():
     running = _proc and _proc.poll() is None
     status = "Running" if running else "Stopped"
 
@@ -134,7 +134,7 @@ def _status() -> str:
     return typer.style(status, fg=typer.colors.RED)
 
 
-def _clear_logs(log_dir: Path):
+def _clear_logs(log_dir):
     log_files = sorted(
         [f for f in log_dir.iterdir() if f.is_file()],
         key=lambda f: f.stat().st_mtime
@@ -264,5 +264,5 @@ def run(
     typer.secho("Thank you for playing the game of life... Bye!", bold=True)
 
 
-def cli_entry(app: typer.Typer):
+def cli_entry(app):
     app.command()(run)

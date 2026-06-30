@@ -1,20 +1,14 @@
-from datetime import date, datetime, time, timedelta, timezone
-from decimal import Decimal
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from babel import Locale, dates, numbers
 from functools import lru_cache
-from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Any, Optional
 import json
 
 from webfluid.core.context import FluidContext
 
-if TYPE_CHECKING:
-    from webfluid.extensions.babel.constants import DateFormat, DateFormatKey
 
-
-def translation_resolver(path: Path, locale_map: dict) -> Callable[[], dict]:
-    def resolver() -> dict:
+def translation_resolver(path, locale_map):
+    def resolver():
         translations = { locale: {} for locale in locale_map }
         for t_file in path.glob("*.json"):
             with t_file.open("r", encoding="utf-8") as f:
@@ -37,7 +31,7 @@ def translation_resolver(path: Path, locale_map: dict) -> Callable[[], dict]:
     return resolver
 
 
-def parse_best_match(accept_header: Optional[str], available: tuple[str, ...]) -> str | None:
+def parse_best_match(accept_header, available):
         if not accept_header: return available[0] if available else None
 
         parsed = []
@@ -66,12 +60,12 @@ def parse_best_match(accept_header: Optional[str], available: tuple[str, ...]) -
 
 
 @lru_cache(maxsize=512)
-def load_locale(locale: str) -> Locale:
+def load_locale(locale):
     locale_key = locale.replace("-", "_")
     return Locale.parse(locale_key)
 
 
-def get_locale() -> Locale:
+def get_locale():
     from webfluid.core.ext import babel
 
     try: ctx = FluidContext.current()
@@ -98,7 +92,7 @@ def get_locale() -> Locale:
     return load_locale(locale)
 
 
-def get_timezone() -> ZoneInfo:
+def get_timezone():
     from webfluid.core.ext import babel
 
     try: ctx = FluidContext.current()
@@ -116,15 +110,12 @@ def get_timezone() -> ZoneInfo:
     return ZoneInfo(tz)
 
 
-def format_message(message: str, **variables: Any) -> str:
+def format_message(message, **variables):
     if variables: return message % variables
     return message
 
 
-def _get_format(
-        key: "DateFormatKey",
-        fmt: "DateFormat" = None,
-):
+def _get_format(key, fmt=None):
     from webfluid.core.ext import babel
 
     if fmt is None:
@@ -135,7 +126,7 @@ def _get_format(
     return fmt
 
 
-def to_user_timezone(dt: datetime):
+def to_user_timezone(dt):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     tzinfo = get_timezone()
@@ -144,46 +135,32 @@ def to_user_timezone(dt: datetime):
     return dt.astimezone(tzinfo)
 
 
-def to_utc(dt: datetime):
+def to_utc(dt):
     return dt.replace(tzinfo=None)
 
 
-def format_datetime(
-        dt: datetime | None = None,
-        fmt: "DateFormat" = None,
-        rebase: bool = True,
-):
+def format_datetime(dt=None, fmt=None, rebase=True):
     fmt = _get_format("datetime", fmt)
     return _date_format(dates.format_datetime, dt, fmt, rebase)
 
 
-def format_date(
-        d: datetime | date | None = None,
-        ftm: "DateFormat" = None,
-        rebase: bool = True,
-):
+def format_date(d=None, ftm=None, rebase=True):
     if rebase and isinstance(d, datetime):
         d = to_user_timezone(d)
     ftm = _get_format("date", ftm)
     return _date_format(dates.format_date, d, ftm, rebase)
 
 
-def format_time(
-        t: datetime | None = None,
-        fmt: "DateFormat" = None,
-        rebase: bool = True,
-):
+def format_time(t=None, fmt=None, rebase=True):
     fmt = _get_format("time", fmt)
     return _date_format(dates.format_time, t, fmt, rebase)
 
 
 def format_timedelta(
-        datetime_or_timedelta: datetime | timedelta,
-        granularity: Literal[
-            "year", "month", "week", "day", "hour", "minute", "second"
-        ] = "second",
-        add_direction: bool = False,
-        threshold: float = 0.85,
+        datetime_or_timedelta,
+        granularity="second",
+        add_direction=False,
+        threshold=0.85,
 ):
     if isinstance(datetime_or_timedelta, datetime):
         datetime_or_timedelta = datetime.now(timezone.utc) - datetime_or_timedelta
@@ -197,13 +174,7 @@ def format_timedelta(
     )
 
 
-def _date_format(
-        formatter: Callable[..., str],
-        obj: datetime | date | time | None,
-        fmt: str | numbers.NumberPattern | None,
-        rebase: bool | None,
-        **extra: Any,
-):
+def _date_format(formatter, obj, fmt, rebase, **extra):
     locale = get_locale()
     extra = dict(extra) if extra else {}
     if formatter is not dates.format_date and rebase:
@@ -211,25 +182,22 @@ def _date_format(
     return formatter(obj, fmt, locale=locale, **extra)
 
 
-def format_number(number: float | Decimal | str):
+def format_number(number):
     locale = get_locale()
     return numbers.format_decimal(number, locale=locale)
 
 
-def format_decimal(
-        number: float | Decimal | str,
-        fmt: str | numbers.NumberPattern | None = None,
-):
+def format_decimal(number, fmt=None):
     locale = get_locale()
     return numbers.format_decimal(number, format=fmt, locale=locale)
 
 
 def format_currency(
-        number: float | Decimal | str,
-        currency: str,
-        fmt: str | numbers.NumberPattern | None = None,
-        currency_digits: bool = True,
-        format_type: Literal["name", "standard", "accounting"] = "standard",
+        number,
+        currency,
+        fmt=None,
+        currency_digits=True,
+        format_type="standard",
 ):
     locale = get_locale()
     return numbers.format_currency(
@@ -242,20 +210,20 @@ def format_currency(
     )
 
 
-def format_percent(number: float | Decimal | str, fmt: str | None = None):
+def format_percent(number, fmt=None):
     locale = get_locale()
     return numbers.format_percent(number, format=fmt, locale=locale)
 
 
-def format_scientific(number: float | Decimal | str, fmt: str | None = None):
+def format_scientific(number, fmt=None):
     locale = get_locale()
     return numbers.format_scientific(number, format=fmt, locale=locale)
 
 
-def fake_t(s: str,  **args) -> str:
+def fake_t(s, **args):
     return s if not args else s % args
 
 
-def fake_tn(s: str, p: str, n: int, **args) -> str:
+def fake_tn(s, p, n, **args):
     args.setdefault("n", n)
     return (s if n == 1 else p) % args

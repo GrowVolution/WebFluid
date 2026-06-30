@@ -1,14 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.babel.babel import Babel
-    from webfluid.extensions.babel.domain import Domain
-    from webfluid.extensions.babel.translations import (
-        MergedTranslations as Translations, I18nMessage
-    )
-    from webfluid.extensions.babel.speaklater import LazyString
-    from webfluid.extensions.babel.utils import *
-
 __all__ = [
     "Babel", "Domain",
     "Translations", "I18nMessage",

@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional, Any
 import io, tarfile, httpx
 
 from webfluid.core.constants import WF_OCEAN, OCEAN_AUTH
@@ -43,7 +42,7 @@ ERROR_MESSAGES = {
 }
 
 
-def humanize_error(detail: Optional[str], fallback: Optional[str] = None) -> str:
+def humanize_error(detail, fallback=None):
     if not detail:
         return fallback or ERROR_MESSAGES["UNKNOWN_ERROR"]
     if detail in ERROR_MESSAGES:
@@ -53,51 +52,49 @@ def humanize_error(detail: Optional[str], fallback: Optional[str] = None) -> str
     return detail
 
 
-def token_file() -> Path:
+def token_file():
     return TOKEN_FILE
 
 
-def load_token() -> Optional[str]:
+def load_token():
     if not TOKEN_FILE.exists(): return None
     token = TOKEN_FILE.read_text(encoding="utf-8").strip()
     return token or None
 
 
-def save_token(token: str):
+def save_token(token):
     TOKEN_FILE.write_text(token.strip(), encoding="utf-8")
 
 
-def delete_token() -> bool:
+def delete_token():
     if not TOKEN_FILE.exists(): return False
     TOKEN_FILE.unlink()
     return True
 
 
-def extract_archive(data: bytes, target: Path):
+def extract_archive(data, target):
     target.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         tar.extractall(target, filter="data")
 
 
 class Ocean:
-    def __init__(self, token: Optional[str] = None,
-                 base_url: str = WF_OCEAN, auth_url: str = OCEAN_AUTH):
+    def __init__(self, token=None, base_url=WF_OCEAN, auth_url=OCEAN_AUTH):
         self.base_url = base_url.rstrip("/")
         self.auth_url = auth_url.rstrip("/")
         self.token = token if token is not None else load_token()
 
     @property
-    def authenticated(self) -> bool:
+    def authenticated(self):
         return bool(self.token)
 
-    def _headers(self, extra: Optional[dict] = None) -> dict:
+    def _headers(self, extra=None):
         headers = {}
         if self.token: headers["Authorization"] = f"Bearer {self.token}"
         if extra: headers.update(extra)
         return headers
 
-    def _request(self, method: str, path: str,
-                 base: Optional[str] = None, **kwargs) -> Any:
+    def _request(self, method, path, base=None, **kwargs):
         url = f"{base or self.base_url}{path}"
         headers = self._headers(kwargs.pop("headers", None))
         try:
@@ -108,7 +105,7 @@ class Ocean:
         return self._parse(response)
 
     @staticmethod
-    def _detail(data: Any) -> Optional[str]:
+    def _detail(data):
         if not isinstance(data, dict): return None
         detail = data.get("detail") or data.get("message") or data.get("error")
         if isinstance(detail, dict):
@@ -119,7 +116,7 @@ class Ocean:
         return detail
 
     @staticmethod
-    def _parse(response: httpx.Response) -> Any:
+    def _parse(response):
         content_type = response.headers.get("content-type", "")
         data = response.json() if content_type.startswith("application/json") \
             else response.content
@@ -132,39 +129,36 @@ class Ocean:
 
         return data
 
-    def search(self, q: str = "", types: Optional[list[str]] = None,
-               license: str = "") -> list[dict]:
+    def search(self, q="", types=None, license=""):
         params = {"q": q}
         if types: params["type"] = ",".join(types)
         if license: params["license"] = license
         return self._request("GET", "/cli/search", params=params)["items"]
 
-    def resolve(self, ptype: str, package_id: str) -> dict:
+    def resolve(self, ptype, package_id):
         return self._request("GET", f"/cli/packages/{ptype}/{package_id}")
 
-    def download(self, ptype: str, package_id: str, version: str) -> bytes:
+    def download(self, ptype, package_id, version):
         return self._request(
             "GET", f"/download/{ptype}/{package_id}/{version}"
         )
 
-    def waive(self, ptype: str, package_id: str) -> dict:
+    def waive(self, ptype, package_id):
         return self._request("POST", f"/download/{ptype}/{package_id}/waiver")
 
-    def login_check(self) -> dict:
+    def login_check(self):
         return self._request("GET", "/cli/auth")
 
-    def token_info(self) -> dict:
+    def token_info(self):
         return self._request(
             "GET", "/users/jwt/metadata", base=self.auth_url
         )
 
-    def maintainers(self) -> dict:
+    def maintainers(self):
         return self._request("GET", "/enroll")
 
-    def publish(self, ptype: str, data: bytes, checksum: str,
-                orga: Optional[int] = None,
-                price: Optional[float] = None) -> dict:
-        params: dict = {}
+    def publish(self, ptype, data, checksum, orga=None, price=None):
+        params = {}
         if orga is not None: params["orga"] = orga
         if price is not None: params["price"] = price
         return self._request(
@@ -176,18 +170,16 @@ class Ocean:
             }
         )
 
-    def license_search(self, q: str = "") -> list[dict]:
+    def license_search(self, q=""):
         return self._request("GET", "/licenses", params={"q": q})
 
-    def license_placeholders(self, ptype: str, package_id: str,
-                             license_id: str) -> dict:
+    def license_placeholders(self, ptype, package_id, license_id):
         return self._request(
             "GET", f"/packages/{ptype}/{package_id}/license/placeholders",
             params={"license_id": license_id}
         )
 
-    def select_license(self, ptype: str, package_id: str,
-                       license_id: str, values: dict) -> dict:
+    def select_license(self, ptype, package_id, license_id, values):
         return self._request(
             "POST", f"/packages/{ptype}/{package_id}/license",
             json={"license_id": license_id, "values": values}

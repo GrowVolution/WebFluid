@@ -1,7 +1,6 @@
 from prompt_toolkit.formatted_text import HTML
 from html import escape
 from pathlib import Path
-from typing import Any
 import questionary
 
 style = questionary.Style.from_dict({
@@ -31,22 +30,21 @@ qmark = ">"
 pointer = "•"
 
 
-def choice(title: str, value: Any) -> questionary.Choice:
+def choice(title, value):
     return questionary.Choice(
         HTML(f"<{value}>{escape(title)}</{value}>").formatted_text,
         value=value
     )
 
 
-def fixed_choice(title: str, value: Any) -> questionary.Choice:
+def fixed_choice(title, value):
     return questionary.Choice(
         HTML(f"<choice>{escape(title)}</choice>").formatted_text,
         value=value
     )
 
 
-def select(message: str, choices: list[Any | questionary.Choice],
-           **kwargs) -> questionary.Question:
+def select(message, choices, **kwargs):
     std = {
         "qmark": qmark,
         "pointer": pointer,
@@ -59,8 +57,7 @@ def select(message: str, choices: list[Any | questionary.Choice],
     )
 
 
-def checkbox(message: str, choices: list[Any | questionary.Choice],
-             **kwargs) -> questionary.Question:
+def checkbox(message, choices, **kwargs):
     std = {
         "qmark": qmark,
         "pointer": pointer
@@ -72,7 +69,7 @@ def checkbox(message: str, choices: list[Any | questionary.Choice],
     )
 
 
-def text(message: str, **kwargs) -> questionary.Question:
+def text(message, **kwargs):
     std = {
         "qmark": qmark,
         "style": style
@@ -83,7 +80,7 @@ def text(message: str, **kwargs) -> questionary.Question:
     )
 
 
-def confirm(message: str, **kwargs) -> questionary.Question:
+def confirm(message, **kwargs):
     std = {
         "qmark": qmark,
         "style": style
@@ -94,7 +91,7 @@ def confirm(message: str, **kwargs) -> questionary.Question:
     )
 
 
-def password(message: str, **kwargs) -> questionary.Question:
+def password(message, **kwargs):
     std = {
         "qmark": qmark,
         "style": style
@@ -152,14 +149,14 @@ use_alpine = confirm(
 #-------------- additive manifest-----------------#
 
 
-def confirm_safe_id(given: str, suggestion: str) -> bool:
+def confirm_safe_id(given, suggestion):
     return confirm(
         f"Invalid id format '{given}'. Continue with '{suggestion}' instead?",
         default=True
     ).ask()
 
 
-def select_base() -> str:
+def select_base():
     from webfluid.utils.additives import installed_bases
     bases = installed_bases(Path.cwd() / "additives")
     if len(bases) == 0:
@@ -176,7 +173,7 @@ def select_base() -> str:
     ).ask()
 
 
-def additive_name(additive_id: str) -> str:
+def additive_name(additive_id):
     parts = additive_id.split("_")
     for i, part in enumerate(parts):
         parts[i] = part.capitalize()
@@ -240,14 +237,14 @@ requirements = checkbox(
 #------------------ app config -------------------#
 
 
-def database_uri(name: str) -> str:
+def database_uri(name):
     return text(
         "DATABASE_URI: ",
         default=f"sqlite:///{name}.db"
     ).ask()
 
 
-def additives(installed: list[tuple[str, str]]) -> list[str]:
+def additives(installed):
     choices = [
         fixed_choice(src[0], src)
         for src in installed
@@ -347,7 +344,7 @@ ocean_license_query = text(
 )
 
 
-def ocean_confirm_overwrite(username: str, days) -> questionary.Question:
+def ocean_confirm_overwrite(username, days):
     return confirm(
         f"You are already logged in as {username}. Your token is valid for "
         f"{days} more days. Do you really want to overwrite it?",
@@ -355,7 +352,7 @@ def ocean_confirm_overwrite(username: str, days) -> questionary.Question:
     )
 
 
-def ocean_confirm_overwrite_invalid() -> questionary.Question:
+def ocean_confirm_overwrite_invalid():
     return confirm(
         "Your existing token could not be validated. "
         "Do you want to replace it?",
@@ -363,7 +360,7 @@ def ocean_confirm_overwrite_invalid() -> questionary.Question:
     )
 
 
-def ocean_confirm_waiver(package_id: str) -> questionary.Question:
+def ocean_confirm_waiver(package_id):
     return confirm(
         f"Installing '{package_id}' starts delivery of paid digital content "
         "and waives your right of withdrawal. Do you want to continue?",
@@ -371,7 +368,7 @@ def ocean_confirm_waiver(package_id: str) -> questionary.Question:
     )
 
 
-def _valid_price(value: str, required: bool) -> Any:
+def _valid_price(value, required):
     value = value.strip()
     if not value:
         return True if not required else "A price is required for extensions."
@@ -381,7 +378,7 @@ def _valid_price(value: str, required: bool) -> Any:
     return True
 
 
-def ocean_price(required: bool) -> questionary.Question:
+def ocean_price(required):
     message = "Price in € (required):" if required \
         else "Price in € (empty for OSS/free):"
     return text(
@@ -391,14 +388,14 @@ def ocean_price(required: bool) -> questionary.Question:
     )
 
 
-def ocean_maintainer(options: list[tuple[str, Any]]) -> questionary.Question:
+def ocean_maintainer(options):
     return select(
         "Publish as:",
         choices=[fixed_choice(label, value) for label, value in options]
     )
 
 
-def ocean_license_choice(matches: list[dict]) -> questionary.Question:
+def ocean_license_choice(matches):
     choices = [
         fixed_choice(
             f"{match['license_id']} — {match['name']}"

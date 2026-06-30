@@ -1,6 +1,5 @@
 from fastapi import Request, Depends, HTTPException
 from sqlalchemy import select, func, distinct
-from typing import TYPE_CHECKING, Optional, AsyncGenerator, Callable, Any
 import asyncio
 
 from webfluid.core.constants import EXT_JWT
@@ -9,13 +8,9 @@ from webfluid.extensions.security.models.user import (
     User, Role, Permission, user_roles, role_permissions
 )
 
-if TYPE_CHECKING:
-    from fastapi.params import Depends as DependsParam
-    from webfluid.extensions.security.services import TokenService
-
 
 class UserService:
-    def __init__(self, token_service: "TokenService"):
+    def __init__(self, token_service):
         self._token_service = token_service
         self.current_user = Depends(UserService.current_user_fn)
 
@@ -29,7 +24,7 @@ class UserService:
         self.require_admin = Depends(self.require_admin_fn)
 
     @staticmethod
-    async def current_user_fn(request: Request) -> AsyncGenerator[Optional[User]]:
+    async def current_user_fn(request: Request):
         if "user_id" not in request.session:
             yield None
             return
@@ -44,9 +39,7 @@ class UserService:
             yield results.first()
 
     @staticmethod
-    async def resolve_bearer(
-            request: Request, grant: str
-    ) -> AsyncGenerator[tuple[Optional[User], bool]]:
+    async def resolve_bearer(request: Request, grant: str):
         if not EXT_JWT: yield None, False; return
         scheme, _, raw = request.headers.get("Authorization", "").partition(" ")
         raw = raw.strip()
@@ -72,12 +65,12 @@ class UserService:
             yield result.first(), True
 
     @staticmethod
-    async def bearer_principal(request: Request, grant: str) -> AsyncGenerator[Optional[User]]:
+    async def bearer_principal(request: Request, grant: str):
         async for user, _ in UserService.resolve_bearer(request, grant): yield user
 
     @staticmethod
-    def _require_user(token_service: "TokenService") -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def _require_user(token_service):
+        async def wrapped(request: Request):
             await token_service.csrf_protect_fn(request)
             async for user in UserService.current_user_fn(request):
                 if not user:
@@ -91,8 +84,8 @@ class UserService:
             return True
         return len(user.webauthn_credentials) > 0
 
-    def _require_2fa(self) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def _require_2fa(self):
+        async def wrapped(request: Request):
             async for user in self.require_user_fn(request):
                 if UserService.has_2fa(user) and not request.session.get("2fa_verified"):
                     raise HTTPException(status_code=401, detail="TWO_FA_REQUIRED")
@@ -112,8 +105,8 @@ class UserService:
         )
         return result.first() is not None
 
-    def _require_admin(self) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[Optional[User]]:
+    def _require_admin(self):
+        async def wrapped(request: Request):
             async for user in self.require_2fa_fn(request):
                 if not await UserService.is_admin(user):
                     raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
@@ -138,15 +131,15 @@ class UserService:
         )
         return result.scalar() == len(required)
 
-    def require_roles_fn(self, roles: list[str]) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def require_roles_fn(self, roles: list[str]):
+        async def wrapped(request: Request):
             async for user in self.require_2fa_fn(request):
                 if not await UserService.has_roles(user, roles):
                     raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
                 yield user
         return wrapped
 
-    def require_roles(self, roles: list[str]) -> Any["DependsParam"]:
+    def require_roles(self, roles: list[str]):
         return Depends(self.require_roles_fn(roles))
 
     @staticmethod
@@ -165,15 +158,15 @@ class UserService:
         )
         return result.first() is not None
 
-    def require_any_role_fn(self, roles: list[str]) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def require_any_role_fn(self, roles: list[str]):
+        async def wrapped(request: Request):
             async for user in self.require_2fa_fn(request):
                 if not await UserService.has_any_role(user, roles):
                     raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
                 yield user
         return wrapped
 
-    def require_any_role(self, roles: list[str]) -> Any["DependsParam"]:
+    def require_any_role(self, roles: list[str]):
         return Depends(self.require_any_role_fn(roles))
 
     @staticmethod
@@ -201,15 +194,15 @@ class UserService:
         )
         return result.scalar() == len(required)
 
-    def require_permissions_fn(self, permissions: list[str]) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def require_permissions_fn(self, permissions: list[str]):
+        async def wrapped(request: Request):
             async for user in self.require_2fa_fn(request):
                 if not await UserService.has_permissions(user, permissions):
                     raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
                 yield user
         return wrapped
 
-    def require_permissions(self, permissions: list[str]) -> Any["DependsParam"]:
+    def require_permissions(self, permissions: list[str]):
         return Depends(self.require_permissions_fn(permissions))
 
     @staticmethod
@@ -235,19 +228,19 @@ class UserService:
         )
         return result.first() is not None
 
-    def require_any_permission_fn(self, permissions: list[str]) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def require_any_permission_fn(self, permissions: list[str]):
+        async def wrapped(request: Request):
             async for user in self.require_2fa_fn(request):
                 if not await UserService.has_any_permission(user, permissions):
                     raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
                 yield user
         return wrapped
 
-    def require_any_permission(self, permissions: list[str]) -> Any["DependsParam"]:
+    def require_any_permission(self, permissions: list[str]):
         return Depends(self.require_any_permission_fn(permissions))
 
-    def requirement_or_grant_fn(self, requirement: dict, grant: str) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def requirement_or_grant_fn(self, requirement: dict, grant: str):
+        async def wrapped(request: Request):
             try:
                 async for user in self.require_2fa_fn(request):
                     if not await UserService.check_requirement(user, requirement):
@@ -269,11 +262,11 @@ class UserService:
                     yield principal
         return wrapped
 
-    def requirement_or_grant(self, requirement: dict, grant: str) -> Any["DependsParam"]:
+    def requirement_or_grant(self, requirement: dict, grant: str):
         return Depends(self.requirement_or_grant_fn(requirement, grant))
 
-    def requirement_and_grant_fn(self, requirement: dict, grant: str) -> Callable:
-        async def wrapped(request: Request) -> AsyncGenerator[User]:
+    def requirement_and_grant_fn(self, requirement: dict, grant: str):
+        async def wrapped(request: Request):
             resolve = self.requirement_or_grant_fn(requirement, grant)
             async for user in resolve(request):
                 if not await UserService.check_requirement(user, requirement):
@@ -281,7 +274,7 @@ class UserService:
                 yield user
         return wrapped
 
-    def requirement_and_grant(self, requirement: dict, grant: str) -> Any["DependsParam"]:
+    def requirement_and_grant(self, requirement: dict, grant: str):
         return Depends(self.requirement_and_grant_fn(requirement, grant))
 
     @classmethod

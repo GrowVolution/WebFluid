@@ -1,8 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.utils.core import *
-
 __all__ = [
     "enabled", "random_code", "safe_string", "camel_to_snake", "final_version", "get_root_path",
     "required_arg_count", "is_async_function", "async_result", "safe_execute", "run_in_executor",

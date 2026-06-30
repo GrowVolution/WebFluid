@@ -1,16 +1,11 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, Optional
 
 from webfluid.core.context import FluidContext
-
-if TYPE_CHECKING:
-    from babel import Locale
-    from fastapi import Request
 
 
 DEFAULT_COUNTRY = "DE"
 
-ISO_3166_1_ALPHA2: tuple[str, ...] = (
+ISO_3166_1_ALPHA2 = (
     "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT",
     "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI",
     "BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS", "BT", "BV", "BW", "BY",
@@ -50,11 +45,11 @@ _GEO_HEADERS = (
 _GEO_IGNORED = frozenset({"XX", "T1", "ZZ", "EU", "AP"})
 
 
-def is_valid(code: Optional[str]) -> bool:
+def is_valid(code):
     return isinstance(code, str) and code.strip().upper() in _CODE_SET
 
 
-def coerce(code: Optional[str]) -> StrEnum:
+def coerce(code):
     if not isinstance(code, str):
         raise ValueError("INVALID_COUNTRY")
     normalized = code.strip().upper()
@@ -63,13 +58,13 @@ def coerce(code: Optional[str]) -> StrEnum:
     return Country(normalized)
 
 
-def normalize(code: Optional[str]) -> Optional[str]:
+def normalize(code):
     if not isinstance(code, str): return None
     normalized = code.strip().upper()
     return normalized if normalized in _CODE_SET else None
 
 
-def localized_names(locale: "Optional[Locale | str]" = None) -> dict[str, str]:
+def localized_names(locale=None):
     from webfluid.extensions.babel import get_locale, load_locale
 
     if locale is None:
@@ -86,17 +81,14 @@ def localized_names(locale: "Optional[Locale | str]" = None) -> dict[str, str]:
     }
 
 
-def options(locale: "Optional[Locale | str]" = None) -> list[dict[str, str]]:
+def options(locale=None):
     names = localized_names(locale)
     entries = [{"code": code, "name": name} for code, name in names.items()]
     entries.sort(key=lambda entry: entry["name"].lower())
     return entries
 
 
-def country_from_request(
-    request: "Optional[Request]" = None,
-    fallback: str = DEFAULT_COUNTRY,
-) -> str:
+def country_from_request(request=None, fallback=DEFAULT_COUNTRY):
     if request is None:
         try: request = FluidContext.current().request
         except RuntimeError: request = None

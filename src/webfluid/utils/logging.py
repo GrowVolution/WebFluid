@@ -1,7 +1,6 @@
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from contextvars import ContextVar
 from functools import wraps
-from typing import Callable
 import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
@@ -11,7 +10,7 @@ from webfluid.utils.core import async_result
 
 class _LogContext(BaseContext):
     _ctx = ContextVar("utils.logging")
-    def __init__(self, logger_name: str):
+    def __init__(self, logger_name):
         self.logger = logger_name
 
 
@@ -31,7 +30,7 @@ class _Formatter(logging.Formatter):
         super().__init__(fmt, datefmt)
         self.simple_formatter = logging.Formatter(fmt, datefmt)
 
-    def format(self, record: logging.LogRecord):
+    def format(self, record):
         msg = super().format(record)
         style_kwargs = self.FORMATS.get(record.levelno, self.FORMATS[INFO])
         return typer.style(msg, **style_kwargs)
@@ -52,23 +51,23 @@ class LogFactory:
         self.main_logger = "webfluid"
         self.adtv_logger = "webfluid.additives"
 
-    def additive_context(self, fn: Callable) -> Callable:
+    def additive_context(self, fn):
         @wraps(fn)
         async def wrapper(*args, **kwargs):
             async with _LogContext(self.adtv_logger):
                 return await async_result(fn(*args, **kwargs))
         return wrapper
 
-    def log(self, message: str, category: int = INFO):
+    def log(self, message, category=INFO):
         if not EXECUTION: return
         self.logger.log(category, message)
 
-    def debug(self, message: str): self.log(message, DEBUG)
-    def warning(self, message: str): self.log(message, WARNING)
-    def error(self, message: str): self.log(message, ERROR)
-    def critical(self, message: str): self.log(message, CRITICAL)
+    def debug(self, message): self.log(message, DEBUG)
+    def warning(self, message): self.log(message, WARNING)
+    def error(self, message): self.log(message, ERROR)
+    def critical(self, message): self.log(message, CRITICAL)
 
-    def exception(self, exc: Exception, message: str = None):
+    def exception(self, exc, message=None):
         msg = f"{message.strip()}\n" if message else ""
         tb_str = "".join(
             traceback.format_exception(type(exc), exc, exc.__traceback__)
@@ -82,7 +81,7 @@ class LogFactory:
         loglevel = loglevel.upper()
         level = getattr(logging, loglevel, INFO)
 
-        def init_logger(name: str | None):
+        def init_logger(name):
             logger = logging.getLogger(name)
             logger.setLevel(level)
             logger.propagate = False

@@ -1,16 +1,8 @@
 from contextvars import ContextVar, Token
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Optional, Generator
-
-if TYPE_CHECKING:
-    from fastapi import Request
-    from webfluid import Fluid
 
 
 class BaseContext:
-    _ctx: ContextVar
-    _tokens: list
-
     def __enter__(self):
         if not hasattr(self, "_tokens"):
             self._tokens = []
@@ -31,14 +23,14 @@ class BaseContext:
         return self.__exit__(*args)
 
     @classmethod
-    def current(cls) -> "BaseContext":
+    def current(cls):
         try: return cls._ctx.get()
         except LookupError:
             raise RuntimeError(f"No active {cls.__name__}.")
 
     @classmethod
     @contextmanager
-    def outer(cls, depth: int = 1) -> Generator[Optional["BaseContext"], None, None]:
+    def outer(cls, depth=1):
         target = cls._ctx.get(None)
 
         for _ in range(depth):
@@ -58,7 +50,7 @@ class FluidContext(BaseContext):
     _ctx = ContextVar("fluid.context")
     _ctx_cache = {}
 
-    def __init__(self, fluid: "Fluid", request: Optional["Request"] = None, *args, **kwargs):
+    def __init__(self, fluid, request=None, *args, **kwargs):
         self.fluid = fluid
         self.request = request
         self._data = {}
@@ -83,7 +75,7 @@ class FluidContext(BaseContext):
     def pop(self, key, default=None): return self._data.pop(key, default)
 
     @classmethod
-    def get_ctx_data(cls, default_config: object, *requirements: str) -> Any | tuple:
+    def get_ctx_data(cls, default_config, *requirements):
         data = []
 
         try:

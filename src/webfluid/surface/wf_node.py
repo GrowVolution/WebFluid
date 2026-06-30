@@ -1,4 +1,3 @@
-from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
 from webfluid.core.constants import EXECUTION
@@ -6,11 +5,8 @@ from webfluid.surface import dist
 from webfluid.surface.src import node_standalone
 from webfluid.exceptions import NodeError
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
-
-def _sys_node() -> tuple[bool, str]:
+def _sys_node():
     try:
         result = subprocess.run(
             ["npm", "--version"],
@@ -31,7 +27,7 @@ def _get_node_data():
     return node_standalone[selector].format(architecture=arch), selector
 
 
-def _node_cmd(cmd: str) -> str:
+def _node_cmd(cmd):
     node = dist / "node"
     if not node.exists():
         if not _sys_node()[0]:
@@ -46,7 +42,7 @@ def _node_cmd(cmd: str) -> str:
     return str(node / "bin" / cmd)
 
 
-def _node_env() -> dict:
+def _node_env():
     env = os.environ.copy()
     if os.name != "nt":
         node_bin = str(dist / "node" / "bin")
@@ -57,7 +53,7 @@ def _node_env() -> dict:
     return env
 
 
-def node_cmd(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
+def node_cmd(cmd, cwd=os.getcwd(), **kwargs):
     default_kwargs = {
         "cwd": cwd,
         "env": _node_env(),
@@ -76,7 +72,7 @@ def node_cmd(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
     if not EXECUTION: typer.echo(result.stdout or result.stderr)
 
 
-def node_proc(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs) -> subprocess.Popen:
+def node_proc(cmd, cwd=os.getcwd(), **kwargs):
     flags = 0
     if os.name == "nt":
         flags = (
@@ -95,7 +91,7 @@ def node_proc(cmd: list[str], cwd: "Path | str" = os.getcwd(), **kwargs) -> subp
     )
 
 
-def load_node(download_fn: Callable):
+def load_node(download_fn):
     sys_node = _sys_node()
     if sys_node[0]:
         typer.echo(f"Node.js version {sys_node[1]} is already installed... Skipping integration.")
@@ -141,7 +137,7 @@ def node(ctx: typer.Context):
     node_cmd(ctx.args)
 
 
-def cli_entry(app: typer.Typer):
+def cli_entry(app):
     app.command(
         context_settings={
             "allow_extra_args": True,

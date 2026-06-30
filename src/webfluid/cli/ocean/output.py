@@ -1,15 +1,11 @@
-from typing import Optional
-
-
-def truncate(text: str, width: int) -> str:
+def truncate(text, width):
     text = text.replace("\n", " ")
     if width <= 0 or len(text) <= width: return text
     if width == 1: return "…"
     return text[:width - 1] + "…"
 
 
-def render_table(headers: list[str], rows: list[list[str]],
-                 max_widths: Optional[list[int]] = None) -> str:
+def render_table(headers, rows, max_widths=None):
     cols = len(headers)
     max_widths = max_widths or [0] * cols
 
@@ -21,7 +17,7 @@ def render_table(headers: list[str], rows: list[list[str]],
         cap = max_widths[i]
         widths.append(min(longest, cap) if cap else longest)
 
-    def line(cells: list) -> str:
+    def line(cells):
         return " | ".join(
             truncate(str(cell), widths[i]).ljust(widths[i])
             for i, cell in enumerate(cells)
@@ -31,7 +27,7 @@ def render_table(headers: list[str], rows: list[list[str]],
     return "\n".join([line(headers), divider] + [line(row) for row in rows])
 
 
-def package_state(item: dict) -> str:
+def package_state(item):
     if item.get("oss"): return "OSS"
     if item.get("owned"): return "owned"
     price = item.get("price")

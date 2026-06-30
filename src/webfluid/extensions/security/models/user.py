@@ -1,7 +1,6 @@
 from sqlalchemy import Table, Column, Integer, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from datetime import datetime
-from typing import Optional
 
 from webfluid.core.ext import db
 
@@ -33,10 +32,10 @@ class User(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     username: Mapped[str] = mapped_column(unique=True)
-    email: Mapped[Optional[str]]
-    pending_email: Mapped[Optional[str]]
+    email: Mapped[str | None]
+    pending_email: Mapped[str | None]
     email_verified: Mapped[bool] = mapped_column(default=False)
-    psw_hash: Mapped[Optional[str]]
+    psw_hash: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()
     )
@@ -52,7 +51,7 @@ class User(db.Model):
         lazy="selectin"
     )
 
-    totp_secret: Mapped[Optional[TOTPSecret]] = relationship(
+    totp_secret: Mapped[TOTPSecret | None] = relationship(
         back_populates="user",
         lazy="selectin",
         cascade="all, delete-orphan",
@@ -69,8 +68,7 @@ class User(db.Model):
         cascade="all, delete-orphan"
     )
 
-    def __init__(self, username: str, email: Optional[str],
-                 psw_hash: Optional[str] = None):
+    def __init__(self, username: str, email: str | None, psw_hash: str | None = None):
         self.username = username
         self.email = email
         self.psw_hash = psw_hash
@@ -132,8 +130,8 @@ class WebAuthnCredential(db.Model):
     credential_id: Mapped[str] = mapped_column(unique=True)
     public_key: Mapped[str]
     sign_count: Mapped[int] = mapped_column(default=0)
-    transports: Mapped[Optional[str]]
-    name: Mapped[Optional[str]]
+    transports: Mapped[str | None]
+    name: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()
     )
@@ -144,8 +142,8 @@ class WebAuthnCredential(db.Model):
     )
 
     def __init__(self, user_id: int, credential_id: str, public_key: str,
-                 sign_count: int = 0, transports: Optional[str] = None,
-                 name: Optional[str] = None):
+                 sign_count: int = 0, transports: str | None = None,
+                 name: str | None = None):
         self.user_id = user_id
         self.credential_id = credential_id
         self.public_key = public_key

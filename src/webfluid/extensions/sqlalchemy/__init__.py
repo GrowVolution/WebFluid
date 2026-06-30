@@ -1,9 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
-    from webfluid.extensions.sqlalchemy.utils import *
-
 __all__ = [
     "SQLAlchemy",
 

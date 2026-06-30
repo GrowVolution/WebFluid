@@ -10,33 +10,11 @@ extension.
 :license: BSD, see LICENSE for more details.
 """
 
-from typing import Literal, TypeAlias
 from frozendict import frozendict
 
-DateFormat: TypeAlias = Literal["short", "medium", "long", "full"] | str | None
-
-
-DateFormatKey: TypeAlias = Literal[
-    "time",
-    "date",
-    "datetime",
-    "time.short",
-    "time.medium",
-    "time.full",
-    "time.long",
-    "date.short",
-    "date.medium",
-    "date.full",
-    "date.long",
-    "datetime.short",
-    "datetime.medium",
-    "datetime.full",
-    "datetime.long",
-]
-
-DEFAULT_LOCALE: str = "en"
-DEFAULT_TIMEZONE: str = "UTC"
-DEFAULT_DATE_FORMATS: dict[DateFormatKey, DateFormat] = frozendict(
+DEFAULT_LOCALE = "en"
+DEFAULT_TIMEZONE = "UTC"
+DEFAULT_DATE_FORMATS = frozendict(
     {
         "time": "medium",
         "date": "medium",

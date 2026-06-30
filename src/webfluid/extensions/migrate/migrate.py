@@ -9,7 +9,7 @@ from webfluid.core.config import Config, init_configs, build_config
 _templates = Path(__file__).parent / "templates"
 
 
-def _manipulated_env(app: str) -> dict:
+def _manipulated_env(app):
     cfg = ConfigParser()
     cfg.optionxform = str
     cfg.read(Path.cwd() / "app_configs" / f"{app}.ini")

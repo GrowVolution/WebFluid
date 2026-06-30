@@ -31,8 +31,7 @@ def login():
         raise typer.Exit(1)
     token = token.strip()
 
-    try:
-        result = Ocean(token=token).login_check()
+    try: result = Ocean(token=token).login_check()
     except OceanError as e:
         typer.secho(f"Login failed: {humanize_error(e.detail)}",
                     fg=typer.colors.RED)

@@ -1,10 +1,8 @@
 from fastapi import WebSocket
 from contextvars import ContextVar
 from contextlib import contextmanager, asynccontextmanager
-from babel import Locale
 from pathlib import Path
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Any, Optional
 import sys, subprocess, typer, json
 
 from webfluid.extensions.base import FluidExtension
@@ -38,23 +36,15 @@ from webfluid.utils.core import is_async_function
 from webfluid.exceptions import FrameworkException
 
 
-if TYPE_CHECKING:
-    from zoneinfo import ZoneInfo
-    from webfluid import Fluid
-    from webfluid.extensions.babel import Domain
-
-
 class _DomainContext(BaseContext):
     _ctx = ContextVar("babel.domain")
-    def __init__(self, domain: "Domain"):
+    def __init__(self, domain):
         self.domain = domain
 
 
 class SelectorContext(BaseContext):
     _ctx = ContextVar("babel.selector")
-    def __init__(self,
-                 locale_selector: Optional[Callable],
-                 timezone_selector: Optional[Callable]):
+    def __init__(self, locale_selector, timezone_selector):
         self.locale_selector = locale_selector
         self.timezone_selector = timezone_selector
 
@@ -66,8 +56,7 @@ class Babel(FluidExtension):
         "pgettext", "npgettext"
     }
 
-    def __init__(self, fluid: Optional["Fluid"] = None,
-                 default_domain: Optional["Domain"] = None):
+    def __init__(self, fluid=None, default_domain=None):
         self.default_domain = None
         self.default_locale = None
         self.default_timezone = None
@@ -83,8 +72,7 @@ class Babel(FluidExtension):
 
         super().__init__(fluid, default_domain=default_domain)
 
-    def expand_fluid(self, fluid: "Fluid", *_,
-                     default_domain: Optional["Domain"] = None):
+    def expand_fluid(self, fluid, *_, default_domain=None):
         if not EXT_SQLALCHEMY:
             raise FrameworkException("EXT_SQLALCHEMY is required for Babel to work.")
 
@@ -141,7 +129,7 @@ class Babel(FluidExtension):
 
         fluid.startup_hook(hook)
 
-    def register_domain(self, name: str, package: Path | None = None):
+    def register_domain(self, name, package=None):
         if name in self._domains:
             raise FrameworkException(f"Domain '{name}' already registered.")
 
@@ -167,14 +155,7 @@ class Babel(FluidExtension):
 
         for task in tasks: await task
 
-    def update_translations(self, domain: str,
-                            translations: Callable[[], dict[
-                                str, dict[
-                                    str, dict[
-                                        tuple[str, str | None], str
-                                    ]
-                                ]
-                            ]]):
+    def update_translations(self, domain, translations):
         if self._update_disabled: return
 
         if self._update_blocked:
@@ -251,15 +232,15 @@ class Babel(FluidExtension):
 
                 await ws.send_text(json.dumps(response))
 
-    def locale_selector(self, fn: Callable) -> Callable:
+    def locale_selector(self, fn):
         self._locale_selector_fn = fn
         return fn
 
-    def timezone_selector(self, fn: Callable) -> Callable:
+    def timezone_selector(self, fn):
         self._timezone_selector_fn = fn
         return fn
 
-    def domain_context(self, domain: str) -> Callable:
+    def domain_context(self, domain):
         def decorator(fn):
             if is_async_function(fn):
                 async def wrapper(*args, **kwargs):
@@ -274,7 +255,7 @@ class Babel(FluidExtension):
             return wraps(fn)(wrapper)
         return decorator
 
-    def gettext(self, string: str, **variables: Any) -> str:
+    def gettext(self, string, **variables):
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
@@ -284,7 +265,7 @@ class Babel(FluidExtension):
 
         return format_message(string, **variables)
 
-    def ngettext(self, singular: str, plural: str, num: int, **variables: Any):
+    def ngettext(self, singular, plural, num, **variables):
         variables.setdefault("num", num)
 
         for domain in self._fallback_escalation:
@@ -296,7 +277,7 @@ class Babel(FluidExtension):
 
         return format_message(singular if num == 1 else plural, **variables)
 
-    def pgettext(self, context: str, string: str, **variables: Any):
+    def pgettext(self, context, string, **variables):
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
@@ -306,10 +287,7 @@ class Babel(FluidExtension):
 
         return self.gettext(string, **variables)
 
-    def npgettext(
-            self, context: str, singular: str, plural: str, num: int,
-            **variables: Any
-    ):
+    def npgettext(self, context, singular, plural, num, **variables):
         variables.setdefault("num", num)
 
         for domain in self._fallback_escalation:
@@ -321,20 +299,20 @@ class Babel(FluidExtension):
 
         return self.ngettext(singular, plural, num, **variables)
 
-    def lazy_gettext(self, string: str, **variables: Any):
+    def lazy_gettext(self, string, **variables):
         return LazyString(self.gettext, string, **variables)
 
-    def lazy_ngettext(self, singular: str, plural: str, num: int, **variables: Any):
+    def lazy_ngettext(self, singular, plural, num, **variables):
         return LazyString(self.ngettext, singular, plural, num, **variables)
 
-    def lazy_pgettext(self, context: str, string: str, **variables: Any):
+    def lazy_pgettext(self, context, string, **variables):
         return LazyString(self.pgettext, context, string, **variables)
 
-    def lazy_npgettext(self, context: str, singular: str, plural: str, num: int, **variables: Any):
+    def lazy_npgettext(self, context, singular, plural, num, **variables):
         return LazyString(self.npgettext, context, singular, plural, num, **variables)
 
     @property
-    def _fallback_escalation(self) -> list["Domain"]:
+    def _fallback_escalation(self):
         current = self.current_domain
         domains = [current]
 
@@ -350,12 +328,12 @@ class Babel(FluidExtension):
         return domains
 
     @property
-    def current_domain(self) -> "Domain":
+    def current_domain(self):
         try: return _DomainContext.current().domain
         except RuntimeError: return self.default_domain
 
     @property
-    def locale_selector_fn(self) -> Callable:
+    def locale_selector_fn(self):
         try:
             fn = SelectorContext.current().locale_selector
             if fn is None: return self._locale_selector_fn
@@ -363,7 +341,7 @@ class Babel(FluidExtension):
         except RuntimeError: return self._locale_selector_fn
 
     @property
-    def timezone_selector_fn(self) -> Callable:
+    def timezone_selector_fn(self):
         try:
             fn = SelectorContext.current().timezone_selector
             if fn is None: return self._timezone_selector_fn
@@ -372,10 +350,7 @@ class Babel(FluidExtension):
 
     @staticmethod
     @contextmanager
-    def force(
-            locale: Optional[str | Locale] = None,
-            timezone: Optional["str | ZoneInfo"] = None
-    ):
+    def force(locale=None, timezone=None):
         with SelectorContext(
                 (lambda: locale) if locale is not None else None,
                 (lambda: timezone) if timezone is not None else None
@@ -383,17 +358,14 @@ class Babel(FluidExtension):
 
     @staticmethod
     @asynccontextmanager
-    async def aforce(
-            locale: Optional[str | Locale] = None,
-            timezone: Optional["str | ZoneInfo"] = None
-    ):
+    async def aforce(locale=None, timezone=None):
         async with SelectorContext(
                 (lambda: locale) if locale is not None else None,
                 (lambda: timezone) if timezone is not None else None
         ): yield
 
     @staticmethod
-    def extract_fallback(project_root: Path):
+    def extract_fallback(project_root):
         pot = "messages.pot"
         trans = project_root / "translations"
         babel_cli = "babel.messages.frontend"

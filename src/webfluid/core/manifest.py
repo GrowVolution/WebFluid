@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 
 from webfluid.surface import validate_frontend_config as frontend_check
@@ -21,7 +20,7 @@ class Manifest:
         "requires": (dict, False)
     }
 
-    def __init__(self, manifest_file: Path):
+    def __init__(self, manifest_file):
         if not manifest_file.exists():
             raise FileNotFoundError("Missing manifest.")
 
@@ -45,7 +44,7 @@ class Manifest:
     def get(self, key, default=None): return self._data.get(key, default)
     def pop(self, key, default=None): return self._data.pop(key, default)
 
-    def check_requirements(self, additive_root: Path):
+    def check_requirements(self, additive_root):
         if not "requires" in self:
             return
 
@@ -109,7 +108,7 @@ class Manifest:
                 )
 
     @classmethod
-    def validated_data(cls, target: dict) -> dict:
+    def validated_data(cls, target):
         for field, info in cls.structure.items():
             if not info[1]: continue
 

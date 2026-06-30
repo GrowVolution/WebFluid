@@ -2,7 +2,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import UniqueConstraint, ForeignKey, select
 from sqlalchemy.exc import OperationalError
 from babel.support import Translations
-from typing import Optional, Callable
+from typing import Optional
 from functools import lru_cache
 import asyncio, json
 
@@ -10,7 +10,7 @@ from webfluid.core.ext import db
 from webfluid.utils.logging import factory as log_factory
 
 
-async def _retry_locked(fn, *, attempts: int = 6, delay: float = 0.1):
+async def _retry_locked(fn, *, attempts=6, delay=0.1):
     for i in range(attempts):
         try: return await fn()
         except OperationalError as e:
@@ -23,12 +23,12 @@ async def _retry_locked(fn, *, attempts: int = 6, delay: float = 0.1):
 
 
 @lru_cache(maxsize=None)
-def _plural_rule(locale: str):
+def _plural_rule(locale):
     from .utils import load_locale
     return load_locale(locale).plural_form
 
 
-def _plural_form(locale: str, num: int) -> str:
+def _plural_form(locale, num):
     return _plural_rule(locale)(num)
 
 
@@ -45,7 +45,7 @@ class I18nKey(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, key: str, domain: str, cached: bool = True):
+    def __init__(self, key, domain, cached=True):
         self.key = key
         self.domain = domain
         self.cached = cached
@@ -68,8 +68,7 @@ class I18nMessage(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, kid: int, locale: str, text: str,
-                 pf: str = "one", ctx: Optional[str] = None):
+    def __init__(self, kid, locale, text, pf="one", ctx=None):
         self.kid = kid
         self.locale = locale
         self.pf = pf
@@ -82,13 +81,13 @@ class MergedTranslations(Translations):
     _db_cache = {}
     _uncached = {}
 
-    def __init__(self, wrapped: Translations, locale: str, domain: str):
+    def __init__(self, wrapped, locale, domain):
         super().__init__()
         self._wrapped = wrapped
         self._locale = locale
         self._domain = domain
 
-    def _db_fetch(self, key: str, num: int = 1, ctx: Optional[str] = None) -> Optional[str]:
+    def _db_fetch(self, key, num=1, ctx=None):
         pf = _plural_form(self._locale, num)
 
         with db.executor(model=I18nMessage) as e:
@@ -105,7 +104,7 @@ class MergedTranslations(Translations):
             row = result.first()
             return row.text if row else None
 
-    def _db_get(self, key: str, num: int = 1, ctx: Optional[str] = None) -> str | None:
+    def _db_get(self, key, num=1, ctx=None):
         if key in MergedTranslations._uncached.get(self._domain, ()):
             return self._db_fetch(key, num, ctx)
 
@@ -123,51 +122,51 @@ class MergedTranslations(Translations):
 
         return pf_cache.get(ctx or "")
 
-    def _mo_get(self, message: str) -> str:
+    def _mo_get(self, message):
         return self._wrapped.gettext(message)
 
-    def _mo_nget(self, singular: str, plural: str, n: int) -> str:
+    def _mo_nget(self, singular, plural, n):
         return self._wrapped.ngettext(singular, plural, n)
 
-    def _mo_pget(self, context: str, message: str) -> str | object:
+    def _mo_pget(self, context, message):
         return self._wrapped.pgettext(context, message)
 
-    def _mo_pnget(self, context: str, singular: str, plural: str, num: int) -> str:
+    def _mo_pnget(self, context, singular, plural, num):
         return self._wrapped.npgettext(context, singular, plural, num)
 
-    def gettext(self, message: str) -> str:
+    def gettext(self, message):
         db_val = self._db_get(message)
         if db_val: return db_val
         return self._mo_get(message)
 
-    def ngettext(self, singular: str, plural: str, n: int) -> str:
+    def ngettext(self, singular, plural, n):
         db_val = self._db_get(singular, n)
         if db_val: return db_val
         return self._mo_nget(singular, plural, n)
 
-    def pgettext(self, context: str, message: str) -> str | object:
+    def pgettext(self, context, message):
         db_val = self._db_get(message, ctx=context)
         if db_val: return db_val
         return self._mo_pget(context, message)
 
-    def npgettext(self, context: str, singular: str, plural: str, num: int) -> str:
+    def npgettext(self, context, singular, plural, num):
         db_val = self._db_get(singular, num, context)
         if db_val: return db_val
         return self._mo_pnget(context, singular, plural, num)
 
-    async def settext(self, key: str, message: str):
+    async def settext(self, key, message):
         await MergedTranslations._set(self._locale, self._domain, key, message, "one", None)
 
-    async def nsettext(self, key: str, message: str, pf: str):
+    async def nsettext(self, key, message, pf):
         await MergedTranslations._set(self._locale, self._domain, key, message, pf, None)
 
-    async def psettext(self, key: str, message: str, context: str):
+    async def psettext(self, key, message, context):
         await MergedTranslations._set(self._locale, self._domain, key, message, "one", context)
 
-    async def npsettext(self, key: str, message: str, pf: str, context: str):
+    async def npsettext(self, key, message, pf, context):
         await MergedTranslations._set(self._locale, self._domain, key, message, pf, context)
 
-    async def uncache(self, key: str):
+    async def uncache(self, key):
         async with db.async_executor(model=I18nKey) as e:
             result = await e.exec(
                 select(I18nKey).where(
@@ -189,7 +188,7 @@ class MergedTranslations(Translations):
             async with lock:
                 MergedTranslations._db_cache[locale][self._domain].pop(key, None)
 
-    async def recache(self, key: str):
+    async def recache(self, key):
         async with db.async_executor(model=I18nKey) as e:
             result = await e.exec(
                 select(I18nKey).where(
@@ -226,7 +225,7 @@ class MergedTranslations(Translations):
             MergedTranslations._uncached[self._domain].discard(key)
 
     @classmethod
-    async def _kid(cls, domain: str, key: str) -> int:
+    async def _kid(cls, domain, key):
         async def run():
             async with db.async_executor(model=I18nKey) as e:
                 result = await e.exec(select(I18nKey).where(I18nKey.key == key))
@@ -241,7 +240,7 @@ class MergedTranslations(Translations):
         return await _retry_locked(run)
 
     @classmethod
-    async def _resolve_keys(cls, domain: str, keys: set[str]) -> dict[str, int]:
+    async def _resolve_keys(cls, domain, keys):
         async def run():
             kids = {}
 
@@ -263,8 +262,7 @@ class MergedTranslations(Translations):
         return await _retry_locked(run)
 
     @classmethod
-    async def _set(cls, locale: str, domain: str, key: str,
-                   message: str, pf: str, ctx: Optional[str]):
+    async def _set(cls, locale, domain, key, message, pf, ctx):
         kid = await cls._kid(domain, key)
 
         lock = cls._ensure_cache_and_lock(locale, domain)
@@ -296,7 +294,7 @@ class MergedTranslations(Translations):
                 key, {}).setdefault(pf, {})[ctx or ""] = message
 
     @classmethod
-    def _ensure_cache_and_lock(cls, locale: str, domain: str) -> asyncio.Lock:
+    def _ensure_cache_and_lock(cls, locale, domain):
         if locale not in cls._db_cache:
             cls._db_cache[locale] = {}
 
@@ -311,12 +309,12 @@ class MergedTranslations(Translations):
         )
 
     @classmethod
-    def cache(cls, locale: str) -> dict | None:
+    def cache(cls, locale):
         locale_cache = cls._db_cache.get(locale)
         return locale_cache
 
     @classmethod
-    async def db_load(cls, locale: str, domain: str):
+    async def db_load(cls, locale, domain):
         if (
                 locale in cls._db_cache
                 and domain in cls._db_cache[locale]
@@ -356,14 +354,7 @@ class MergedTranslations(Translations):
             cls._db_cache[locale][domain] = await _retry_locked(read)
 
     @classmethod
-    async def update(cls, domain: str,
-                     translations: Callable[[], dict[
-                         str, dict[
-                             str, dict[
-                                 tuple[str, str | None], str
-                             ]
-                         ]
-                     ]]):
+    async def update(cls, domain, translations):
         translations = translations()
 
         all_keys = set()

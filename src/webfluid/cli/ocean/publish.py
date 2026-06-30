@@ -7,7 +7,7 @@ from webfluid.utils.ocean import Ocean, humanize_error
 from webfluid.exceptions import OceanError
 
 
-def _detect_package(root: Path) -> tuple[str | None, str | None]:
+def _detect_package(root):
     manifest = root / "manifest.json"
     if manifest.exists():
         try: data = json.loads(manifest.read_text(encoding="utf-8"))
@@ -23,11 +23,11 @@ def _detect_package(root: Path) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _choose_maintainer(status: dict) -> int | None:
+def _choose_maintainer(status):
     publisher = status.get("publisher")
     orgas = status.get("orgas") or []
 
-    options: list[tuple[str, object]] = []
+    options = []
     if publisher:
         options.append((f"Personal · {publisher.get('name')}", "__personal__"))
     for orga in orgas:
@@ -55,7 +55,7 @@ def _choose_maintainer(status: dict) -> int | None:
     return None if value == "__personal__" else value
 
 
-def _choose_price(ptype: str) -> float | None:
+def _choose_price(ptype):
     answer = questions.ocean_price(ptype == "extensions").ask()
     if answer is None:
         typer.secho("Aborted.", fg=typer.colors.YELLOW)
@@ -64,7 +64,7 @@ def _choose_price(ptype: str) -> float | None:
     return float(answer) if answer else None
 
 
-def _select_license(ocean: Ocean, ptype: str, package_id: str):
+def _select_license(ocean, ptype, package_id):
     typer.secho("This package has no license yet. Let's pick one.", bold=True)
 
     license_id = None
@@ -91,8 +91,7 @@ def _select_license(ocean: Ocean, ptype: str, package_id: str):
         if choice == "__search__": continue
         license_id = choice
 
-    try:
-        fields = ocean.license_placeholders(ptype, package_id, license_id)
+    try: fields = ocean.license_placeholders(ptype, package_id, license_id)
     except OceanError as e:
         typer.secho(f"Could not load license fields: {humanize_error(e.detail)}",
                     fg=typer.colors.RED)
@@ -139,8 +138,7 @@ def publish():
 
     typer.secho(f"Publishing {ptype[:-1]} '{package_id}'...", bold=True)
 
-    try:
-        status = ocean.maintainers()
+    try: status = ocean.maintainers()
     except OceanError as e:
         typer.secho(
             f"Could not load your maintainer accounts: {humanize_error(e.detail)}",
@@ -155,8 +153,7 @@ def publish():
     data = build_archive(project_root)
     checksum = sha256_hex(data)
 
-    try:
-        pkg = ocean.publish(ptype, data, checksum, orga=orga, price=price)
+    try: pkg = ocean.publish(ptype, data, checksum, orga=orga, price=price)
     except OceanError as e:
         typer.secho(f"Publish failed: {humanize_error(e.detail)}",
                     fg=typer.colors.RED)

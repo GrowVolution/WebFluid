@@ -1,15 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.base import FluidExtension
-    from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
-    from webfluid.extensions.babel.babel import Babel
-    from webfluid.extensions.security.security import Security
-    from webfluid.extensions.events import EventManager
-    from webfluid.extensions.mailman import Mail
-    from webfluid.extensions.cache.cache import Cache
-    from webfluid.extensions.jwt import JWTManager
-
 __all__ = [
     "FluidExtension",
 

@@ -1,0 +1,16 @@
+import typer
+
+from webfluid.extensions.base import FluidExtension
+
+def _manipulated_env(app: str) -> dict[str, str]: ...
+
+class Migrate(FluidExtension):
+    _cli: typer.Typer
+    @staticmethod
+    def init(app: str) -> None: ...
+    @staticmethod
+    def revision(app: str, message: str = ..., autogenerate: bool = ...) -> None: ...
+    @staticmethod
+    def upgrade(app: str) -> None: ...
+    @staticmethod
+    def downgrade(app: str, revision: str = ...) -> None: ...

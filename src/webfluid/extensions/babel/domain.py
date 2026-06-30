@@ -1,28 +1,23 @@
 from babel import support
-from typing import TYPE_CHECKING, Optional
 import os
 
 from webfluid.core.context import FluidContext
 from webfluid.extensions.babel.translations import MergedTranslations
 from webfluid.extensions.babel.utils import get_locale
 
-if TYPE_CHECKING:
-    from os import PathLike
-    from webfluid import Fluid
-
 
 class Domain:
-    def __init__(self, dir_path: Optional["str | PathLike[str]"] = None, domain: str = "messages"):
+    def __init__(self, dir_path=None, domain="messages"):
         self.dir = dir_path
         self.domain = domain
 
-        self.cache: dict[str, MergedTranslations] = {}
+        self.cache = {}
 
-    def get_translations_path(self, fluid: Optional["Fluid"]) -> "PathLike[str] | str":
+    def get_translations_path(self, fluid):
         if fluid: return self.dir or os.path.join(str(fluid.app_root), "translations")
         return self.dir or os.path.join(os.getcwd(), "translations")
 
-    def get_translations(self) -> MergedTranslations:
+    def get_translations(self):
         locale = get_locale()
 
         translations = self.cache.get(str(locale))

@@ -1,9 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .user import *
-    from .token import *
-
 __all__ = [
     "User", "Identity",
     "Role", "Permission",

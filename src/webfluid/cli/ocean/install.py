@@ -1,4 +1,5 @@
 from pathlib import Path
+from importlib import import_module
 import sys, subprocess, typer
 
 from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
@@ -8,14 +9,14 @@ from webfluid.cli import questions
 _channels = { "": "stable", "a": "alpha", "b": "beta", "rc": "rc" }
 
 
-def _parse_spec(spec: str) -> tuple[str, str | None]:
+def _parse_spec(spec):
     if "==" in spec:
         pid, _, version = spec.partition("==")
         return pid.strip(), version.strip() or None
     return spec.strip(), None
 
 
-def _channel(alpha: bool, beta: bool, rc: bool) -> str:
+def _channel(alpha, beta, rc):
     selected = [c for c, on in (("a", alpha), ("b", beta), ("rc", rc)) if on]
     if len(selected) > 1:
         order = { "rc": 0, "b": 1, "a": 2 }
@@ -29,7 +30,7 @@ def _channel(alpha: bool, beta: bool, rc: bool) -> str:
     return selected[0] if selected else ""
 
 
-def _latest_in_channel(versions: list[str], channel: str) -> str | None:
+def _latest_in_channel(versions, channel):
     from webfluid.core.additive import AdditiveVersion
     best = None
     for version in versions:
@@ -42,8 +43,7 @@ def _latest_in_channel(versions: list[str], channel: str) -> str | None:
     return best[1] if best else None
 
 
-def _select_version(pid: str, meta: dict, pinned: str | None,
-                    channel: str) -> str | None:
+def _select_version(pid, meta, pinned, channel):
     versions = [release["version"] for release in meta.get("releases", [])]
     if not versions:
         typer.secho(f"[{pid}] No releases available.", fg=typer.colors.RED)
@@ -68,7 +68,7 @@ def _select_version(pid: str, meta: dict, pinned: str | None,
     return chosen
 
 
-def _installed_additive_ids(additive_root: Path) -> set[str]:
+def _installed_additive_ids(additive_root):
     from webfluid.utils.additives import installed_additives, installed_bases
     ids = set()
     if not additive_root.exists(): return ids
@@ -79,7 +79,7 @@ def _installed_additive_ids(additive_root: Path) -> set[str]:
     return ids
 
 
-def _env_has_package(name: str) -> bool:
+def _env_has_package(name):
     from importlib.metadata import distribution, PackageNotFoundError
     try:
         distribution(name)
@@ -88,7 +88,7 @@ def _env_has_package(name: str) -> bool:
         return False
 
 
-def _pip_install_editable(target: Path) -> bool:
+def _pip_install_editable(target):
     typer.secho(f"[{target.name}] Installing extension (pip install -e)...",
                 bold=True)
     result = subprocess.run(
@@ -104,15 +104,13 @@ def _pip_install_editable(target: Path) -> bool:
     return True
 
 
-def _install_package(ocean: Ocean, ptype: str, pid: str,
-                     pinned: str | None, channel: str, target: Path) -> bool:
+def _install_package(ocean, ptype, pid, pinned, channel, target):
     if target.exists() and any(target.iterdir()):
         typer.secho(f"[{pid}] Directory '{target}' already exists. Skipping.",
                     fg=typer.colors.YELLOW)
         return False
 
-    try:
-        meta = ocean.resolve(ptype, pid)
+    try: meta = ocean.resolve(ptype, pid)
     except OceanError as e:
         if e.status == 404:
             typer.secho(f"[{pid}] Not found on the Ocean.", fg=typer.colors.RED)
@@ -159,8 +157,7 @@ def _install_package(ocean: Ocean, ptype: str, pid: str,
             )
             return False
 
-    try:
-        data = ocean.download(ptype, pid, version)
+    try: data = ocean.download(ptype, pid, version)
     except OceanError as e:
         if e.status in (401, 403):
             typer.secho(f"[{pid}] Access denied. Login and ownership required.",
@@ -176,9 +173,7 @@ def _install_package(ocean: Ocean, ptype: str, pid: str,
     return True
 
 
-def _install_additives(project_root: Path, dirnames: list[str]):
-    from importlib import import_module
-
+def _install_additives(project_root, dirnames):
     if not dirnames: return
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
@@ -228,7 +223,7 @@ def install(
     project_root = Path.cwd()
     ocean = Ocean()
 
-    additive_targets: list[str] = []
+    additive_targets = []
 
     if additive:
         additive_root = project_root / "additives"

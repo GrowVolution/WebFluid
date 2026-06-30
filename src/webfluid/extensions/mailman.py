@@ -3,18 +3,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from threading import Thread
-from typing import TYPE_CHECKING, Optional
 import aiosmtplib, smtplib
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
 
-if TYPE_CHECKING:
-    from webfluid import Fluid
-
 
 class Mail(FluidExtension):
-    def __init__(self, fluid: Optional["Fluid"] = None):
+    def __init__(self, fluid=None):
         self.host = "localhost"
         self.port = 587
         self.use_tls = True
@@ -27,7 +23,7 @@ class Mail(FluidExtension):
 
         super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid", *_, **__):
+    def expand_fluid(self, fluid, *_, **__):
         config = fluid.config
 
         self.user = config.get("MAIL_USERNAME")
@@ -45,10 +41,8 @@ class Mail(FluidExtension):
 
         self.default_sender = config.get("MAIL_DEFAULT_SENDER", self.default_sender)
 
-    def make_message(self, to: str, subject: str, body: dict[str, str],
-                     attachments: list[dict[str, bytes | str]] = None,
-                     from_email: str | None = None, cc: list[str] | None = None,
-                     bcc: list[str] | None = None) -> MIMEMultipart:
+    def make_message(self, to, subject, body, attachments=None,
+                     from_email=None, cc=None, bcc=None):
         try:
             msg = MIMEMultipart("alternative")
             msg["From"] = from_email or self.default_sender
@@ -78,22 +72,18 @@ class Mail(FluidExtension):
 
         return msg
 
-    def _send_sync(self, msg: MIMEMultipart):
+    def _send_sync(self, msg):
         with self.client() as smtp: smtp.send_message(msg)
 
-    def send(self, to: str, subject: str, body: dict[str, str],
-             attachments: list[dict[str, bytes | str]] = None,
-             from_email: str | None = None, cc: list[str] | None = None,
-             bcc: list[str] | None = None, fake_async: bool = True):
+    def send(self, to, subject, body, attachments=None,
+             from_email=None, cc=None, bcc=None, fake_async=True):
 
         msg = self.make_message(to, subject, body, attachments, from_email, cc, bcc)
         if fake_async: Thread(target=self._send_sync, args=(msg,)).start()
         else: self._send_sync(msg)
 
-    async def send_async(self, to: str, subject: str, body: dict[str, str],
-                         attachments: list[dict[str, bytes | str]] = None,
-                         from_email: str | None = None, cc: list[str] | None = None,
-                         bcc: list[str] | None = None):
+    async def send_async(self, to, subject, body, attachments=None,
+                         from_email=None, cc=None, bcc=None):
 
         msg = self.make_message(to, subject, body, attachments, from_email, cc, bcc)
         async with self.async_client() as smtp: await smtp.send_message(msg)

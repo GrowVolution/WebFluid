@@ -1,14 +1,9 @@
-from typing import TYPE_CHECKING, Callable
 import os, platform, typer, subprocess
 
 from webfluid.core.constants import EXECUTION
 from webfluid.surface import dist
 from webfluid.surface.src import tailwind_cli
 from webfluid.exceptions import TailwindError
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from webfluid import Fluid
 
 
 def _get_cli_data():
@@ -24,7 +19,7 @@ def _get_cli_data():
     return tailwind_cli[selector], selector
 
 
-def _tailwind_cmd() -> str:
+def _tailwind_cmd():
     tw = "tailwind"
     if os.name == "nt":
         tw += ".exe"
@@ -36,7 +31,7 @@ def _tailwind_cmd() -> str:
     return str(executable)
 
 
-def tailwind_cmd(args: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
+def tailwind_cmd(args, cwd=os.getcwd(), **kwargs):
     default_kwargs = {
         "cwd": cwd,
         "capture_output": True,
@@ -54,7 +49,7 @@ def tailwind_cmd(args: list[str], cwd: "Path | str" = os.getcwd(), **kwargs):
     if not EXECUTION: typer.echo(result.stdout or result.stderr)
 
 
-def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
+def generate_asset(in_file, out_file, cwd):
     if not in_file.exists(): return
 
     tailwind_cmd(
@@ -68,7 +63,7 @@ def generate_asset(in_file: "Path", out_file: "Path", cwd: "Path"):
     )
 
 
-def generate_tailwind_css(fluid: "Fluid"):
+def generate_tailwind_css(fluid):
     from webfluid.core.constants import FRAMEWORK_ROOT, THEMES
     d =  (FRAMEWORK_ROOT / "fluid" / "static" / "css")
 
@@ -90,7 +85,7 @@ def generate_tailwind_css(fluid: "Fluid"):
         )
 
 
-def load_tailwind(download_fn: Callable):
+def load_tailwind(download_fn):
     data = _get_cli_data()
     file_type = ".exe" if data[1] == "windows" else ""
 
@@ -113,7 +108,7 @@ def tailwind(ctx: typer.Context):
     tailwind_cmd(ctx.args)
 
 
-def cli_entry(app: typer.Typer):
+def cli_entry(app):
     app.command(
         context_settings={
             "allow_extra_args": True,

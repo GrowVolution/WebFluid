@@ -14,5 +14,5 @@ ocean.command()(login)
 ocean.command()(logout)
 
 
-def cli_entry(app: typer.Typer):
+def cli_entry(app):
     app.add_typer(ocean, name="ocean")

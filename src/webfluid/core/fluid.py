@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -9,7 +9,6 @@ from markupsafe import Markup
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from selectolax.lexbor import LexborHTMLParser
 from pathlib import Path
-from typing import Callable
 import os, asyncio, uvicorn, signal
 
 from webfluid.core.config import Config, init_configs, build_config
@@ -40,7 +39,7 @@ from webfluid.exceptions import FrameworkException
 
 
 class Fluid(FastAPI):
-    def __init__(self, import_name: str):
+    def __init__(self, import_name):
         self.name = safe_string(os.getenv("APP_NAME", import_name)).lower()
 
         self.app_root = Path(get_root_path(import_name)).resolve()
@@ -157,9 +156,7 @@ class Fluid(FastAPI):
         Frontend.prepare(self)
 
         @self.middleware("http")
-        async def middleware(
-                request: Request, call_next: Callable
-        ) -> Response:
+        async def middleware(request, call_next):
             path = request.url.path
             if path.startswith(self._static_prefixes):
                 return await call_next(request)
@@ -213,7 +210,7 @@ class Fluid(FastAPI):
         self.startup_hook(add_shutdown_handlers)
         self.shutdown_hook(close_proxy_client)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         from webfluid import version
         return f"<WebFluid {version()}>"
 
@@ -267,11 +264,11 @@ class Fluid(FastAPI):
         if self._shutdown_flag.is_set(): return
         self._loop.call_soon_threadsafe(self._shutdown_flag.set)
 
-    def _validate_theme(self, name: str):
+    def _validate_theme(self, name):
         if not THEMES: raise FrameworkException("Themes are not enabled.")
         elif name in self._themes: raise FrameworkException(f"Theme '{name}' already exists.")
 
-    def startup_hook(self, fn: Callable) -> Callable:
+    def startup_hook(self, fn):
         if self._startup_lock:
             raise RuntimeError("Startup hooks cannot be added after the server was started.")
 
@@ -281,7 +278,7 @@ class Fluid(FastAPI):
         self._hooks["startup"].append(fn)
         return fn
 
-    def shutdown_hook(self, fn: Callable) -> Callable:
+    def shutdown_hook(self, fn):
         if self._shutdown_lock:
             raise RuntimeError("Shutdown hooks cannot be added after the server was stopped.")
 
@@ -291,7 +288,7 @@ class Fluid(FastAPI):
         self._hooks["shutdown"].append(fn)
         return fn
 
-    def add_source(self, src: str, priority: int = 1):
+    def add_source(self, src, priority=1):
         if self.sources is not None:
             raise RuntimeError("Sources cannot be added after the server was started.")
 
@@ -309,11 +306,11 @@ class Fluid(FastAPI):
         self._sources[priority].append(Markup(src))
         self._sources_seen.add(src)
 
-    def add_theme(self, name: str, link: Markup):
+    def add_theme(self, name, link):
         self._validate_theme(name)
         self._themes[name] = link
 
-    def get_theme(self) -> Markup:
+    def get_theme(self):
         if not THEMES: raise FrameworkException("Themes are not enabled.")
         try:
             ctx = FluidContext.current()
@@ -328,29 +325,29 @@ class Fluid(FastAPI):
 
         return self._themes.get(theme) or self._themes[FRAMEWORK_ID]
 
-    def set_theme(self, request: Request, name: str):
+    def set_theme(self, request, name):
         self._validate_theme(name)
         request.session["theme"] = name
 
-    def context_processor(self, fn: Callable) -> Callable:
+    def context_processor(self, fn):
         if required_arg_count(fn) > 0:
             raise TypeError("Context processors must not receive non optional arguments.")
         self._context_processors.append(fn)
         return fn
 
-    def before_request(self, fn: Callable) -> Callable:
+    def before_request(self, fn):
         if required_arg_count(fn) > 0:
             raise TypeError("Before request processors must not receive non optional arguments.")
         self._request_processors["before"].append(fn)
         return fn
 
-    def after_request(self, fn: Callable) -> Callable:
+    def after_request(self, fn):
         if required_arg_count(fn) != 1:
             raise TypeError("After request processors must receive exactly one argument (response).")
         self._request_processors["after"].append(fn)
         return fn
 
-    async def render(self, template: str, **ctx) -> str:
+    async def render(self, template, **ctx):
         is_string = ctx.get("is_string", False)
 
         for processor in self._context_processors:
@@ -380,7 +377,7 @@ class Fluid(FastAPI):
     def mix(self): asyncio.run(self.start())
 
     @property
-    def asgi_app(self) -> Fluid | ProxyHeadersMiddleware:
+    def asgi_app(self):
         if self._asgi_app is not None: return self._asgi_app
 
         if self.config.get("PROXY_FIX", False):
@@ -391,7 +388,7 @@ class Fluid(FastAPI):
         return self._asgi_app
 
     @property
-    def limit(self) -> Callable:
+    def limit(self):
         if self.config.get("RATELIMIT_ENABLED", True):
             return self.state.limiter.limit
         return lambda *_, **__: lambda fn: fn

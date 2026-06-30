@@ -1,9 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.cache.base import BaseCache
-    from webfluid.extensions.cache.cache import Cache
-
 __all__ = ["BaseCache", "Cache"]
 
 

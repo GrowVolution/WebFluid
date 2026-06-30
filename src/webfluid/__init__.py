@@ -1,12 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid._version import FluidVersion, version
-    from webfluid.core.fluid import Fluid
-    from webfluid.core.additive import Additive, AdditiveVersion
-    from webfluid.core.manifest import Manifest
-
-
 __all__ = [
     "Fluid", "FluidVersion", "version",
     "Additive", "AdditiveVersion", "Manifest",

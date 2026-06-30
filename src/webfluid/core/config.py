@@ -1,20 +1,16 @@
 from importlib import import_module
-from typing import TYPE_CHECKING, Callable
 import os
 
 from webfluid.utils.core import enabled, check_priority, build_sorted_tuple, try_import
 from webfluid.utils.additives import installed_additives
 
-if TYPE_CHECKING:
-    from webfluid import Fluid
-
-_config_map: dict[int, list[type]] = {}
+_config_map = {}
 
 class _ConfigMeta(type): pass
 
 
 class Config(dict):
-    def from_object(self, obj: object | str):
+    def from_object(self, obj):
         if isinstance(obj, str):
             obj = import_module(obj)
         for key in dir(obj):
@@ -75,7 +71,7 @@ class DefaultConfig:
     CACHE_DEFAULT_TIMEOUT = 300
 
 
-def init_configs(fluid: "Fluid"):
+def init_configs(fluid):
     try_import("fluid.config")
 
     additives = fluid.app_root / "additives"
@@ -86,7 +82,7 @@ def init_configs(fluid: "Fluid"):
         try_import(f"additives.{p}.config")
 
 
-def register_config(priority: int = 1) -> Callable:
+def register_config(priority=1):
     check_priority(priority)
 
     def decorator(cls):
@@ -102,7 +98,7 @@ def register_config(priority: int = 1) -> Callable:
     return decorator
 
 
-def build_config() -> _ConfigMeta:
+def build_config():
     cls = DefaultConfig
     default_conf = _ConfigMeta(cls.__name__, cls.__bases__, dict(cls.__dict__))
 

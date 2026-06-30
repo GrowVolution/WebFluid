@@ -2,13 +2,8 @@ from fastapi import Request, Response, WebSocket
 from starlette.websockets import WebSocketDisconnect
 from pathlib import Path
 from importlib import import_module
-from typing import TYPE_CHECKING, Callable, Any
 import os, inspect, random, string, re, asyncio, \
     sys, importlib, httpx, websockets
-
-if TYPE_CHECKING:
-    from types import ModuleType
-    from webfluid import Fluid, Additive, AdditiveVersion
 
 _stage_map = {
     "a": 0,
@@ -19,23 +14,23 @@ _stage_map = {
 _proxy_client = httpx.AsyncClient()
 
 
-def enabled(key: str) -> bool:
+def enabled(key):
     return os.getenv(key, "").lower() in ["true", "1", "yes"]
 
 
-def random_code(length: int = 6) -> str:
+def random_code(length=6):
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
 
-def safe_string(text: str) -> str:
+def safe_string(text):
     return re.sub(r"[^a-zA-Z0-9_-]", "_", text)
 
 
-def camel_to_snake(text: str) -> str:
+def camel_to_snake(text):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', text).lower()
 
 
-def final_version(v_str: str) -> tuple[int, str, int]:
+def final_version(v_str):
     if "a" in v_str:
         stage = "a"
         v, build = map(int, v_str.split("a"))
@@ -52,7 +47,7 @@ def final_version(v_str: str) -> tuple[int, str, int]:
     return v, stage, build
 
 
-def get_root_path(import_name: str) -> str:
+def get_root_path(import_name):
     mod = sys.modules.get(import_name)
 
     if mod and getattr(mod, "__file__", None):
@@ -79,7 +74,7 @@ def get_root_path(import_name: str) -> str:
     return str(Path(filepath).resolve().parent)
 
 
-def required_arg_count(fn: Callable) -> int:
+def required_arg_count(fn):
     sig = inspect.signature(fn)
 
     return sum(
@@ -94,20 +89,17 @@ def required_arg_count(fn: Callable) -> int:
     )
 
 
-def is_async_function(fn: Callable) -> bool:
+def is_async_function(fn):
     return inspect.iscoroutinefunction(fn)
 
 
-async def async_result(result: Any) -> Any:
+async def async_result(result):
     if asyncio.iscoroutine(result):
         return await result
     return result
 
 
-async def safe_execute(
-        fn: Callable, reraise: bool,
-        *args, **kwargs
-) -> Any:
+async def safe_execute(fn, reraise, *args, **kwargs):
     try: return await async_result(fn(*args, **kwargs))
     except Exception as e:
         if reraise: raise
@@ -117,17 +109,17 @@ async def safe_execute(
     return None
 
 
-async def run_in_executor(fn: Callable, *args, executor=None):
+async def run_in_executor(fn, *args, executor=None):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(executor, fn, *args)
 
 
-def check_priority(priority: int):
+def check_priority(priority):
     if priority not in range(1, 11):
         raise ValueError("Priority must be between 1 and 10.")
 
 
-def build_sorted_tuple(data: dict[int, Any], defaults: tuple = None) -> tuple:
+def build_sorted_tuple(data, defaults=None):
     sorted_data = dict(sorted(data.items(), reverse=True)).values()
     result = tuple(sorted_data)
     if defaults is not None:
@@ -135,14 +127,13 @@ def build_sorted_tuple(data: dict[int, Any], defaults: tuple = None) -> tuple:
     return result
 
 
-def try_import(name: str) -> "ModuleType | None":
+def try_import(name):
     try: return import_module(name)
     except ModuleNotFoundError as e:
         if e.name != name: raise
 
 
-def check_required_version(requirement: str, version_type: str = "wf",
-                           additive_version: "AdditiveVersion | str" = None) -> bool:
+def check_required_version(requirement, version_type="wf", additive_version=None):
     version_type = version_type.lower()
     if version_type not in ["wf", "additive"]:
         raise ValueError("Invalid version type.")
@@ -186,9 +177,7 @@ def check_required_version(requirement: str, version_type: str = "wf",
     }.get(op, False)
 
 
-def get_proxy(base_url: str, prefix: str = "",
-              pass_prefix: bool = False,
-              proxy_plugin: Callable = None) -> Callable:
+def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
     async def proxy(request: Request, path: str):
         async def handler(r, p):
             query = request.url.query
@@ -216,9 +205,7 @@ def get_proxy(base_url: str, prefix: str = "",
     return proxy
 
 
-def get_websocket_proxy(base_url: str, prefix: str = "",
-                        pass_prefix: bool = False,
-                        proxy_plugin: Callable = None) -> Callable:
+def get_websocket_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
     async def websocket_proxy(websocket: WebSocket, path: str):
         async def handler(ws, p):
             query = ws.url.query
@@ -266,9 +253,7 @@ def get_websocket_proxy(base_url: str, prefix: str = "",
     return websocket_proxy
 
 
-def add_proxy(target: "Fluid | Additive", base_url: str,
-              prefix: str = "", pass_prefix: bool = False,
-              proxy_plugin: Callable = None):
+def add_proxy(target, base_url, prefix="", pass_prefix=False, proxy_plugin=None):
     proxy = get_proxy(base_url, prefix, pass_prefix, proxy_plugin)
     websocket_proxy = get_websocket_proxy(base_url, prefix, pass_prefix, proxy_plugin)
 

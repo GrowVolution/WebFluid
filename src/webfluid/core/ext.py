@@ -7,10 +7,10 @@ from webfluid.extensions import (
 
 scheduler = AsyncIOScheduler()
 
-db: SQLAlchemy = SQLAlchemy()
-babel: Babel = Babel()
-security: Security = Security()
-events: EventManager = EventManager()
-cache: Cache = Cache()
-mail: Mail = Mail()
-jwt: JWTManager = JWTManager()
+db = SQLAlchemy()
+babel = Babel()
+security = Security()
+events = EventManager()
+cache = Cache()
+mail = Mail()
+jwt = JWTManager()

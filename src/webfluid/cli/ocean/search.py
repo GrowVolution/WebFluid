@@ -5,7 +5,7 @@ from webfluid.exceptions import OceanError
 from webfluid.cli.ocean.output import render_table, truncate, package_state
 
 
-def _types(additives: bool, extensions: bool, bundles: bool) -> list[str]:
+def _types(additives, extensions, bundles):
     if additives or extensions or bundles:
         selected = []
         if additives: selected.append("additives")
@@ -16,7 +16,7 @@ def _types(additives: bool, extensions: bool, bundles: bool) -> list[str]:
     return ["additives", "extensions", "bundles"]
 
 
-def _license(oss_only: bool, paid_only: bool) -> str:
+def _license(oss_only, paid_only):
     if oss_only and paid_only:
         typer.secho(
             "Using --oss-only and --paid-only together is equivalent "
@@ -29,7 +29,7 @@ def _license(oss_only: bool, paid_only: bool) -> str:
     return ""
 
 
-def _packages_table(items: list[dict]):
+def _packages_table(items):
     typer.secho("\nAdditives & Extensions", bold=True)
     rows = [[
         item["type"][:-1],
@@ -47,7 +47,7 @@ def _packages_table(items: list[dict]):
     ))
 
 
-def _bundles_table(items: list[dict]):
+def _bundles_table(items):
     typer.secho("\nBundles", bold=True)
     rows = []
     for item in items:
@@ -95,8 +95,7 @@ def search(
     types = _types(additives, extensions, bundles)
     license = _license(oss_only, paid_only)
 
-    try:
-        items = Ocean().search(query, types, license)
+    try: items = Ocean().search(query, types, license)
     except OceanError as e:
         typer.secho(f"Search failed: {humanize_error(e.detail)}",
                     fg=typer.colors.RED)

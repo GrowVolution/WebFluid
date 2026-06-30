@@ -1,7 +1,6 @@
 from fastapi import WebSocket
 from uuid import uuid4
 from collections import deque
-from typing import TYPE_CHECKING, Callable, Optional, Any, AsyncGenerator
 import asyncio, json
 
 from webfluid.extensions.base import FluidExtension
@@ -10,20 +9,17 @@ from webfluid.core.context import FluidContext
 from webfluid.utils import required_arg_count, safe_execute
 from webfluid.exceptions import FrameworkException
 
-if TYPE_CHECKING:
-    from webfluid import Fluid
-
 
 class _Listener:
     __slots__ = ("buffer", "event")
 
-    def __init__(self, maxlen: Optional[int]):
+    def __init__(self, maxlen):
         self.buffer = deque(maxlen=maxlen)
         self.event = asyncio.Event()
 
 
 class _BroadCaster:
-    def __init__(self, queue_size: int):
+    def __init__(self, queue_size):
         self.listeners = set()
         self.queue_size = queue_size
 
@@ -39,14 +35,14 @@ class _BroadCaster:
                     await listener.event.wait()
         finally: self.listeners.discard(listener)
 
-    def publish(self, data: Any):
+    def publish(self, data):
         for listener in self.listeners:
             listener.buffer.append(data)
             listener.event.set()
 
 
 class EventManager(FluidExtension):
-    def __init__(self, fluid: Optional["Fluid"] = None):
+    def __init__(self, fluid=None):
         self._broadcasters = {}
         self._events = {}
         self._queries = {}
@@ -56,7 +52,7 @@ class EventManager(FluidExtension):
         self._ctx_decorator = None
         super().__init__(fluid)
 
-    def expand_fluid(self, fluid: "Fluid", *_, **__):
+    def expand_fluid(self, fluid, *_, **__):
         self._event_queue_size = fluid.config.get(
             "EVENTS_EVENT_QUEUE_SIZE", self._event_queue_size
         )
@@ -69,7 +65,7 @@ class EventManager(FluidExtension):
             )
 
         def ctx_decorator(fn):
-            async def ctx_wrapper(event: str, data: Any):
+            async def ctx_wrapper(event, data):
                 try: parent = FluidContext.current()
                 except RuntimeError: parent = None
                 async with FluidContext(
@@ -196,7 +192,7 @@ class EventManager(FluidExtension):
 
         finally: self._websockets.pop(sid, None)
 
-    async def _event_loop(self, event: str):
+    async def _event_loop(self, event):
         if event not in self._broadcasters: return
         not_internal = not self._events[event]["internal"]
 
@@ -230,7 +226,7 @@ class EventManager(FluidExtension):
                 return_exceptions=True
             )
 
-    def _prepare_event(self, name: str, singleton: bool, internal: bool):
+    def _prepare_event(self, name, singleton, internal):
         if singleton and name in self._events:
             raise ValueError(f"Event '{name}' already exists.")
 
@@ -256,10 +252,10 @@ class EventManager(FluidExtension):
                 self._event_loop, False, name
             ))
 
-    def create_signal(self, name: str, singleton: bool = False, internal: bool = False):
+    def create_signal(self, name, singleton=False, internal=False):
         self._prepare_event(name, singleton, internal)
 
-    def event(self, name: str, singleton: bool = False, internal: bool = True) -> Callable:
+    def event(self, name, singleton=False, internal=True):
         if not self._ctx_decorator:
             raise FrameworkException("EventManager.expand_fluid() must be called before registering events.")
 
@@ -272,7 +268,7 @@ class EventManager(FluidExtension):
             return fn
         return decorator
 
-    def query(self, name: str, singleton: bool = True, internal: bool = True) -> Callable:
+    def query(self, name, singleton=True, internal=True):
         if not self._ctx_decorator:
             raise FrameworkException("EventManager.expand_fluid() must be called before registering queries.")
 
@@ -296,20 +292,20 @@ class EventManager(FluidExtension):
             return fn
         return decorator
 
-    def trigger(self, event: str, data: Optional[Any] = None):
+    def trigger(self, event, data=None):
         if event not in self._broadcasters:
             raise ValueError(f"Event '{event}' does not exist.")
 
         self._broadcasters[event].publish(data)
 
-    async def listen(self, event: str) -> AsyncGenerator[Optional[Any]]:
+    async def listen(self, event):
         if event not in self._broadcasters:
             raise ValueError(f"Event '{event}' does not exist.")
 
         async for event_data in self._broadcasters[event].stream():
             yield event_data
 
-    async def request(self, query: str, data: Optional[Any] = None) -> Any | list[Any]:
+    async def request(self, query, data=None):
         if query not in self._queries:
             raise ValueError(f"Query '{query}' does not exist.")
 

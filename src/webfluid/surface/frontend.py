@@ -8,7 +8,6 @@ from markupsafe import Markup
 from selectolax.lexbor import LexborHTMLParser, create_tag
 from mimetypes import guess_type
 from datetime import datetime, UTC
-from typing import TYPE_CHECKING, Callable
 import typer, requests, shutil, subprocess, os, signal
 
 from webfluid.core.context import FluidContext
@@ -20,13 +19,10 @@ from webfluid.surface.wf_tailwind import load_tailwind, generate_asset
 from webfluid.utils.core import add_proxy, run_in_executor, get_proxy
 from webfluid.exceptions import FrontendException, NodeError
 
-if TYPE_CHECKING:
-    from webfluid import Fluid, Additive
-
 _static_js = (Path(__file__).parent.parent / "fluid" / "static" / "js").resolve()
 
 
-def _download_file(url: str, dest: Path):
+def _download_file(url, dest):
     typer.secho(f"Downloading '{url}'...", bold=True)
     with requests.get(url, stream=True, timeout=30) as r:
         r.raise_for_status()
@@ -40,7 +36,7 @@ def _download_file(url: str, dest: Path):
                 bar.update(len(chunk))
 
 
-def setup_frontend(project: str):
+def setup_frontend(project):
     htmx_file = _static_js / "htmx.min.js"
     if not htmx_file.exists():
         _download_file(htmx, htmx_file)
@@ -110,7 +106,7 @@ def setup_frontend(project: str):
     vite_config_file.write_text(vite_dev)
 
 
-def validate_config(f: dict) -> tuple[bool, str | dict]:
+def validate_config(f):
     if "type" not in f:
         return False, "Frontend type not defined."
 
@@ -137,8 +133,6 @@ def validate_config(f: dict) -> tuple[bool, str | dict]:
 
 class Frontend:
     _static_js = f"{WF_STATIC}/js"
-    _app_root: Path
-    _proc: subprocess.Popen
     _dev_server = "http://localhost:5173"
     _dev_prefix = "/vite-dev"
     _static_files = {}
@@ -146,27 +140,17 @@ class Frontend:
     htmx = f"{_static_js}/htmx.min.js"
     alpine = f"{_static_js}/alpine.min.js"
 
-    def __init__(
-            self,
-            fluid: "Fluid | None" = None,
-            additive: "Additive | None" = None
-    ):
+    def __init__(self, fluid=None, additive=None):
         self.type = "none"
         self.framework = "none"
         self.typescript = False
         self.register_index = True
         self.alpine = False
-        self.prefix: str
-        self.root: Path
-        self.dist: Path
-        self.rel: str
-        self.generate_tailwind: Callable
-        self.tailwind: str
 
         if fluid is not None: self.cover_fluid(fluid)
         if additive is not None: self.cover_additive(additive)
 
-    def _init(self, frontend: dict, root_path: Path, name: str = "app"):
+    def _init(self, frontend, root_path, name="app"):
         self.type = frontend["type"]
         self.framework = frontend.get("framework", self.framework)
         self.typescript = frontend.get("typescript", self.typescript)
@@ -215,7 +199,7 @@ class Frontend:
                 f"{self.prefix.removesuffix("/frontend")}/static/css/tailwind.css"
             )
 
-    async def _updated_index(self, index: str) -> str:
+    async def _updated_index(self, index):
         try: ctx = FluidContext.current()
         except RuntimeError: return index
         html = LexborHTMLParser(index)
@@ -266,7 +250,7 @@ class Frontend:
 
         return html.html
 
-    async def _vite(self) -> str:
+    async def _vite(self):
         if self.type != "vite": return ""
 
         if DEBUG:
@@ -278,7 +262,7 @@ class Frontend:
             index_file.read_text()
         )
 
-    def cover_fluid(self, fluid: "Fluid"):
+    def cover_fluid(self, fluid):
         self.prefix = "/frontend"
         self.rel = f"fluid{self.prefix}"
         self._init(
@@ -289,7 +273,7 @@ class Frontend:
         if self.type == "vite" and self.register_index:
             fluid.get("/")(self.vite)
 
-    def cover_additive(self, additive: "Additive"):
+    def cover_additive(self, additive):
         self.prefix = f"{additive.prefix}/frontend"
         self.rel = f"additives/{additive.root_path.name}/frontend"
         self._init(
@@ -301,7 +285,7 @@ class Frontend:
         if self.type == "vite" and self.register_index:
             additive.app.get("/")(self.vite)
 
-    def include(self) -> Markup:
+    def include(self):
         template = ""
         if self.type == "htmx":
             template += f'<script src="{Frontend.htmx}"></script>\n'
@@ -322,7 +306,7 @@ class Frontend:
         return response
 
     @classmethod
-    def prepare(cls, fluid: "Fluid"):
+    def prepare(cls, fluid):
         if DEBUG:
             def create_proc():
                 cls._proc = node_proc(

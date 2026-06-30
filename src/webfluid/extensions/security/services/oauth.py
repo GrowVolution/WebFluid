@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.exceptions import HTTPException
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import MismatchingStateError
-from typing import Callable, Optional
 
 
 class OAuthService:
@@ -18,7 +17,7 @@ class OAuthService:
         self.prepare_session = Depends(OAuthService._prepare_session)
         self.userinfo = Depends(self._userinfo())
 
-    def _resolve_client(self) -> Callable:
+    def _resolve_client(self):
         async def wrapped(provider: str):
             if provider not in self._allowed_providers:
                 raise HTTPException(status_code=400, detail="UNKNOWN_PROVIDER")
@@ -67,10 +66,7 @@ class OAuthService:
         request.session["device"] = device
 
     @staticmethod
-    def authorize_response(
-            request: Request, provider: str, device: str,
-            csrf: Optional[JSONResponse] = None
-    ):
+    def authorize_response(request: Request, provider: str, device: str, csrf=None):
         if device == "desktop":
             response = HTMLResponse(f"""<script>
     window.opener.postMessage({{

@@ -1,11 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from webfluid.extensions.security.services.token import TokenService
-    from webfluid.extensions.security.services.user import UserService
-    from webfluid.extensions.security.services.oauth import OAuthService
-    from webfluid.extensions.security.services.hashing import HashService
-
 __all__ = ["TokenService", "UserService", "OAuthService", "HashService"]
 
 

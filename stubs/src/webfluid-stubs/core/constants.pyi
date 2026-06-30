@@ -1,0 +1,27 @@
+from pathlib import Path
+
+FRAMEWORK_ROOT: Path
+FRAMEWORK_ID: str
+
+APP_STATIC: str
+WF_STATIC: str
+WF_OCEAN: str
+OCEAN_AUTH: str
+
+DEBUG: bool
+EXECUTION: bool
+THEMES: bool
+TAILWIND: bool
+PROCESSING: bool
+ADDITIVES: bool
+
+EXT_SCHEDULING: bool
+EXT_SQLALCHEMY: bool
+EXT_BABEL: bool
+EXT_SECURITY: bool
+EXT_EVENTS: bool
+EXT_CACHE: bool
+EXT_MAIL: bool
+EXT_JWT: bool
+
+DEV_AUTO_INSTALL: bool

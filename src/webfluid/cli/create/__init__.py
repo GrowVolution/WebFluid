@@ -13,13 +13,7 @@ from webfluid.utils.core import safe_string
 
 create = typer.Typer(help="Create new WebFluid instances.")
 
-def _make_defaults(
-        base: Path,
-        api_init: str,
-        api_v1: str,
-        app_init: str,
-        index_py: str
-):
+def _make_defaults(base, api_init, api_v1, app_init, index_py):
     static_dir = base / "static"
     (static_dir / "img").mkdir(parents=True, exist_ok=True)
     (static_dir / "js").mkdir(exist_ok=True)
@@ -63,7 +57,7 @@ def _make_defaults(
     (utils / "__init__.py").touch()
 
 
-def _frontend_conf() -> dict:
+def _frontend_conf():
     conf = {
         "type": questions.frontend_type.ask()
     }
@@ -79,7 +73,7 @@ def _frontend_conf() -> dict:
     return conf
 
 
-def _inject_base(code: str, prefix: str = "") -> str:
+def _inject_base(code, prefix=""):
     code = re.sub(
         r"defineConfig\(\s*{",
         (
@@ -93,7 +87,7 @@ def _inject_base(code: str, prefix: str = "") -> str:
     return code
 
 
-def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
+def _create_frontend(base, conf, space, name):
     if conf["type"] != "vite": return False
 
     template = conf["framework"]
@@ -136,7 +130,7 @@ def _create_frontend(base: Path, conf: dict, space: str, name: str) -> bool:
     return True
 
 
-def _setup_additives(config: ConfigParser):
+def _setup_additives(config):
     additive_dir = Path("additives")
     if not additive_dir.exists() or not any(additive_dir.iterdir()):
         return
@@ -491,5 +485,5 @@ def create_app(
     with open(config_file, "w") as f: config.write(f)
 
 
-def cli_entry(app: typer.Typer):
+def cli_entry(app):
     app.add_typer(create, name="create")

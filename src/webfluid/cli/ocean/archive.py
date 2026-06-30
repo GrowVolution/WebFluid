@@ -1,4 +1,3 @@
-from pathlib import Path
 import io, re, tarfile, hashlib
 
 _JUNK_DIRS = {
@@ -12,7 +11,7 @@ _JUNK_SUFFIXES = (".pyc", ".pyo", ".pyd", ".swp", ".swo", ".log", ".tmp", "~")
 _IGNORE_NAME = ".gitignore"
 
 
-def _is_junk(rel: str) -> bool:
+def _is_junk(rel):
     segments = rel.split("/")
     name = segments[-1]
     lower = name.lower()
@@ -24,7 +23,7 @@ def _is_junk(rel: str) -> bool:
     return any(lower.endswith(suffix) for suffix in _JUNK_SUFFIXES)
 
 
-def _glob_to_regex(pattern: str, anchored: bool) -> re.Pattern:
+def _glob_to_regex(pattern, anchored):
     out = ""
     i = 0
     while i < len(pattern):
@@ -43,7 +42,7 @@ def _glob_to_regex(pattern: str, anchored: bool) -> re.Pattern:
     return re.compile(prefix + out + "$")
 
 
-def _parse_rule(raw: str):
+def _parse_rule(raw):
     trimmed = raw.rstrip("\r").strip()
     if not trimmed or trimmed.startswith("#"): return None
     if re.fullmatch(r"\[[^\]]*\]", trimmed): return None
@@ -63,7 +62,7 @@ def _parse_rule(raw: str):
     return negate, dir_only, _glob_to_regex(line, anchored)
 
 
-def _collect_ignores(root: Path, rels: list[str]) -> list[tuple[str, list]]:
+def _collect_ignores(root, rels):
     ignores = []
     for rel in rels:
         if rel != _IGNORE_NAME and not rel.endswith("/" + _IGNORE_NAME):
@@ -79,7 +78,7 @@ def _collect_ignores(root: Path, rels: list[str]) -> list[tuple[str, list]]:
     return ignores
 
 
-def _is_ignored(rel: str, ignores: list[tuple[str, list]]) -> bool:
+def _is_ignored(rel, ignores):
     segments = rel.split("/")
     ignored = False
     for depth in range(1, len(segments) + 1):
@@ -97,7 +96,7 @@ def _is_ignored(rel: str, ignores: list[tuple[str, list]]) -> bool:
     return ignored
 
 
-def _pack(entries: list[tuple[str, bytes]]) -> bytes:
+def _pack(entries):
     buffer = io.BytesIO()
     with tarfile.open(
             fileobj=buffer, mode="w",
@@ -112,7 +111,7 @@ def _pack(entries: list[tuple[str, bytes]]) -> bytes:
     return buffer.getvalue()
 
 
-def selected_files(root: Path) -> list[str]:
+def selected_files(root):
     rels = [
         path.relative_to(root).as_posix()
         for path in root.rglob("*") if path.is_file()
@@ -124,7 +123,7 @@ def selected_files(root: Path) -> list[str]:
     )
 
 
-def build_archive(root: Path) -> bytes:
+def build_archive(root):
     entries = [
         (rel, (root / rel).read_bytes())
         for rel in selected_files(root)
@@ -132,5 +131,5 @@ def build_archive(root: Path) -> bytes:
     return _pack(entries)
 
 
-def sha256_hex(data: bytes) -> str:
+def sha256_hex(data):
     return hashlib.sha256(data).hexdigest()

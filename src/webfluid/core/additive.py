@@ -1,16 +1,12 @@
-from fastapi import APIRouter, params
-from fastapi.datastructures import Default, DefaultPlaceholder
-from fastapi.routing import APIRoute, BaseRoute
-from fastapi.responses import Response, JSONResponse, HTMLResponse
+from fastapi import APIRouter
+from fastapi.datastructures import Default
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.utils import generate_unique_id
-from pydantic.main import IncEx
 from jinja2 import PrefixLoader, FileSystemLoader, ChoiceLoader
 from functools import wraps
 from frozendict import frozendict
-from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Sequence, Any
 import subprocess, sys, typer
 
 from webfluid.core.context import FluidContext
@@ -22,13 +18,9 @@ from webfluid.utils.additives import require_extensions
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError, OceanError
 
-if TYPE_CHECKING:
-    from configparser import ConfigParser
-    from webfluid import Fluid
-
 
 class AdditiveVersion(tuple):
-    def __init__(self, major: str, minor: str | None = None, patch: str | None = None):
+    def __init__(self, major, minor=None, patch=None):
         if minor is None and patch is None:
             _, self.stage, self.build = final_version(major)
         elif minor is not None and patch is None:
@@ -37,13 +29,13 @@ class AdditiveVersion(tuple):
             _, self.stage, self.build = final_version(patch)
         else: raise ValueError("Invalid version format.")
 
-    def __new__(cls, major: str, minor: str | None = None, patch: str | None = None):
+    def __new__(cls, major, minor=None, patch=None):
         if minor is None and patch is None: self = (final_version(major)[0],)
         elif patch is None: self = (int(major), final_version(minor)[0])
         else: self = (int(major), int(minor), final_version(patch)[0])
         return super().__new__(cls, self)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return (f"{'.'.join(map(str, self))}{self.stage}"
                 f"{self.build if self.stage else ''}")
 
@@ -53,28 +45,28 @@ class AdditiveRouter(APIRouter):
         self._fake_http_middleware = []
         super().__init__(*args, **kwargs)
 
-    def http_middleware(self, fn: Callable) -> Callable:
+    def http_middleware(self, fn):
         self._fake_http_middleware.append(fn)
         return fn
 
     def add_api_route(
-        self, path: str, endpoint: Callable[..., Any],
+        self, path, endpoint,
         *,
-        response_model: Any = Default(None), status_code: int | None = None,
-        tags: list[str | Enum] | None = None, dependencies: Sequence[params.Depends] | None = None,
-        summary: str | None = None,  description: str | None = None,
-        response_description: str = "Successful Response",
-        responses: dict[int | str, dict[str, Any]] | None = None, deprecated: bool | None = None,
-        methods: set[str] | list[str] | None = None, operation_id: str | None = None,
-        response_model_include: IncEx | None = None, response_model_exclude: IncEx | None = None,
-        response_model_by_alias: bool = True,  response_model_exclude_unset: bool = False,
-        response_model_exclude_defaults: bool = False, response_model_exclude_none: bool = False,
-        include_in_schema: bool = True, response_class: type[Response] | DefaultPlaceholder = Default(JSONResponse),
-        name: str | None = None, route_class_override: type[APIRoute] | None = None,
-        callbacks: list[BaseRoute] | None = None, openapi_extra: dict[str, Any] | None = None,
-        generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder = Default(generate_unique_id),
-        strict_content_type: bool | DefaultPlaceholder = Default(True),
-    ) -> None:
+        response_model=Default(None), status_code=None,
+        tags=None, dependencies=None,
+        summary=None, description=None,
+        response_description="Successful Response",
+        responses=None, deprecated=None,
+        methods=None, operation_id=None,
+        response_model_include=None, response_model_exclude=None,
+        response_model_by_alias=True, response_model_exclude_unset=False,
+        response_model_exclude_defaults=False, response_model_exclude_none=False,
+        include_in_schema=True, response_class=Default(JSONResponse),
+        name=None, route_class_override=None,
+        callbacks=None, openapi_extra=None,
+        generate_unique_id_function=Default(generate_unique_id),
+        strict_content_type=Default(True),
+    ):
 
         @wraps(endpoint)
         async def wrapped(*args, **kwargs):
@@ -97,16 +89,14 @@ class AdditiveRouter(APIRouter):
             strict_content_type=strict_content_type
         )
 
-    def add_api_websocket_route(self, path: str, endpoint: Callable[..., Any], name: str | None = None,
-                                *, dependencies: Sequence[params.Depends] | None = None):
+    def add_api_websocket_route(self, path, endpoint, name=None, *, dependencies=None):
         super().add_api_websocket_route(
             path, log_factory.additive_context(endpoint), name=name, dependencies=dependencies
         )
 
 
 class Additive:
-    def __init__(self, import_name: str, base: "Additive | None" = None,
-                 required_extensions: list = None):
+    def __init__(self, import_name, base=None, required_extensions=None):
 
         if not "additives." in import_name:
             raise AdditiveException("Additives have to be created inside the 'additives' package.")
@@ -139,7 +129,7 @@ class Additive:
         self.base = base
         self.parent = None
 
-        async def enable(fluid: "Fluid"):
+        async def enable(fluid):
             await self._before_enable(fluid)
             if base: await base._before_enable(fluid)
 
@@ -195,7 +185,7 @@ class Additive:
             self.ws = AdditiveRouter(prefix="/ws")
             self.frontend = Frontend()
 
-        def middleware(call_next: Callable):
+        def middleware(call_next):
             async def wrapper(*args, **kwargs):
                 for processor in self._request_processors["before"]:
                     response = await safe_execute(processor, True)
@@ -210,7 +200,7 @@ class Additive:
         self.app.http_middleware(middleware)
 
         if PROCESSING:
-            def url_for(endpoint: str, **path_params):
+            def url_for(endpoint, **path_params):
                 try:
                     ctx = FluidContext.current()
                     if not ctx.request: return None
@@ -225,15 +215,15 @@ class Additive:
             self.jinja_context["url_for"] = url_for
             self.context_processor(lambda: self.jinja_context)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"<{self.name} {self.version}> {self.manifest.get('description', '')}"
 
-    async def _before_enable(self, fluid: "Fluid"):
+    async def _before_enable(self, fluid):
         self._before_enable_lock = True
         for hook in self._hooks["before"]:
             await safe_execute(hook, False, fluid)
 
-    def _enable(self, fluid: "Fluid"):
+    def _enable(self, fluid):
         if self.is_base: raise AdditiveException(
             f"[{self.name}] Base additives are not allowed be enabled."
         )
@@ -340,7 +330,7 @@ class Additive:
                     fg=typer.colors.RED, bold=True
                 ))
 
-    def before_enable(self, fn: Callable) -> Callable:
+    def before_enable(self, fn):
         if self._before_enable_lock:
             raise RuntimeError("Enable hooks cannot be added after the additive was enabled.")
 
@@ -352,7 +342,7 @@ class Additive:
         self._hooks["before"].append(log_factory.additive_context(fn))
         return fn
 
-    def after_enable(self, fn: Callable) -> Callable:
+    def after_enable(self, fn):
         if self._after_enable_lock:
             raise RuntimeError("Enable hooks cannot be added after the additive was enabled.")
 
@@ -362,25 +352,25 @@ class Additive:
         self._hooks["after"].append(log_factory.additive_context(fn))
         return fn
 
-    def context_processor(self, fn: Callable) -> Callable:
+    def context_processor(self, fn):
         if required_arg_count(fn) > 0:
             raise TypeError("Context processors must not receive non optional arguments.")
         self._context_processors.append(fn)
         return fn
 
-    def before_request(self, fn: Callable) -> Callable:
+    def before_request(self, fn):
         if required_arg_count(fn) > 0:
             raise TypeError("Before request processors must not receive non optional arguments.")
         self._request_processors["before"].append(fn)
         return fn
 
-    def after_request(self, fn: Callable) -> Callable:
+    def after_request(self, fn):
         if required_arg_count(fn) != 1:
             raise TypeError("After request processors must receive exactly one argument (response).")
         self._request_processors["after"].append(fn)
         return fn
 
-    async def render(self, template: str, **ctx) -> str:
+    async def render(self, template, **ctx):
         if self.parent: return await self.parent.render(template, **ctx)
 
         for processor in self._context_processors:
@@ -390,12 +380,12 @@ class Additive:
         c = FluidContext.current()
         return await c.fluid.render(f"{self.id}/{template}", **ctx)
 
-    def unique_name(self, name: str) -> str:
+    def unique_name(self, name):
         if self.parent: return self.parent.unique_name(name)
         return f"{self.id}_{name}"
 
     @staticmethod
-    def _normalize_requirements(requirement) -> dict:
+    def _normalize_requirements(requirement):
         if isinstance(requirement, list):
             normalized = {}
             for entry in requirement:
@@ -405,14 +395,14 @@ class Additive:
             return normalized
         return requirement if isinstance(requirement, dict) else {}
 
-    def _required_additives(self) -> dict:
+    def _required_additives(self):
         if "requires" not in self.manifest: return {}
         return self._normalize_requirements(
             self.manifest["requires"].get("additives") or {}
         )
 
     @staticmethod
-    def _match_version(meta: dict, constraint: str) -> str | None:
+    def _match_version(meta, constraint):
         from webfluid.utils.core import check_required_version
 
         matching = []
@@ -431,8 +421,7 @@ class Additive:
         matching.sort()
         return matching[-1][1]
 
-    def _pull_dependency(self, rid: str, constraint: str,
-                         additive_root: Path, seen: set):
+    def _pull_dependency(self, rid, constraint, additive_root, seen):
         from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
 
         target = additive_root / rid
@@ -494,7 +483,7 @@ class Additive:
                 fg=typer.colors.RED, bold=True
             ))
 
-    def _resolve_dependencies(self, seen: set):
+    def _resolve_dependencies(self, seen):
         required = self._required_additives()
         if not required: return
 
@@ -527,7 +516,7 @@ class Additive:
 
             self._pull_dependency(rid, constraint, additive_root, seen)
 
-    def install(self, _seen: set = None):
+    def install(self, _seen=None):
         seen = _seen if _seen is not None else set()
         if self.id in seen: return
         seen.add(self.id)
@@ -540,7 +529,7 @@ class Additive:
         self._extract()
         self._install_packages()
 
-    def configure(self, config: "ConfigParser"):
+    def configure(self, config):
         if self.base: self.base.configure(config)
 
         mod = try_import(f"{self.import_name}.config")
@@ -587,6 +576,6 @@ class Additive:
             config[self.id][key] = question(message, **kwargs).ask()
 
     @property
-    def version(self) -> AdditiveVersion:
+    def version(self):
         version_str = self.manifest["version"]
         return AdditiveVersion(*version_str.split("."))

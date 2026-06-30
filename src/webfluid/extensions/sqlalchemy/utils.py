@@ -1,21 +1,15 @@
-from sqlalchemy import ScalarResult, Result, MetaData, Table, create_engine, inspect
-from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker, declared_attr
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy import MetaData, create_engine, inspect
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, declared_attr
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from contextvars import ContextVar
 from contextlib import asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Optional, Any
 
 from webfluid.core.context import BaseContext
 from webfluid.utils.core import async_result, camel_to_snake
 from webfluid.exceptions import FrameworkException
 
-if TYPE_CHECKING:
-    from sqlalchemy.sql.expression import Insert, Select, Update, Delete
-
 
 class Model(DeclarativeBase):
-    __tablename__: Optional[str]
-    __bind_key__: Optional[str]
     __bind_set__ = False
     __metadata__ = {}
 
@@ -30,14 +24,14 @@ class Model(DeclarativeBase):
         return hash(state.identity)
 
     @declared_attr
-    def __tablename__(cls) -> str:
+    def __tablename__(cls):
         tablename = cls.__dict__.get("__tablename__")
         if isinstance(tablename, str):
             return tablename
         return camel_to_snake(cls.__name__)
 
     @classmethod
-    def metadata_for(cls, key: str) -> MetaData:
+    def metadata_for(cls, key):
         if key == "default": return Model.metadata
         md = Model.__metadata__.get(key)
         if md is None:
@@ -46,7 +40,7 @@ class Model(DeclarativeBase):
         return md
 
     @classmethod
-    def set_bind(cls, key: str):
+    def set_bind(cls, key):
         if cls.__bind_set__:
             raise FrameworkException(
                 f"DB bind has already been set for {cls.__name__}!"
@@ -54,7 +48,7 @@ class Model(DeclarativeBase):
         cls.__bind_key__ = key
         cls.__bind_set__ = True
 
-        table: Optional[Table] = getattr(cls, "__table__", None)
+        table = getattr(cls, "__table__", None)
         target = cls.metadata_for(key)
         if table is None or table.metadata is target: return
 
@@ -62,8 +56,7 @@ class Model(DeclarativeBase):
 
 
 class Bind:
-    def __init__(self, key: str, uris: tuple[str, str],
-                 metadata: Optional[MetaData] = None):
+    def __init__(self, key, uris, metadata=None):
 
         sync_uri, async_uri = uris
 
@@ -101,21 +94,20 @@ class Bind:
 
 class Executor(BaseContext):
     _ctx = ContextVar("sqlalchemy.executor")
-    def __init__(self, session: Session):
+    def __init__(self, session):
         self.session = session
 
-    def exec(self, statement: "Insert | Select | Update | Delete",
-             scalars: bool = True) -> ScalarResult | Result:
+    def exec(self, statement, scalars=True):
         results = self.session.execute(statement)
         if scalars: return results.scalars()
         return results
 
-    def insert(self, obj: Any, flush: bool = False) -> Any:
+    def insert(self, obj, flush=False):
         self.session.add(obj)
         if flush: self.flush()
         return obj
 
-    def delete(self, obj: Any, flush: bool = False):
+    def delete(self, obj, flush=False):
         self.session.delete(obj)
         if flush: self.flush()
 
@@ -125,21 +117,20 @@ class Executor(BaseContext):
 
 class AsyncExecutor(BaseContext):
     _ctx = ContextVar("sqlalchemy.async_executor")
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session):
         self.session = session
 
-    async def exec(self, statement: "Insert | Select | Update | Delete",
-                   scalars: bool = True) -> ScalarResult | Result:
+    async def exec(self, statement, scalars=True):
         results = await self.session.execute(statement)
         if scalars: return results.scalars()
         return results
 
-    async def insert(self, obj: Any, flush: bool = False) -> Any:
+    async def insert(self, obj, flush=False):
         self.session.add(obj)
         if flush: await self.flush()
         return obj
 
-    async def delete(self, obj: Any, flush: bool = False):
+    async def delete(self, obj, flush=False):
         await async_result(self.session.delete(obj))
         if flush: await self.flush()
 
@@ -147,7 +138,7 @@ class AsyncExecutor(BaseContext):
         await self.session.flush()
 
 
-def database_uris(uri: str) -> tuple[str, str]:
+def database_uris(uri):
     if "+" in uri.split("://")[0]:
         raise ValueError(f"Invalid database URI '{uri}': Please do not define drivers.")
 
@@ -166,11 +157,7 @@ def database_uris(uri: str) -> tuple[str, str]:
     return sync_uri, async_uri
 
 
-def update_metadata(
-        table: Table, target_md: Optional[MetaData] = None,
-        target_bind: Optional[str] = None,
-        target_model: Optional[type] = None
-):
+def update_metadata(table, target_md=None, target_bind=None, target_model=None):
     if target_md: md = target_md
 
     elif target_bind:

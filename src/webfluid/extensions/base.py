@@ -1,20 +1,11 @@
-from typing import TYPE_CHECKING, Optional
-import typer
-
-if TYPE_CHECKING:
-    from webfluid import Fluid
-
-
 class FluidExtension:
-    _cli: typer.Typer
-
-    def __init__(self, fluid: Optional["Fluid"] = None, *args, **kwargs):
+    def __init__(self, fluid=None, *args, **kwargs):
         if fluid is not None: self.expand_fluid(fluid, *args, **kwargs)
 
-    def expand_fluid(self, fluid: "Fluid", *args, **kwargs):
+    def expand_fluid(self, fluid, *args, **kwargs):
         raise NotImplementedError()
 
     @classmethod
-    def cli_entry(cls, app: typer.Typer, name: str):
+    def cli_entry(cls, app, name):
         if not hasattr(cls, "_cli"): return
         app.add_typer(cls._cli, name=name)

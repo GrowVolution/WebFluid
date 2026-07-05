@@ -71,8 +71,8 @@ class EventManager(FluidExtension):
                 async with FluidContext(
                     fluid, parent.request if parent is not None else None,
                     event=event, event_data=data
-                ):
-                    return await safe_execute(fn, False, data)
+                ) as ctx:
+                    return await safe_execute(fn, ctx.request is not None, data)
             return ctx_wrapper
 
         self._ctx_decorator = ctx_decorator

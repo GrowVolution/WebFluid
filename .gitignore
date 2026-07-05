@@ -1,14 +1,14 @@
 [folders]
 .venv/
 .idea/
+.vscode/
 __pycache__/
-webfluid.egg-info/
+*.egg-info/
 dist/
 
 [files]
 .env
 .coverage
-tailwind.exe
 tailwind.css
 htmx.min.js
 alpine.min.js

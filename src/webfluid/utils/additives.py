@@ -170,7 +170,6 @@ async def register_additives(fluid):
         from .logging import factory as log_factory
         nonlocal loaders
 
-        from webfluid.utils.additives import installed_additives
         for additive_info in installed_additives(fluid.additive_root, True):
             additive_id = additive_info[0]
             if not enabled(additive_id):

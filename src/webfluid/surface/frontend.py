@@ -11,7 +11,10 @@ from datetime import datetime, UTC
 import typer, requests, shutil, subprocess, os, signal
 
 from webfluid.core.context import FluidContext
-from webfluid.core.constants import DEBUG, TAILWIND, WF_STATIC, THEMES, PROCESSING
+from webfluid.core.constants import (
+    DEBUG, TAILWIND, WF_STATIC, THEMES, PROCESSING,
+    CHECK_FRONTEND, BUILD_FRONTEND
+)
 from webfluid.surface import dist
 from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node, node_proc, node_cmd
@@ -191,7 +194,7 @@ class Frontend:
             if TAILWIND: self.generate_tailwind(True, False)
 
         if TAILWIND:
-            if not (root_path / "static" / "css" / "tailwind_raw.css").exists():
+            if not (root_path / "static" / "css" / raw_tailwind).exists():
                 self.tailwind = ""
                 return
 
@@ -326,28 +329,30 @@ class Frontend:
 
         else:
             async def create_proc():
-                try:
-                    node_cmd(
-                        ["npm", "run", "check", "--workspaces"],
-                        fluid.app_root
+                if CHECK_FRONTEND:
+                    try:
+                        node_cmd(
+                            ["npm", "run", "check", "--workspaces"],
+                            fluid.app_root
+                        )
+                    except NodeError as e:
+                        if "No workspaces found!" not in str(e):
+                            raise e
+
+                if BUILD_FRONTEND:
+                    proc = node_proc(
+                        ["npm", "run", "build", "--workspaces"],
+                        fluid.app_root,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
                     )
-                except NodeError as e:
-                    if "No workspaces found!" not in str(e):
-                        raise e
 
-                cls._proc = node_proc(
-                    ["npm", "run", "build", "--workspaces"],
-                    fluid.app_root,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-
-                out, err = await run_in_executor(cls._proc.communicate)
-                if cls._proc.returncode != 0:
-                    msg = err or out or "Unknown error"
-                    if "No workspaces found!" not in msg:
-                        raise FrontendException(msg)
+                    out, err = await run_in_executor(proc.communicate)
+                    if proc.returncode != 0:
+                        msg = err or out or "Unknown error"
+                        if "No workspaces found!" not in msg:
+                            raise FrontendException(msg)
 
             def mount():
                 for name, data in cls._static_files.items():

@@ -4,15 +4,15 @@ alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
 vite = "https://github.com/vitejs/vite.git"
 
 node_standalone = {
-    "linux": "https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-{architecture}.tar.xz",
-    "windows": "https://nodejs.org/dist/v24.16.0/node-v24.16.0-win-{architecture}.zip",
-    "darwin": "https://nodejs.org/dist/v24.16.0/node-v24.16.0-darwin-{architecture}.tar.gz"
+    "linux": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-{architecture}.tar.xz",
+    "windows": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-{architecture}.zip",
+    "darwin": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-{architecture}.tar.gz"
 }
 
 tailwind_cli = {
-    "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-{architecture}",
-    "windows": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-windows-x64.exe",
-    "darwin": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-macos-{architecture}"
+    "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-linux-{architecture}",
+    "windows": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-windows-x64.exe",
+    "darwin": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-macos-{architecture}"
 }
 
 package_json = """{{

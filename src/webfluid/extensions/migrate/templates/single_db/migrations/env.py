@@ -4,7 +4,8 @@ import asyncio, logging
 
 from webfluid.core.context import FluidContext
 from webfluid.extensions.sqlalchemy import SQLAlchemy
-from webfluid.utils import try_import
+from webfluid.utils import try_import, enabled
+from webfluid.utils.additives import installed_additives
 
 config = context.config
 fileConfig(config.config_file_name)
@@ -12,14 +13,21 @@ logger = logging.getLogger("alembic.env")
 
 
 def get_fluid():
-    from main import create_app
-    app = create_app()
+    import main
+    if hasattr(main, "prepare_fluid"):
+        app = main.prepare_fluid()
+    elif hasattr(main, "fluid"):
+        app = main.fluid
+    else: raise ValueError(
+        "Missing fluid instance or prepare_fluid function in main.py"
+    )
 
     with FluidContext(app):
         try_import("fluid.models")
-        for pkg in (app.app_root / "additives").iterdir():
-            if not pkg.is_dir(): continue
-            try_import(f"additives.{pkg.name}.models")
+        for additive in installed_additives(app.app_root / "additives"):
+            a, _, p = additive
+            if not enabled(a): continue
+            try_import(f"additives.{p}.models")
 
     return app
 

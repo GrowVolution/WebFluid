@@ -1,13 +1,22 @@
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from email.mime.multipart import MIMEMultipart
+from contextvars import ContextVar
 from typing import Any
-import smtplib
-
-import aiosmtplib
+import smtplib, aiosmtplib
 
 from webfluid import Fluid
+from webfluid.core.context import BaseContext
 from webfluid.extensions.base import FluidExtension
+
+
+class _ClientContext(BaseContext):
+    _ctx: ContextVar[Any]
+    def __init__(
+        self, client: smtplib.SMTP | aiosmtplib.SMTP,
+        is_async: bool
+    ) -> None: ...
+
 
 class Mail(FluidExtension):
     host: str

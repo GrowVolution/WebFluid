@@ -2,11 +2,21 @@ from contextlib import contextmanager, asynccontextmanager
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+from contextvars import ContextVar
 from threading import Thread
 import aiosmtplib, smtplib
 
+from webfluid.core.context import BaseContext
 from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
+
+
+class _ClientContext(BaseContext):
+    _ctx = ContextVar("mailman.client")
+
+    def __init__(self, client, is_async):
+        self.client = client
+        self.is_async = is_async
 
 
 class Mail(FluidExtension):
@@ -73,7 +83,13 @@ class Mail(FluidExtension):
         return msg
 
     def _send_sync(self, msg):
-        with self.client() as smtp: smtp.send_message(msg)
+        try:
+            ctx = _ClientContext.current()
+            if ctx.is_async: raise ValueError()
+            ctx.client.send_message(msg)
+        except (RuntimeError, ValueError):
+            with self.client() as smtp:
+                smtp.send_message(msg)
 
     def send(self, to, subject, body, attachments=None,
              from_email=None, cc=None, bcc=None, fake_async=True):
@@ -86,7 +102,13 @@ class Mail(FluidExtension):
                          from_email=None, cc=None, bcc=None):
 
         msg = self.make_message(to, subject, body, attachments, from_email, cc, bcc)
-        async with self.async_client() as smtp: await smtp.send_message(msg)
+        try:
+            ctx = _ClientContext.current()
+            if not ctx.is_async: raise ValueError()
+            await ctx.client.send_message(msg)
+        except (RuntimeError, ValueError):
+            async with self.async_client() as smtp:
+                await smtp.send_message(msg)
 
     @contextmanager
     def client(self):
@@ -100,7 +122,8 @@ class Mail(FluidExtension):
         if self.user and self.password:
             smtp.login(self.user, self.password)
 
-        try: yield smtp
+        try:
+            with _ClientContext(smtp, False): yield smtp
         except (
             smtplib.SMTPConnectError,
             smtplib.SMTPAuthenticationError
@@ -126,7 +149,8 @@ class Mail(FluidExtension):
         if self.user and self.password:
             await smtp.login(self.user, self.password)
 
-        try: yield smtp
+        try:
+            with _ClientContext(smtp, True): yield smtp
         except (
             aiosmtplib.SMTPConnectError,
             aiosmtplib.SMTPConnectTimeoutError,

@@ -1,6 +1,6 @@
 [project]
 name = "webfluid"
-version = "1.0.0a2"
+version = "1.0.0b1"
 description = "A cli first fullstack framework for fast and easy web development."
 authors = [
     { name = "Pierre", email = "pierre@growv-mail.org" }
@@ -78,7 +78,7 @@ test = [
     "pytest-cov",
     "pytest-mock"
 ]
-typing = ["webfluid-stubs==1.0.0a2"]
+typing = ["webfluid-stubs==1.0.0b1"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

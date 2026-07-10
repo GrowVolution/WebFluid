@@ -94,9 +94,13 @@ app_router.get("/")(index)
 
 app_config_py = """from webfluid.core.config import register_config
 
+# The MyConfig class is our convention for developing public git repos.
+try: from fluid._my_config import MyConfig
+except ImportError:
+    class MyConfig: pass
 
 @register_config(10)
-class Config:
+class Config(MyConfig):
     APP_CONFIG = {{
         "title": "{name}",
         "version": "1.0.0"
@@ -108,7 +112,7 @@ class Config:
 main_py = """from webfluid import Fluid
 
 
-def create_app() -> Fluid:
+def prepare_fluid() -> Fluid:
     app = Fluid(__name__)
 
     from fluid.api import api_router
@@ -118,7 +122,7 @@ def create_app() -> Fluid:
 
 
 if __name__ == "__main__":
-    fluid = create_app()
+    fluid = prepare_fluid()
     fluid.mix()
 """
 

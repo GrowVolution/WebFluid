@@ -34,6 +34,7 @@ class DefaultConfig:
     SESSION_COOKIE_SAMESITE = "lax"
 
     PROXY_FIX = False
+    PROXY_TRUSTED_HOSTS = "127.0.0.1"
 
     RATELIMIT_ENABLED = True
     RATELIMIT_STORAGE_URI = f"{os.getenv('REDIS_URI', 'redis://localhost:6379')}/1"

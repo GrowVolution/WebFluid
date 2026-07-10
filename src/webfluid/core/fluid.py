@@ -264,9 +264,13 @@ class Fluid(FastAPI):
         if self._shutdown_flag.is_set(): return
         self._loop.call_soon_threadsafe(self._shutdown_flag.set)
 
-    def _validate_theme(self, name):
+    def _validate_theme(self, name, exists):
         if not THEMES: raise FrameworkException("Themes are not enabled.")
-        elif name in self._themes: raise FrameworkException(f"Theme '{name}' already exists.")
+
+        elif not exists and name in self._themes:
+            raise FrameworkException(f"Theme '{name}' already exists.")
+        elif exists and name not in self._themes:
+            raise FrameworkException(f"Theme '{name}' does not exist.")
 
     def startup_hook(self, fn):
         if self._startup_lock:
@@ -307,7 +311,7 @@ class Fluid(FastAPI):
         self._sources_seen.add(src)
 
     def add_theme(self, name, link):
-        self._validate_theme(name)
+        self._validate_theme(name, False)
         self._themes[name] = link
 
     def get_theme(self):
@@ -326,7 +330,7 @@ class Fluid(FastAPI):
         return self._themes.get(theme) or self._themes[FRAMEWORK_ID]
 
     def set_theme(self, request, name):
-        self._validate_theme(name)
+        self._validate_theme(name, True)
         request.session["theme"] = name
 
     def context_processor(self, fn):
@@ -381,7 +385,11 @@ class Fluid(FastAPI):
         if self._asgi_app is not None: return self._asgi_app
 
         if self.config.get("PROXY_FIX", False):
-            self._asgi_app = ProxyHeadersMiddleware(self)
+            self._asgi_app = ProxyHeadersMiddleware(
+                self, trusted_hosts=self.config.get(
+                    "PROXY_TRUSTED_HOSTS", "127.0.0.1"
+                )
+            )
         else:
             self._asgi_app = self
 

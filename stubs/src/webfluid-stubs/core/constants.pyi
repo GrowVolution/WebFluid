@@ -12,6 +12,8 @@ DEBUG: bool
 EXECUTION: bool
 THEMES: bool
 TAILWIND: bool
+CHECK_FRONTEND: bool
+BUILD_FRONTEND: bool
 PROCESSING: bool
 ADDITIVES: bool
 

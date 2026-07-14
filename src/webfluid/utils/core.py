@@ -74,6 +74,14 @@ def get_root_path(import_name):
     return str(Path(filepath).resolve().parent)
 
 
+def parse_config(key, value):
+    if key.endswith("_FILE"):
+        file = Path(value).expanduser().resolve()
+        if not file.exists(): return key, value
+        return key.removesuffix("_FILE"), file.read_text(encoding="utf-8")
+    return key, value
+
+
 def required_arg_count(fn):
     sig = inspect.signature(fn)
 

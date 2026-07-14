@@ -75,14 +75,15 @@ def get_locale():
     if babel.locale_selector_fn is not None:
         locale = babel.locale_selector_fn()
         if isinstance(locale, Locale): return locale
-        return load_locale(babel.locale_selector_fn())
+        return load_locale(locale)
 
     request = ctx.request
     if request is None:
         return load_locale(babel.default_locale)
 
     locale = (
-        request.cookies.get("lang")
+        request.query_params.get("lang")
+        or request.cookies.get("lang")
         or parse_best_match(
             request.headers.get("Accept-Language"),
             babel.supported_locales

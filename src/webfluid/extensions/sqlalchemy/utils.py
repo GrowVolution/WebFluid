@@ -56,14 +56,14 @@ class Model(DeclarativeBase):
 
 
 class Bind:
-    def __init__(self, key, uris, metadata=None):
+    def __init__(self, key, uris, metadata=None, **engine_kwargs):
 
         sync_uri, async_uri = uris
 
         self.name = key
         self.metadata = metadata if metadata else Model.metadata_for(key)
-        self.sync_engine = create_engine(sync_uri)
-        self.async_engine = create_async_engine(async_uri)
+        self.sync_engine = create_engine(sync_uri, **engine_kwargs)
+        self.async_engine = create_async_engine(async_uri, **engine_kwargs)
         self._sync_session = sessionmaker(self.sync_engine)
         self._async_session = async_sessionmaker(self.async_engine)
 

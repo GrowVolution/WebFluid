@@ -41,6 +41,10 @@ class DefaultConfig:
     RATELIMIT_DEFAULT = ["500/day", "100/hour"]
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", "sqlite:///app.db")
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 3600
+    }
 
     BABEL_DISABLE_AUTOUPDATE = False
 

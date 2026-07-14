@@ -5,6 +5,7 @@ import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
 from webfluid.core.config import Config, init_configs, build_config
+from webfluid.utils.core import parse_config
 
 _templates = Path(__file__).parent / "templates"
 
@@ -14,12 +15,19 @@ def _manipulated_env(app):
     cfg.optionxform = str
     cfg.read(Path.cwd() / "app_configs" / f"{app}.ini")
     env = os.environ.copy()
-    for k, v in cfg.defaults().items():
-        env[k] = v
+    pairs = [parse_config(k, v) for k, v in cfg.defaults().items()]
+    for k, v in pairs: env[k] = v
     for section in cfg.sections():
-        for k, v in cfg[section].items():
-            env[k] = v
+        pairs = [parse_config(k, v) for k, v in cfg[section].items()]
+        for k, v in pairs: env[k] = v
     env["EXT_SQLALCHEMY"] = "1"
+    env["EXT_EVENTS"] = "0"
+    env["EXT_CACHE"] = "0"
+    env["EXT_MAIL"] = "0"
+    env["EXT_JWT"] = "0"
+    env["WF_THEMES"] = "0"
+    env["WF_TAILWIND"] = "0"
+    env["WF_PROCESSING"] = "0"
     return env
 
 

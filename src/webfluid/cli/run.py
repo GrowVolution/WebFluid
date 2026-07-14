@@ -5,19 +5,12 @@ from threading import Thread
 import typer, subprocess, sys, os, signal, time
 
 from webfluid.cli import questions
+from webfluid.utils.core import parse_config
 
 _proc = None
 _streaming = False
 _terminate = False
 _log = None
-
-
-def _parse_config(key, value):
-    if key.endswith("_FILE"):
-        file = Path(value).expanduser().resolve()
-        if not file.exists(): return key, value
-        return key.removesuffix("_FILE"), file.read_text(encoding="utf-8")
-    return key, value
 
 
 def _env_from_config(config_file, debug):
@@ -26,12 +19,12 @@ def _env_from_config(config_file, debug):
     cfg.optionxform = str
     cfg.read(config_file)
 
-    pairs = [_parse_config(k, v) for k, v in cfg.defaults().items()]
+    pairs = [parse_config(k, v) for k, v in cfg.defaults().items()]
     for k, v in pairs: env[k] = v
 
     for section in cfg.sections():
         if section == "dev" and not debug: continue
-        pairs = [_parse_config(k, v) for k, v in cfg[section].items()]
+        pairs = [parse_config(k, v) for k, v in cfg[section].items()]
         for k, v in pairs: env[k] = v
 
     return env

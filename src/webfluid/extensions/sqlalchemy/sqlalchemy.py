@@ -21,13 +21,17 @@ class SQLAlchemy(FluidExtension):
 
     def expand_fluid(self, fluid, *_, **__):
         default_uri = fluid.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
+        engine_kwargs = fluid.config.get("SQLALCHEMY_ENGINE_OPTIONS", {
+            "pool_pre_ping": True,
+            "pool_recycle": 3600
+        })
         uris = database_uris(default_uri)
-        self._binds["default"] = Bind("default", uris)
+        self._binds["default"] = Bind("default", uris, metadata=None, **engine_kwargs)
 
         further_binds = fluid.config.get("SQLALCHEMY_BINDS", {})
         for key, uri in further_binds.items():
             uris = database_uris(uri)
-            self._binds[key] = Bind(key, uris)
+            self._binds[key] = Bind(key, uris, metadata=None, **engine_kwargs)
 
         SQLAlchemy._instance = self
 

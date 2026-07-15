@@ -1,0 +1,3 @@
+from webfluid import Fluid
+
+def setup_frontend(fluid: Fluid) -> None: ...

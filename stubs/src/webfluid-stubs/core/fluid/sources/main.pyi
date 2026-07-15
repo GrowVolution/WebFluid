@@ -1,0 +1,9 @@
+from markupsafe import Markup
+
+class Sources:
+    _sources: dict[int, list[Markup]]
+    _seen: set[str]
+    sources: tuple[Markup, ...] | None
+    def __init__(self) -> None: ...
+    def add(self, src: str, priority: int = 1) -> None: ...
+    def freeze(self) -> None: ...

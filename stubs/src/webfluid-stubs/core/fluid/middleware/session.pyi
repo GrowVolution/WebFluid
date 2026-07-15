@@ -1,0 +1,3 @@
+from webfluid import Fluid
+
+def add(fluid: Fluid) -> None: ...

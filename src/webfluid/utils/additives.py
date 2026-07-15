@@ -1,6 +1,5 @@
 from pathlib import Path
 from functools import wraps
-from jinja2 import ChoiceLoader
 from importlib import import_module
 import json
 
@@ -161,41 +160,30 @@ def require_extensions(*extensions):
 
 
 async def register_additives(fluid):
-    from webfluid.core.constants import ADDITIVES
-    loaders = []
+    from webfluid.core.additive import Additive
+    from .core import enabled
+    from .logging import factory as log_factory
 
-    async def register():
-        from webfluid.core.additive import Additive
-        from .core import enabled
-        from .logging import factory as log_factory
-        nonlocal loaders
+    for additive_info in installed_additives(fluid.additive_root, True):
+        additive_id = additive_info[0]
+        if not enabled(additive_id):
+            continue
 
-        for additive_info in installed_additives(fluid.additive_root, True):
-            additive_id = additive_info[0]
-            if not enabled(additive_id):
-                continue
+        try: mod = import_module(f"additives.{additive_info[2]}")
+        except ModuleNotFoundError as e:
+            log_factory.exception(e, f"Could not import additive '{additive_id}' for app '{fluid.name}'.")
+            continue
 
-            try: mod = import_module(f"additives.{additive_info[2]}")
-            except ModuleNotFoundError as e:
-                log_factory.exception(e, f"Could not import additive '{additive_id}' for app '{fluid.name}'.")
-                continue
+        additive = getattr(mod, "additive", None)
+        if not isinstance(additive, Additive):
+            log_factory.error(f"Missing 'additive: Additive' in additive package of '{additive_id}'.")
+            continue
 
-            additive = getattr(mod, "additive", None)
-            if not isinstance(additive, Additive):
-                log_factory.error(f"Missing 'additive: Additive' in additive package of '{additive_id}'.")
-                continue
-
-            try:
-                log_factory.log(f"Registering: {additive}")
-                if DEBUG and DEV_AUTO_INSTALL: additive.install()
-                await additive.enable(fluid)
-                loaders.append(additive.loader)
-                log_factory.log(f"[{additive.name}] Additive successfully registered.")
-            except Exception as e:
-                log_factory.exception(e, f"[{additive.name}] Failed registering additive.")
-
-    loaders.append(fluid.app_loader)
-    if ADDITIVES: await register()
-    loaders.append(fluid.framework_loader)
-
-    fluid.jinja_env.loader = ChoiceLoader(loaders)
+        try:
+            log_factory.log(f"Registering: {additive}")
+            if DEBUG and DEV_AUTO_INSTALL: additive.install()
+            await additive.enable(fluid)
+            fluid.add_template_loader(additive.loader)
+            log_factory.log(f"[{additive.name}] Additive successfully registered.")
+        except Exception as e:
+            log_factory.exception(e, f"[{additive.name}] Failed registering additive.")

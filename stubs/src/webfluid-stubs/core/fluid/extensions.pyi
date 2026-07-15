@@ -1,0 +1,3 @@
+from webfluid import Fluid
+
+def enable_extensions(fluid: Fluid) -> None: ...

@@ -1,0 +1,3 @@
+from webfluid.core.fluid import Fluid
+
+def init_configs(fluid: Fluid) -> None: ...

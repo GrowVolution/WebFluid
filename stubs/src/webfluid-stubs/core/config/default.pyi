@@ -1,14 +1,4 @@
-from collections.abc import Callable
 from typing import Any
-
-from webfluid.core.fluid import Fluid
-
-_config_map: dict[int, list[type]]
-
-class _ConfigMeta(type): ...
-
-class Config(dict[str, Any]):
-    def from_object(self, obj: object | str) -> None: ...
 
 class DefaultConfig:
     APP_CONFIG: dict[str, Any]
@@ -20,12 +10,14 @@ class DefaultConfig:
     SESSION_COOKIE_SAMESITE: str
 
     PROXY_FIX: bool
+    PROXY_TRUSTED_HOSTS: str
 
     RATELIMIT_ENABLED: bool
     RATELIMIT_STORAGE_URI: str
     RATELIMIT_DEFAULT: list[str]
 
     SQLALCHEMY_DATABASE_URI: str
+    SQLALCHEMY_ENGINE_OPTIONS: dict[str, Any]
 
     BABEL_DISABLE_AUTOUPDATE: bool
 
@@ -50,7 +42,3 @@ class DefaultConfig:
     CACHE_TYPE: str
     CACHE_REDIS_URI: str
     CACHE_DEFAULT_TIMEOUT: int
-
-def init_configs(fluid: Fluid) -> None: ...
-def register_config(priority: int = 1) -> Callable[[type], type]: ...
-def build_config() -> _ConfigMeta: ...

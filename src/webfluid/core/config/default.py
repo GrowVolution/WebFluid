@@ -1,21 +1,4 @@
-from importlib import import_module
 import os
-
-from webfluid.utils.core import enabled, check_priority, build_sorted_tuple, try_import
-from webfluid.utils.additives import installed_additives
-
-_config_map = {}
-
-class _ConfigMeta(type): pass
-
-
-class Config(dict):
-    def from_object(self, obj):
-        if isinstance(obj, str):
-            obj = import_module(obj)
-        for key in dir(obj):
-            if key.isupper():
-                self[key] = getattr(obj, key)
 
 
 class DefaultConfig:
@@ -74,45 +57,3 @@ class DefaultConfig:
     CACHE_TYPE = "redis"
     CACHE_REDIS_URI = f"{os.getenv('REDIS_URI', 'redis://localhost:6379')}/2"
     CACHE_DEFAULT_TIMEOUT = 300
-
-
-def init_configs(fluid):
-    try_import("fluid.config")
-
-    additives = fluid.project_root / "additives"
-    if not additives.exists() or not additives.is_dir(): return
-    for additive in installed_additives(additives, cache=False):
-        a, _, p = additive
-        if not enabled(a): continue
-        try_import(f"additives.{p}.config")
-
-
-def register_config(priority=1):
-    check_priority(priority)
-
-    def decorator(cls):
-        if not priority in _config_map:
-            _config_map[priority] = []
-
-        if not isinstance(type(cls), _ConfigMeta):
-            cls = _ConfigMeta(cls.__name__, cls.__bases__, dict(cls.__dict__))
-
-        _config_map[priority].append(cls)
-        return cls
-
-    return decorator
-
-
-def build_config():
-    cls = DefaultConfig
-    default_conf = _ConfigMeta(cls.__name__, cls.__bases__, dict(cls.__dict__))
-
-    bases = tuple()
-    for configs in build_sorted_tuple(_config_map):
-        bases += tuple(configs)
-
-    return _ConfigMeta(
-        "Config",
-        bases + (default_conf,),
-        {}
-    )

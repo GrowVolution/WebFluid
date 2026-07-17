@@ -1,0 +1,3 @@
+from collections.abc import Callable
+
+def url_for() -> Callable[..., str] | None: ...

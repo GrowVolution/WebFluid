@@ -1,0 +1,3 @@
+from collections.abc import Callable
+
+def register_config(priority: int = 1) -> Callable[[type], type]: ...

@@ -12,7 +12,10 @@ from webfluid.core.fluid.static import StaticFiles, StaticPrefixes
 from webfluid.core.fluid.sources import Sources, Themes
 from webfluid.core.fluid.server import Server
 
-from webfluid.core.config import Config, init_configs, build_config
+from webfluid.core.config.main import Config
+from webfluid.core.config.init import init_configs
+from webfluid.core.config.build import build_config
+
 from webfluid.core.constants import (
     APP_STATIC, WF_STATIC, PROCESSING, ADDITIVES
 )

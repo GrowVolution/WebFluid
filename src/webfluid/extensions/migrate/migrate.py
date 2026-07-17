@@ -4,7 +4,9 @@ from datetime import datetime, UTC
 import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
-from webfluid.core.config import Config, init_configs, build_config
+from webfluid.core.config.main import Config
+from webfluid.core.config.init import init_configs
+from webfluid.core.config.build import build_config
 from webfluid.utils.core import parse_config
 
 _templates = Path(__file__).parent / "templates"

@@ -1,0 +1,3 @@
+from webfluid.core.config.main import ConfigMeta
+
+def build_config() -> ConfigMeta: ...

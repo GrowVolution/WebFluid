@@ -13,8 +13,7 @@ _additives = {
 
 
 def _load_additives(package, target, additive_type, do_log):
-    from webfluid.core.additive import AdditiveVersion
-    from webfluid.core.manifest import Manifest
+    from webfluid.core.additive import AdditiveVersion, Manifest
 
     for additive in package.iterdir():
         if not additive.is_dir(): continue
@@ -183,7 +182,6 @@ async def register_additives(fluid):
             log_factory.log(f"Registering: {additive}")
             if DEBUG and DEV_AUTO_INSTALL: additive.install()
             await additive.enable(fluid)
-            fluid.add_template_loader(additive.loader)
             log_factory.log(f"[{additive.name}] Additive successfully registered.")
         except Exception as e:
             log_factory.exception(e, f"[{additive.name}] Failed registering additive.")

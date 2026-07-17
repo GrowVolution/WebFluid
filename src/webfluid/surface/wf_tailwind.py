@@ -75,7 +75,7 @@ def generate_tailwind_css(fluid):
         d
     )
 
-    for d in fluid.app_root.rglob("static/css"):
+    for d in fluid.project_root.rglob("static/css"):
         in_file = d / raw_filename
         if not in_file.exists(): continue
         generate_asset(

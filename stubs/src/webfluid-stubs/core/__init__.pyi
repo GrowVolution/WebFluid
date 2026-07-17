@@ -2,8 +2,8 @@ from webfluid.core.fluid import Fluid as Fluid
 from webfluid.core.additive import (
     Additive as Additive,
     AdditiveVersion as AdditiveVersion,
+    Manifest as Manifest,
 )
-from webfluid.core.manifest import Manifest as Manifest
 from webfluid.core.constants import (
     FRAMEWORK_ROOT as FRAMEWORK_ROOT,
     APP_STATIC as APP_STATIC,

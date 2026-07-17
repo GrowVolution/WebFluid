@@ -9,7 +9,7 @@ from markupsafe import Markup
 from webfluid.core.config import Config
 from webfluid.surface.frontend import Frontend
 from webfluid.core.fluid.static import StaticFiles, StaticPrefixes
-from webfluid.core.fluid.lifecycle import AppLifecycle, RequestLifecycle
+from webfluid.core.lifecycle import FluidLifecycle, RequestLifecycle
 from webfluid.core.fluid.jinja import Jinja
 from webfluid.core.fluid.sources import Sources, Themes
 from webfluid.core.fluid.ratelimit import Limiter
@@ -23,7 +23,7 @@ class Fluid(FastAPI):
     static_files: StaticFiles
     static_prefixes: StaticPrefixes
     frontend: Frontend
-    _app_lifecycle: AppLifecycle
+    _lifecycle: FluidLifecycle
     _request_lifecycle: RequestLifecycle
     _jinja: Jinja
     _sources: Sources

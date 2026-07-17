@@ -9,7 +9,7 @@ from webfluid.core.constants import (
 class StaticFiles:
     def __init__(self, fluid):
         self._sources = []
-        static = fluid.app_root / WF_STATIC
+        static = fluid.project_root / WF_STATIC
         if static.exists():
             self.add(APP_STATIC, static, "static")
 

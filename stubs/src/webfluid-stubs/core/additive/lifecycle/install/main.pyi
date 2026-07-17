@@ -1,0 +1,3 @@
+from webfluid.core.additive.main import Additive
+
+def install(additive: Additive, _seen: set[str] | None = None) -> None: ...

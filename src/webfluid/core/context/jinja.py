@@ -1,7 +1,7 @@
 from webfluid.utils.core import required_arg_count, safe_execute
 
 
-class Context:
+class JinjaContext:
     def __init__(self):
         self._processors = []
 

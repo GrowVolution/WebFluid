@@ -1,4 +1,4 @@
-from webfluid.core.context import FluidContext
+from webfluid.core.context.fluid import FluidContext
 
 
 def add(fluid):

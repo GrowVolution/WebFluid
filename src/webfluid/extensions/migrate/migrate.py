@@ -50,7 +50,7 @@ class Migrate(FluidExtension):
             )
             raise typer.Exit()
 
-        class Dummy: app_root = project_root
+        class Dummy: project_root = project_root
         sys.path.insert(0, str(project_root))
         try: init_configs(Dummy)
         finally: sys.path.pop(0)

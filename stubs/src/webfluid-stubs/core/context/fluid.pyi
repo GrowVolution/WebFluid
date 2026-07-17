@@ -1,23 +1,9 @@
 from contextvars import ContextVar
-from contextlib import contextmanager
-from collections.abc import Iterator
 from typing import Any
 
 from fastapi import Request
 from webfluid import Fluid
-
-class BaseContext:
-    _ctx: ContextVar[Any]
-    _tokens: list[Any]
-    def __enter__(self) -> BaseContext: ...
-    def __exit__(self, *args: object) -> bool: ...
-    async def __aenter__(self) -> BaseContext: ...
-    async def __aexit__(self, *args: object) -> bool: ...
-    @classmethod
-    def current(cls) -> BaseContext: ...
-    @classmethod
-    @contextmanager
-    def outer(cls, depth: int = 1) -> Iterator[BaseContext | None]: ...
+from webfluid.core.context.base import BaseContext
 
 class FluidContext(BaseContext):
     _ctx: ContextVar[FluidContext]

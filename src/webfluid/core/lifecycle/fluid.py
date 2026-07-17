@@ -13,10 +13,6 @@ class HookPhase:
         self._hooks = []
         self._locked = False
 
-    @property
-    def locked(self):
-        return self._locked
-
     def add_hook(self, fn):
         if self._locked:
             if self.name == "startup":

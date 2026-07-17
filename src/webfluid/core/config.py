@@ -79,7 +79,7 @@ class DefaultConfig:
 def init_configs(fluid):
     try_import("fluid.config")
 
-    additives = fluid.app_root / "additives"
+    additives = fluid.project_root / "additives"
     if not additives.exists() or not additives.is_dir(): return
     for additive in installed_additives(additives, cache=False):
         a, _, p = additive

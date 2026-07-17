@@ -24,7 +24,7 @@ def get_fluid():
 
     with FluidContext(app):
         try_import("fluid.models")
-        for additive in installed_additives(app.app_root / "additives"):
+        for additive in installed_additives(app.project_root / "additives"):
             a, _, p = additive
             if not enabled(a): continue
             try_import(f"additives.{p}.models")

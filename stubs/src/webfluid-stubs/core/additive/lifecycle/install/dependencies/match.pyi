@@ -1,0 +1,3 @@
+from typing import Any
+
+def match_version(meta: dict[str, Any], constraint: str) -> str | None: ...

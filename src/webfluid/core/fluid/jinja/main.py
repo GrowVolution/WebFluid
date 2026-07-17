@@ -1,15 +1,14 @@
 from jinja2 import Environment
 
 from .rendering import Renderer
-from .context import Context
 from .loaders import Loaders
-
+from webfluid.core.context.jinja import JinjaContext
 
 
 class Jinja:
     def __init__(self, fluid):
         self.env = Environment(enable_async=True)
-        self.context = Context()
+        self.context = JinjaContext()
         self.loaders = Loaders(fluid)
         self.renderer = Renderer(self)
 

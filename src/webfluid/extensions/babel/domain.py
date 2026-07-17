@@ -14,7 +14,7 @@ class Domain:
         self.cache = {}
 
     def get_translations_path(self, fluid):
-        if fluid: return self.dir or os.path.join(str(fluid.app_root), "translations")
+        if fluid: return self.dir or os.path.join(str(fluid.project_root), "translations")
         return self.dir or os.path.join(os.getcwd(), "translations")
 
     def get_translations(self):

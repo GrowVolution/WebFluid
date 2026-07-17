@@ -9,7 +9,7 @@ class Loaders:
     def __init__(self, fluid):
         self._loaders = []
         self._frozen = None
-        app_templates = FileSystemLoader(fluid.app_root / _template_path)
+        app_templates = FileSystemLoader(fluid.project_root / _template_path)
         self.add(ChoiceLoader([
             app_templates, PrefixLoader({ "app": app_templates })
         ]))

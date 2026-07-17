@@ -1,0 +1,6 @@
+from typing import Any
+
+from webfluid.core.additive.main import Additive
+
+def _normalize_requirements(requirement: Any) -> dict[str, str]: ...
+def required_additives(additive: Additive) -> dict[str, str]: ...

@@ -270,7 +270,7 @@ class Frontend:
         self.rel = f"fluid{self.prefix}"
         self._init(
             fluid.config["APP_FRONTEND"],
-            fluid.app_root / "fluid"
+            fluid.project_root / "fluid"
         )
 
         if self.type == "vite" and self.register_index:
@@ -314,7 +314,7 @@ class Frontend:
             def create_proc():
                 cls._proc = node_proc(
                     ["node", "node_modules/vite/bin/vite.js"],
-                    fluid.app_root,
+                    fluid.project_root,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True
@@ -333,7 +333,7 @@ class Frontend:
                     try:
                         node_cmd(
                             ["npm", "run", "check", "--workspaces"],
-                            fluid.app_root
+                            fluid.project_root
                         )
                     except NodeError as e:
                         if "No workspaces found!" not in str(e):
@@ -342,7 +342,7 @@ class Frontend:
                 if BUILD_FRONTEND:
                     proc = node_proc(
                         ["npm", "run", "build", "--workspaces"],
-                        fluid.app_root,
+                        fluid.project_root,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True
@@ -359,10 +359,10 @@ class Frontend:
                     fluid.mount(data[0], data[1], name)
             fluid.startup_hook(mount)
 
-        if (fluid.app_root / "package.json").exists():
+        if (fluid.project_root / "package.json").exists():
             fluid.startup_hook(create_proc)
 
-        cls._app_root = fluid.app_root
+        cls._project_root = fluid.project_root
         fluid.startup_hook(lambda: fluid.get(
             "/{path:path}", name="vite_asset_catch"
         )(cls._asset_catch))
@@ -408,10 +408,10 @@ class Frontend:
             vite_ns = request.cookies.get("vite_ns")
             if vite_ns is None: return Response(status_code=404)
 
-            if (cls._app_root / vite_ns / path).exists():
+            if (cls._project_root / vite_ns / path).exists():
                 final_path = f"{vite_ns}/{path}"
 
-            elif (cls._app_root / vite_ns / "public" / path).exists():
+            elif (cls._project_root / vite_ns / "public" / path).exists():
                 final_path = f"{vite_ns}/public/{path}"
 
             else: return Response(status_code=404)
@@ -425,7 +425,7 @@ class Frontend:
 
             return await proxy(request, final_path)
 
-        file = cls._app_root / final_path
+        file = cls._project_root / final_path
         return FileResponse(
             file,
             filename=file.name,

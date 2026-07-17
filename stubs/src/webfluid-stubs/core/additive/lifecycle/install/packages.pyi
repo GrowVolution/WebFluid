@@ -1,0 +1,3 @@
+from webfluid.core.additive.main import Additive
+
+def install_packages(additive: Additive) -> None: ...

@@ -1,0 +1,3 @@
+from webfluid.core.additive.main import Additive
+
+def resolve_dependencies(additive: Additive, seen: set[str]) -> None: ...

@@ -22,7 +22,7 @@ def __getattr__(name):
         return getattr(additive, name)
 
     if name == "Manifest":
-        from .manifest import Manifest
+        from .additive import Manifest
         return Manifest
 
     if name in {

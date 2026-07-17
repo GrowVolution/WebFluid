@@ -1,0 +1,3 @@
+from webfluid.core.additive.main import Additive
+
+def add_http_middleware(additive: Additive) -> None: ...

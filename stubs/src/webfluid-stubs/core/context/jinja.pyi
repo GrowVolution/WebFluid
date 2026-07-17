@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-class Context:
+class JinjaContext:
     _processors: list[Callable[..., Any]]
     def __init__(self) -> None: ...
     def add_processor(self, fn: Callable[..., Any]) -> Callable[..., Any]: ...

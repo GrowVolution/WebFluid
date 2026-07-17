@@ -1,0 +1,3 @@
+from webfluid.core.additive.main import Additive
+
+def configure(additive: Additive) -> None: ...

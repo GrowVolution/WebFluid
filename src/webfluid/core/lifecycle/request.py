@@ -6,7 +6,7 @@ class RequestPhase:
         self.before = stage == "before"
         self.after = stage == "after"
 
-        if not self.before and not self.after:
+        if not (self.before or self.after):
             raise ValueError("Invalid request phase.")
 
         self.reverse = reverse
@@ -41,7 +41,7 @@ class RequestPhase:
 class Lifecycle:
     def __init__(self):
         self.before = RequestPhase("before")
-        self.after = RequestPhase("after")
+        self.after = RequestPhase("after", reverse=True)
 
     async def process_before(self):
         return await self.before.process()

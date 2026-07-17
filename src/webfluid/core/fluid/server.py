@@ -48,7 +48,7 @@ class Server:
     async def _start(self):
         log_factory.start_session()
 
-        await self.app._app_lifecycle.run_startup()
+        await self.app._lifecycle.run_startup()
         serve = asyncio.create_task(self._run_server())
         await self._shutdown_flag.wait()
 
@@ -56,7 +56,7 @@ class Server:
             self._server.should_exit = True
             await serve
 
-        await self.app._app_lifecycle.run_shutdown()
+        await self.app._lifecycle.run_shutdown()
         log_factory.log("Server stopped.")
 
     def run(self): asyncio.run(self._start())

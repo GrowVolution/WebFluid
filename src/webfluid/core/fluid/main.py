@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 
 from webfluid.core.fluid import middleware
-from webfluid.core.fluid.lifecycle import AppLifecycle, RequestLifecycle
+from webfluid.core.lifecycle import FluidLifecycle, RequestLifecycle
 from webfluid.core.fluid.frontend import setup_frontend
 from webfluid.core.fluid.extensions import enable_extensions
 from webfluid.core.fluid.ratelimit import Limiter
@@ -38,8 +38,8 @@ class Fluid(FastAPI):
         self.name = safe_string(os.getenv("APP_NAME", import_name)).lower()
         super().__init__(**self.config.get("APP_CONFIG", {}))
 
-        self.app_root = Path(get_root_path(import_name)).resolve()
-        self.additive_root = self.app_root / "additives"
+        self.project_root = Path(get_root_path(import_name)).resolve()
+        self.additive_root = self.project_root / "additives"
 
         self.static_files = StaticFiles(self)
         self.static_prefixes = StaticPrefixes(
@@ -47,7 +47,7 @@ class Fluid(FastAPI):
             "/frontend", "/vite-dev"
         )
 
-        self._app_lifecycle = AppLifecycle()
+        self._lifecycle = FluidLifecycle()
         self._request_lifecycle = RequestLifecycle()
 
         self._jinja = Jinja(self)
@@ -91,11 +91,11 @@ class Fluid(FastAPI):
 
     @property
     def startup_hook(self):
-        return self._app_lifecycle.startup.add_hook
+        return self._lifecycle.startup.add_hook
 
     @property
     def shutdown_hook(self):
-        return self._app_lifecycle.shutdown.add_hook
+        return self._lifecycle.shutdown.add_hook
 
     @property
     def before_request(self):

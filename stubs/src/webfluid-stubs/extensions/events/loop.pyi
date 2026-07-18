@@ -1,0 +1,13 @@
+import asyncio
+from typing import Any
+
+from webfluid.extensions.events.events import Events
+from webfluid.extensions.events.socket.main import SocketManager
+
+class LoopManager:
+    _events: Events
+    _socket: SocketManager | None
+    def __init__(self, events: Events, socket_manager: SocketManager | None) -> None: ...
+    def _client_tasks(self, internal: bool, event: str, data: Any) -> list[Any]: ...
+    async def _loop(self, event: str) -> None: ...
+    def create_loop(self, event: str) -> asyncio.Task[Any]: ...

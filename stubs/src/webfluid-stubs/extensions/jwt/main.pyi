@@ -1,0 +1,21 @@
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from webfluid import Fluid
+from webfluid.extensions.base import FluidExtension
+from webfluid.extensions.jwt.decode import Decoder
+from webfluid.extensions.jwt.encode import Encoder
+
+class JWTManager(FluidExtension):
+    _encoder: Encoder
+    _decoder: Decoder
+    def __init__(self, fluid: Fluid | None = None) -> None: ...
+    def expand_fluid(self, fluid: Fluid, *_: Any, **__: Any) -> None: ...
+    @property
+    def encode(self) -> Callable[..., str]: ...
+    @property
+    def aencode(self) -> Callable[..., Awaitable[str]]: ...
+    @property
+    def decode(self) -> Callable[..., dict[str, Any]]: ...
+    @property
+    def adecode(self) -> Callable[..., Awaitable[dict[str, Any]]]: ...

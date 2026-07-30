@@ -4,6 +4,8 @@ from webfluid.extensions.sqlalchemy.utils import update_metadata
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 
+_not_initialized = "Security.expand_fluid() has not been called."
+
 
 class Security(FluidExtension):
     def __init__(self, fluid=None):
@@ -66,23 +68,23 @@ class Security(FluidExtension):
     @property
     def user_service(self):
         if self._user_service is None:
-            raise FrameworkException("Security not initialized.")
+            raise FrameworkException(_not_initialized)
         return self._user_service
 
     @property
     def token_service(self):
         if self._token_service is None:
-            raise FrameworkException("Security not initialized.")
+            raise FrameworkException(_not_initialized)
         return self._token_service
 
     @property
     def hash_service(self):
         if self._hash_service is None:
-            raise FrameworkException("Security not initialized.")
+            raise FrameworkException(_not_initialized)
         return self._hash_service
 
     @property
     def oauth_service(self):
         if self._oauth_service is None:
-            raise FrameworkException("Security not initialized.")
+            raise FrameworkException(_not_initialized)
         return self._oauth_service

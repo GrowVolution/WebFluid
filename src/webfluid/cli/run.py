@@ -24,6 +24,9 @@ def _env_from_config(config_file, debug):
 
     for section in cfg.sections():
         if section == "dev" and not debug: continue
+        if section == "additives": env["ENABLED_ADDITIVES"] = str(sum(
+            v.lower() in ("true", "1", "yes") for v in cfg[section].values()
+        ))
         pairs = [parse_config(k, v) for k, v in cfg[section].items()]
         for k, v in pairs: env[k] = v
 

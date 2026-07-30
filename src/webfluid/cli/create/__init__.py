@@ -9,6 +9,7 @@ from webfluid.cli.create import templates
 from webfluid.core.constants import FRAMEWORK_ID
 from webfluid.surface import node_cmd, dist
 from webfluid.utils.additives import installed_additives
+from webfluid.utils.surface import setup_frontend
 from webfluid.utils.core import safe_string
 
 create = typer.Typer(help="Create new WebFluid instances.")
@@ -212,8 +213,6 @@ def project(
 
     def frontend():
         typer.secho("Setting up frontend...", bold=True)
-
-        from webfluid.surface import setup_frontend
         setup_frontend(name)
 
         if skip_defaults: return

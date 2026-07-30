@@ -15,7 +15,7 @@ from webfluid.extensions.security.models.token import ExpiredToken
 
 
 class TokenService:
-    def __init__(self, secret: str, max_age: int, csrf_cookie: str, csrf_secure: bool):
+    def __init__(self, secret, max_age, csrf_cookie, csrf_secure):
         self._serializer = URLSafeTimedSerializer(secret)
         self._max_age = max_age
         self._csrf_cookie = csrf_cookie
@@ -35,10 +35,10 @@ class TokenService:
             log_factory.warning("[Security] CSRF cookies are not secure. "
                                 "Consider setting SECURITY_CSRF_COOKIE_SECURE=True")
 
-    def generate_token(self, data: dict, salt: str = "csrf") -> str:
+    def generate_token(self, data, salt="csrf"):
         return self._serializer.dumps(data, salt=salt)
 
-    async def validate_token(self, token: str, salt: str = "csrf") -> dict:
+    async def validate_token(self, token, salt="csrf"):
         try:
             if salt == "csrf":
                 return self._serializer.loads(token, salt=salt, max_age=self._max_age)
@@ -60,7 +60,7 @@ class TokenService:
         except BadSignature:
             raise HTTPException(status_code=403, detail="INVALID_TOKEN")
 
-    def csrf_response(self, request: Request) -> JSONResponse:
+    def csrf_response(self, request):
         raw = token_urlsafe(32)
         csrf_token = self.generate_token({ "csrf": raw })
         request.session["csrf_token"] = raw

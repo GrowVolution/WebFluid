@@ -14,4 +14,4 @@ class ExpiredToken(db.Model):
         server_default=func.now()
     )
 
-    def __init__(self, token: str): self.token = token
+    def __init__(self, token): self.token = token

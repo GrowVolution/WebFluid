@@ -1,8 +1,8 @@
 import json
 
-from webfluid.surface import validate_frontend_config as frontend_check
 from webfluid.utils.core import check_required_version, enabled
 from webfluid.utils.additives import id_check, version_check, type_check
+from webfluid.utils.surface import validate_config as frontend_check
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
 

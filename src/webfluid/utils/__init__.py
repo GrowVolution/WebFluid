@@ -5,7 +5,7 @@ __all__ = [
     "run_in_executor", "check_priority", "build_sorted_tuple", "try_import", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additives", "ocean", "countries", "logging"
+    "additives", "ocean", "countries", "logging", "cli", "surface"
 ]
 
 

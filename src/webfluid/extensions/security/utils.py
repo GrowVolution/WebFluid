@@ -4,13 +4,13 @@ from webfluid.core.config import DefaultConfig
 from webfluid.core.context import FluidContext
 
 
-def validate_username(username: str) -> str:
+def validate_username(username):
     if not re.match(r"^[a-zA-Z0-9_-]{3,30}$", username):
         raise ValueError("INVALID_USERNAME")
     return username
 
 
-def validate_password(password: str) -> str:
+def validate_password(password):
     min_len, requirements = FluidContext.get_ctx_data(
         DefaultConfig,
         "SECURITY_PASSWORD_MIN_LENGTH",

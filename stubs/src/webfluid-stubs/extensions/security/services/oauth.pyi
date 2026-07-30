@@ -4,6 +4,8 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 
+_script: str
+
 
 class OAuthService:
     client: Any

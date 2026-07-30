@@ -16,9 +16,12 @@ class _Formatter(logging.Formatter):
     def __init__(self) -> None: ...
     def format(self, record: logging.LogRecord) -> str: ...
 
+class _ColoredStreamHandler(logging.StreamHandler[Any]):
+    def emit(self, record: logging.LogRecord) -> None: ...
+
 class LogFactory:
     formatter: _Formatter
-    colored_console: logging.StreamHandler[Any]
+    colored_console: _ColoredStreamHandler
     console: logging.StreamHandler[Any]
     main_logger: str
     adtv_logger: str

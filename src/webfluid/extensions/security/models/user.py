@@ -68,7 +68,7 @@ class User(db.Model):
         cascade="all, delete-orphan"
     )
 
-    def __init__(self, username: str, email: str | None, psw_hash: str | None = None):
+    def __init__(self, username, email, psw_hash=None):
         self.username = username
         self.email = email
         self.psw_hash = psw_hash
@@ -91,7 +91,7 @@ class Identity(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, user_id: int, sub: str, provider: str):
+    def __init__(self, user_id, sub, provider):
         self.user_id = user_id
         self.sub = sub
         self.provider = provider
@@ -116,7 +116,7 @@ class TOTPSecret(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, user_id: int, secret: str):
+    def __init__(self, user_id, secret):
         self.user_id = user_id
         self.secret = secret
 
@@ -141,9 +141,8 @@ class WebAuthnCredential(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, user_id: int, credential_id: str, public_key: str,
-                 sign_count: int = 0, transports: str | None = None,
-                 name: str | None = None):
+    def __init__(self, user_id, credential_id, public_key,
+                 sign_count=0, transports=None, name=None):
         self.user_id = user_id
         self.credential_id = credential_id
         self.public_key = public_key
@@ -169,7 +168,7 @@ class BackupCode(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, user_id: int, code_hash: str):
+    def __init__(self, user_id, code_hash):
         self.user_id = user_id
         self.code_hash = code_hash
 
@@ -193,7 +192,7 @@ class Role(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, name: str, require_2fa: bool = False):
+    def __init__(self, name, require_2fa=False):
         self.name = name
         self.requires_2fa = require_2fa
         self.users = []
@@ -212,6 +211,6 @@ class Permission(db.Model):
         lazy="selectin"
     )
 
-    def __init__(self, name: str):
+    def __init__(self, name):
         self.name = name
         self.roles = []

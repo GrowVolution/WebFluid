@@ -1,5 +1,5 @@
 from webfluid.utils.core import safe_execute, required_arg_count
-from webfluid.utils.logging import factory as log_factory
+from webfluid.utils.cli import progress_bar
 
 
 class HookPhase:
@@ -28,9 +28,10 @@ class HookPhase:
 
     async def run_hooks(self):
         self._locked = True
-        log_factory.log(f"Running {self.name} hooks...")
-        for hook in reversed(self._hooks) if self.reverse else self._hooks:
-            await safe_execute(hook, False)
+        with progress_bar(f"{self.name.capitalize()} hook phase", len(self._hooks)) as bar:
+            for hook in reversed(self._hooks) if self.reverse else self._hooks:
+                await safe_execute(hook, False)
+                bar.update()
 
 
 class Lifecycle:

@@ -4,6 +4,8 @@ from webfluid import Fluid
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.security.services import UserService, TokenService, HashService, OAuthService
 
+_not_initialized: str
+
 
 class Security(FluidExtension):
     def __init__(self, fluid: Fluid | None = None) -> None: ...

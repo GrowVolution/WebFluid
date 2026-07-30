@@ -3,6 +3,7 @@ import os, platform, typer, subprocess
 from webfluid.core.constants import EXECUTION
 from webfluid.surface import dist
 from webfluid.surface.src import node_standalone
+from webfluid.utils.cli import download_file
 from webfluid.exceptions import NodeError
 
 
@@ -91,7 +92,7 @@ def node_proc(cmd, cwd=os.getcwd(), **kwargs):
     )
 
 
-def load_node(download_fn):
+def load_node():
     sys_node = _sys_node()
     if sys_node[0]:
         typer.echo(f"Node.js version {sys_node[1]} is already installed... Skipping integration.")
@@ -108,7 +109,7 @@ def load_node(download_fn):
     if bin_folder.exists():
         return
 
-    download_fn(data[0], dest)
+    download_file(data[0], dest)
     if not dest.exists():
         raise NodeError("Failed to download standalone node bundle.")
 

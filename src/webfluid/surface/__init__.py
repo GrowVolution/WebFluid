@@ -10,9 +10,7 @@ if TYPE_CHECKING:
         generate_asset as generate_tailwind_asset,
         tailwind_cmd, cli_entry as tailwind_cli
     )
-    from webfluid.surface.frontend import (
-        Frontend, setup_frontend, validate_config as validate_frontend_config
-    )
+    from webfluid.surface.frontend import Frontend
 
 dist = (Path(__file__).parent / "dist").resolve()
 
@@ -24,7 +22,7 @@ __all__ = [
     "load_tailwind", "generate_tailwind_css",
     "generate_tailwind_asset", "tailwind_cmd", "tailwind_cli",
 
-    "Frontend", "setup_frontend", "validate_frontend_config"
+    "Frontend"
 ]
 
 
@@ -46,12 +44,8 @@ def __getattr__(name):
             return getattr(wf_tailwind, "cli_entry")
         return getattr(wf_tailwind, name)
 
-    if name in {
-        "Frontend", "setup_frontend", "validate_frontend_config"
-    }:
-        from . import frontend
-        if name == "validate_frontend_config":
-            return getattr(frontend, "validate_config")
-        return getattr(frontend, name)
+    if name == "Frontend":
+        from .frontend import Frontend
+        return Frontend
 
     raise AttributeError(name)

@@ -1,12 +1,21 @@
 from fastapi import Request, Depends
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.exceptions import HTTPException
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import MismatchingStateError
 
+_script = """<script>
+    window.opener.postMessage({{
+        status: "ok",
+        provider: "{provider}",
+    }}, "{base_url}")
+
+    window.close()
+</script>"""
+
 
 class OAuthService:
-    def __init__(self, clients: dict):
+    def __init__(self, clients):
         self._client = OAuth()
         self._allowed_providers = set()
         for name, client in clients.items():
@@ -18,14 +27,14 @@ class OAuthService:
         self.userinfo = Depends(self._userinfo())
 
     def _resolve_client(self):
-        async def wrapped(provider: str):
+        async def wrapped(provider):
             if provider not in self._allowed_providers:
                 raise HTTPException(status_code=400, detail="UNKNOWN_PROVIDER")
             return self._client.create_client(provider)
         return wrapped
 
     def _userinfo(self):
-        async def wrapped(request: Request, provider: str):
+        async def wrapped(request: Request, provider):
             if provider not in self._allowed_providers:
                 raise HTTPException(status_code=400, detail="UNKNOWN_PROVIDER")
 
@@ -45,11 +54,11 @@ class OAuthService:
             return userinfo
         return wrapped
 
-    def register_provider(self, name: str, client: dict):
+    def register_provider(self, name, client):
         self._client.register(name, **client)
         self._allowed_providers.add(name)
 
-    def unregister_provider(self, name: str):
+    def unregister_provider(self, name):
         self._client.unregister(name)
         self._allowed_providers.remove(name)
 
@@ -66,16 +75,12 @@ class OAuthService:
         request.session["device"] = device
 
     @staticmethod
-    def authorize_response(request: Request, provider: str, device: str, csrf=None):
+    def authorize_response(request, provider, device, csrf=None):
         if device == "desktop":
-            response = HTMLResponse(f"""<script>
-    window.opener.postMessage({{
-        status: "ok",
-        provider: "{provider}",
-    }}, "{ str(request.base_url).rstrip("/") }")
-
-    window.close()
-</script>""")
+            response = HTMLResponse(_script.format(
+                provider=provider,
+                base_url=str(request.base_url).rstrip("/")
+            ))
 
         else:
             response = RedirectResponse(

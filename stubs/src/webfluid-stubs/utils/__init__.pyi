@@ -24,6 +24,8 @@ from . import (
     ocean as ocean,
     countries as countries,
     logging as logging,
+    cli as cli,
+    surface as surface,
 )
 
 __all__ = [
@@ -32,5 +34,5 @@ __all__ = [
     "check_priority", "build_sorted_tuple", "try_import", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additives", "ocean", "countries", "logging",
+    "additives", "ocean", "countries", "logging", "cli", "surface",
 ]

@@ -3,6 +3,7 @@ import os, platform, typer, subprocess
 from webfluid.core.constants import EXECUTION
 from webfluid.surface import dist
 from webfluid.surface.src import tailwind_cli
+from webfluid.utils.cli import download_file
 from webfluid.exceptions import TailwindError
 
 
@@ -85,7 +86,7 @@ def generate_tailwind_css(fluid):
         )
 
 
-def load_tailwind(download_fn):
+def load_tailwind():
     data = _get_cli_data()
     file_type = ".exe" if data[1] == "windows" else ""
 
@@ -93,7 +94,7 @@ def load_tailwind(download_fn):
 
     if dest.exists(): return
 
-    download_fn(data[0], dest)
+    download_file(data[0], dest)
     if not dest.exists():
         raise TailwindError("Failed to download standalone tailwind cli.")
 

@@ -36,11 +36,25 @@ class _Formatter(logging.Formatter):
         return typer.style(msg, **style_kwargs)
 
 
+class _ColoredStreamHandler(logging.StreamHandler):
+    def emit(self, record):
+        from .cli import CliContext
+        try: ctx = CliContext.current()
+        except RuntimeError: ctx = None
+
+        if ctx:
+            ctx.bar.write(self.format(record))
+            return
+
+        self.stream.write(self.format(record) + self.terminator)
+        self.flush()
+
+
 class LogFactory:
     def __init__(self):
         self.formatter = _Formatter()
 
-        self.colored_console = logging.StreamHandler(sys.stdout)
+        self.colored_console = _ColoredStreamHandler(sys.stdout)
         self.colored_console.setLevel(logging.NOTSET)
         self.colored_console.setFormatter(self.formatter)
 
@@ -54,7 +68,7 @@ class LogFactory:
     def additive_context(self, fn):
         @wraps(fn)
         async def wrapper(*args, **kwargs):
-            async with _LogContext(self.adtv_logger):
+            with _LogContext(self.adtv_logger):
                 return await async_result(fn(*args, **kwargs))
         return wrapper
 

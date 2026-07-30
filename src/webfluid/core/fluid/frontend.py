@@ -1,8 +1,9 @@
 from markupsafe import Markup
 
 from webfluid.core.constants import TAILWIND, WF_STATIC
-from webfluid.surface.frontend import Frontend, validate_config
+from webfluid.surface.frontend import Frontend
 from webfluid.surface.wf_tailwind import generate_tailwind_css
+from webfluid.utils.surface import validate_config
 
 
 def setup_frontend(fluid):

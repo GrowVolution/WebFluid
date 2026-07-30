@@ -18,7 +18,7 @@ from webfluid.core.fluid.server import Server
 class Fluid(FastAPI):
     config: Config
     name: str
-    app_root: Path
+    project_root: Path
     additive_root: Path
     static_files: StaticFiles
     static_prefixes: StaticPrefixes

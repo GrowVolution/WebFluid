@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager, contextmanager
 
+from webfluid.extensions.sqlalchemy.bind import Bind
+from webfluid.extensions.sqlalchemy.model import Model
+from webfluid.extensions.sqlalchemy.executor import Executor, AsyncExecutor
+from webfluid.extensions.sqlalchemy.utils import database_uris
 from webfluid.extensions.base import FluidExtension
-from webfluid.extensions.sqlalchemy.utils import (
-    Model, Bind, Executor, AsyncExecutor, database_uris
-)
 from webfluid.exceptions import FrameworkException
 
 
@@ -12,7 +13,7 @@ class SQLAlchemy(FluidExtension):
 
     def __init__(self, fluid=None, base=Model):
         if SQLAlchemy._instance is not None:
-            raise FrameworkException("SQLAlchemy.expand_fluid() has already been called!")
+            raise FrameworkException("SQLAlchemy.expand_fluid() has already been called.")
 
         self.Model = base
         self._binds = {}
@@ -35,13 +36,19 @@ class SQLAlchemy(FluidExtension):
 
         SQLAlchemy._instance = self
 
+    def _ensure_initialized(self):
+        if not self._binds:
+            raise FrameworkException("SQLAlchemy.expand_fluid() has not been called.")
+
     def _resolve_bind(self, bind_key, model):
+        self._ensure_initialized()
         if not (bind_key or model): bind = self._binds["default"]
         elif bind_key: bind = self.get_bind(bind_key)
         else: bind = self.get_bind_for_model(model)
         return bind
 
     def get_bind(self, bind_key):
+        self._ensure_initialized()
         bind = self._binds.get(bind_key)
         if not bind: raise KeyError(
             f"Unknown bind key: '{bind_key}'"
@@ -85,10 +92,11 @@ class SQLAlchemy(FluidExtension):
 
     @property
     def bind_keys(self):
+        self._ensure_initialized()
         return list(self._binds.keys())
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            raise FrameworkException("SQLAlchemy.expand_fluid() was never called!")
+            raise FrameworkException("SQLAlchemy.expand_fluid() has never been called.")
         return cls._instance

@@ -7,6 +7,7 @@ from webfluid.extensions.base import FluidExtension
 from webfluid.core.constants import WF_STATIC
 from webfluid.core.context import FluidContext
 from webfluid.utils import safe_execute
+from webfluid.exceptions import FrameworkException
 
 
 class EventManager(FluidExtension):
@@ -44,26 +45,36 @@ class EventManager(FluidExtension):
         loop_manager = LoopManager(self._events, socket_manager)
         self._events.create_loop = loop_manager.create_loop
 
+    def _ensure_initialized(self):
+        if not self._events or not self._queries:
+            raise FrameworkException("EventManager.expand_fluid() has not been called.")
+
     @property
     def create_signal(self):
+        self._ensure_initialized()
         return self._events.create_signal
 
     @property
     def event(self):
+        self._ensure_initialized()
         return self._events.event
 
     @property
     def trigger(self):
+        self._ensure_initialized()
         return self._events.trigger
 
     @property
     def listen(self):
+        self._ensure_initialized()
         return self._events.listen
 
     @property
     def query(self):
+        self._ensure_initialized()
         return self._queries.query
 
     @property
     def request(self):
+        self._ensure_initialized()
         return self._queries.request

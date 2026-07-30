@@ -191,7 +191,7 @@ def project(
     typer.echo(f"Creating project '{name}'...")
     project_root.mkdir(parents=True, exist_ok=True)
 
-    app_dir = project_root / "fluid"
+    app_dir = project_root / FRAMEWORK_ID
 
     if not skip_defaults:
         typer.secho("Generating default structure...",
@@ -267,8 +267,9 @@ def project(
         typer.secho("Extracting Babel fallback catalogs...",
                     bold=True)
 
-        from webfluid.extensions.babel import Babel
-        Babel.extract_fallback(project_root)
+        from webfluid.extensions.babel.babel import CLIExtension
+        CLIExtension.extract_fallback(project_root)
+        CLIExtension.compile_fallback(project_root)
 
     typer.secho(f"Successfully created project '{name}'.",
                 bold=True, fg=typer.colors.GREEN)

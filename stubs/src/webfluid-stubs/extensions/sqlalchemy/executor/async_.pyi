@@ -1,0 +1,16 @@
+from contextvars import ContextVar
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from webfluid.core.context.base import BaseContext
+
+
+class AsyncExecutor(BaseContext):
+    _ctx: ContextVar[Any]
+    session: AsyncSession
+    def __init__(self, session: AsyncSession) -> None: ...
+    async def exec(self, statement: Any, scalars: bool = True) -> Any: ...
+    async def insert(self, obj: Any, flush: bool = False) -> Any: ...
+    async def delete(self, obj: Any, flush: bool = False) -> None: ...
+    async def flush(self) -> None: ...

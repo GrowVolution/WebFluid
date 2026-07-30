@@ -1,0 +1,16 @@
+from contextvars import ContextVar
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from webfluid.core.context.base import BaseContext
+
+
+class Executor(BaseContext):
+    _ctx: ContextVar[Any]
+    session: Session
+    def __init__(self, session: Session) -> None: ...
+    def exec(self, statement: Any, scalars: bool = True) -> Any: ...
+    def insert(self, obj: Any, flush: bool = False) -> Any: ...
+    def delete(self, obj: Any, flush: bool = False) -> None: ...
+    def flush(self) -> None: ...

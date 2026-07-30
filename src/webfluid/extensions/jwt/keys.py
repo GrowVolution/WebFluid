@@ -3,7 +3,7 @@ from webfluid.exceptions import FrameworkException
 
 def _validated_key(key):
     if key is None:
-        raise FrameworkException("JWTManager not initialized.")
+        raise FrameworkException("JWT cache not initialized.")
     return key
 
 

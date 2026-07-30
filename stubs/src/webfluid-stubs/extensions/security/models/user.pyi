@@ -2,7 +2,7 @@ from sqlalchemy import Table
 from sqlalchemy.orm import Mapped
 from datetime import datetime
 
-from webfluid.extensions.sqlalchemy.utils import Model
+from webfluid.extensions.sqlalchemy.model import Model
 
 user_roles: Table
 role_permissions: Table

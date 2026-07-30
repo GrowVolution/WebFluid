@@ -31,6 +31,9 @@ from webfluid.exceptions import FrameworkException
 
 class Fluid(FastAPI):
     def __init__(self, import_name):
+        self.project_root = Path(get_root_path(import_name)).resolve()
+        self.additive_root = self.project_root / "additives"
+
         init_configs(self)
         self.config = Config()
         self.config.from_object(build_config())
@@ -41,15 +44,6 @@ class Fluid(FastAPI):
         self.name = safe_string(os.getenv("APP_NAME", import_name)).lower()
         super().__init__(**self.config.get("APP_CONFIG", {}))
 
-        self.project_root = Path(get_root_path(import_name)).resolve()
-        self.additive_root = self.project_root / "additives"
-
-        self.static_files = StaticFiles(self)
-        self.static_prefixes = StaticPrefixes(
-            APP_STATIC, WF_STATIC,
-            "/frontend", "/vite-dev"
-        )
-
         self._lifecycle = FluidLifecycle()
         self._request_lifecycle = RequestLifecycle()
 
@@ -58,6 +52,12 @@ class Fluid(FastAPI):
         self._themes = Themes(self)
         self._limiter = Limiter(self)
         self._server = Server(self)
+
+        self.static_files = StaticFiles(self)
+        self.static_prefixes = StaticPrefixes(
+            APP_STATIC, WF_STATIC,
+            "/frontend", "/vite-dev"
+        )
 
         self.add_source(
             f'<script src="{WF_STATIC}/js/base.js" type="module"></script>',

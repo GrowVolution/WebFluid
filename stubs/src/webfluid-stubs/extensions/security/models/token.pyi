@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Mapped
 from datetime import datetime
 
-from webfluid.extensions.sqlalchemy.utils import Model
+from webfluid.extensions.sqlalchemy.model import Model
 
 
 class ExpiredToken(Model):

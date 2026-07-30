@@ -12,11 +12,20 @@ def __getattr__(name):
         from .sqlalchemy import SQLAlchemy
         return SQLAlchemy
 
-    if name in {
-        "Model", "Bind", "Executor", "AsyncExecutor",
-        "database_uris"
-    }:
-        from . import utils
-        return getattr(utils, name)
+    if name == "Model":
+        from .model import Model
+        return Model
+
+    if name == "Bind":
+        from .bind import Bind
+        return Bind
+
+    if name in {"Executor", "AsyncExecutor"}:
+        from . import executor
+        return getattr(executor, name)
+
+    if name == "database_uris":
+        from .utils import database_uris
+        return database_uris
 
     raise AttributeError(name)

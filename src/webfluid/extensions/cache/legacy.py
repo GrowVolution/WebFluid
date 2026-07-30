@@ -25,12 +25,11 @@ class LegacyCache(BaseCache):
 
     def get(self, key): return self._cache.get(key)
     def delete(self, key): self._cache.pop(key, None)
+    def clear(self): self._cache.clear()
 
     async def aset(self, key, value, timeout=None):
         await async_result(self.set(key, value, timeout))
 
     async def aget(self, key): return await async_result(self.get(key))
-    async def adelete(self, key): return await async_result(self.delete(key))
-
-    def clear(self): self._cache.clear()
+    async def adelete(self, key): await async_result(self.delete(key))
     async def aclear(self): await async_result(self.clear())

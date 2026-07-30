@@ -3,13 +3,18 @@ from typing import Any
 
 from webfluid import Fluid
 from webfluid.extensions.base import FluidExtension
-from webfluid.extensions.sqlalchemy.utils import Model, Bind, Executor, AsyncExecutor
+from webfluid.extensions.sqlalchemy.model import Model
+from webfluid.extensions.sqlalchemy.bind import Bind
+from webfluid.extensions.sqlalchemy.executor import Executor, AsyncExecutor
 
 
 class SQLAlchemy(FluidExtension):
+    _instance: SQLAlchemy | None
+    _binds: dict[str, Bind]
     Model: type[Model]
     def __init__(self, fluid: Fluid | None = None, base: type[Model] = ...) -> None: ...
     def expand_fluid(self, fluid: Fluid, *_: Any, **__: Any) -> None: ...
+    def _ensure_initialized(self) -> None: ...
     def _resolve_bind(self, bind_key: str | None, model: Any) -> Bind: ...
     def get_bind(self, bind_key: str) -> Bind: ...
     def get_bind_for_model(self, model: Any) -> Bind: ...

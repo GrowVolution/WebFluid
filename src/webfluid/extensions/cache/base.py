@@ -12,10 +12,9 @@ class BaseCache(FluidExtension):
     def set(self, key, value, timeout=None): raise NotImplementedError()
     def get(self, key): raise NotImplementedError()
     def delete(self, key): raise NotImplementedError()
+    def clear(self): raise NotImplementedError()
 
     async def aset(self, key, value, timeout=None): raise NotImplementedError()
     async def aget(self, key): raise NotImplementedError()
     async def adelete(self, key): raise NotImplementedError()
-
-    def clear(self): raise NotImplementedError()
     async def aclear(self): raise NotImplementedError()

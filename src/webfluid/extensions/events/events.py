@@ -11,15 +11,6 @@ class Events:
         self._events = {}
         self.create_loop = None
 
-    @property
-    def _create_loop(self):
-        if self.create_loop is None:
-            raise FrameworkException(
-                "EventManager.expand_fluid() must be called "
-                "before registering events."
-            )
-        return self.create_loop
-
     def _prepare_event(self, name, singleton, internal):
         if singleton and name in self._events:
             raise ValueError(f"Event '{name}' already exists.")
@@ -43,18 +34,13 @@ class Events:
             self._broadcasters[name] = BroadCaster(
                 name, self._event_queue_size
             )
-            self._create_loop(name)
+            if callable(self.create_loop):
+                self.create_loop(name)
 
     def create_signal(self, name, singleton=False, internal=False):
         self._prepare_event(name, singleton, internal)
 
     def event(self, name, singleton=False, internal=True):
-        if not self._ctx_decorator:
-            raise FrameworkException(
-                "EventManager.expand_fluid() must be called "
-                "before registering events."
-            )
-
         self._prepare_event(name, singleton, internal)
 
         def decorator(fn):

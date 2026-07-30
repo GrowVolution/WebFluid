@@ -10,9 +10,6 @@ class Queries:
         self._queries = {}
 
     def query(self, name, singleton=True, internal=True):
-        if not self._ctx_decorator:
-            raise FrameworkException("EventManager.expand_fluid() must be called before registering queries.")
-
         if singleton and name in self._queries:
             raise ValueError(f"Query '{name}' already exists.")
 

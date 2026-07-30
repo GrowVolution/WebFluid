@@ -7,10 +7,11 @@ from webfluid.extensions.jwt.decode import Decoder
 from webfluid.extensions.jwt.encode import Encoder
 
 class JWTManager(FluidExtension):
-    _encoder: Encoder
-    _decoder: Decoder
+    _encoder: Encoder | None
+    _decoder: Decoder | None
     def __init__(self, fluid: Fluid | None = None) -> None: ...
     def expand_fluid(self, fluid: Fluid, *_: Any, **__: Any) -> None: ...
+    def _ensure_initialized(self) -> None: ...
     @property
     def encode(self) -> Callable[..., str]: ...
     @property

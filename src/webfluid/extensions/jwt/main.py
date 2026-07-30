@@ -18,8 +18,8 @@ class JWTManager(FluidExtension):
             "default": "Application"
         }
 
-        self._encoder = Encoder(self)
-        self._decoder = Decoder(self)
+        self._encoder = None
+        self._decoder = None
 
         super().__init__(fluid)
 
@@ -41,16 +41,31 @@ class JWTManager(FluidExtension):
         self._token_issuer = fluid.config.get("JWT_ISSUER", self._token_issuer)
         self._token_audiences = fluid.config.get("JWT_AUDIENCES", self._token_audiences)
 
+        self._encoder = Encoder(self)
+        self._decoder = Decoder(self)
+
         add_key_rotation_job(fluid, self)
 
-    @property
-    def encode(self): return self._encoder.encode
+    def _ensure_initialized(self):
+        if not self._encoder or not self._decoder:
+            raise FrameworkException("JWTManager.expand_fluid() has not been called.")
 
     @property
-    def aencode(self): return self._encoder.aencode
+    def encode(self):
+        self._ensure_initialized()
+        return self._encoder.encode
 
     @property
-    def decode(self): return self._decoder.decode
+    def aencode(self):
+        self._ensure_initialized()
+        return self._encoder.aencode
 
     @property
-    def adecode(self): return self._decoder.adecode
+    def decode(self):
+        self._ensure_initialized()
+        return self._decoder.decode
+
+    @property
+    def adecode(self):
+        self._ensure_initialized()
+        return self._decoder.adecode

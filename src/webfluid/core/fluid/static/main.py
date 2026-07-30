@@ -5,16 +5,18 @@ from webfluid.core.constants import (
     FRAMEWORK_ID, FRAMEWORK_ROOT
 )
 
+_STATIC = WF_STATIC.lstrip("/")
 
 class StaticFiles:
     def __init__(self, fluid):
         self._sources = []
-        static = fluid.project_root / WF_STATIC
+
+        static = fluid.project_root / _STATIC
         if static.exists():
             self.add(APP_STATIC, static, "static")
 
         wf_static = f"{FRAMEWORK_ID}_static"
-        self.add(WF_STATIC, FRAMEWORK_ROOT / WF_STATIC, wf_static)
+        self.add(WF_STATIC, FRAMEWORK_ROOT / _STATIC, wf_static)
         fluid.jinja_env.globals["wf_static"] = wf_static
 
     def add(self, path, directory, name=None):

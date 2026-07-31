@@ -1,15 +1,12 @@
-from webfluid.utils.core import required_arg_count, safe_execute
+from webfluid.core.lifecycle.phase import Phase
+from webfluid.utils.core import safe_execute
 
 
 class JinjaContext:
     def __init__(self):
-        self._processors = []
+        self._processors = Phase("Context processors")
 
-    def add_processor(self, fn):
-        if required_arg_count(fn) > 0:
-            raise TypeError("Context processors must not receive non optional arguments.")
-        self._processors.append(fn)
-        return fn
+    def add_processor(self, fn): return self._processors.add(fn)
 
     async def process(self, ctx):
         for processor in self._processors:

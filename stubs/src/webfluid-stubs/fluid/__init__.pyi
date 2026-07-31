@@ -1,2 +1,3 @@
+from webfluid.fluid import i18n as i18n
 
-__all__: list[str]
+__all__ = ["i18n"]

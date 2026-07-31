@@ -1,18 +1,20 @@
 from .default import DefaultConfig
-from .main import ConfigMeta, config_map
+from .main import config_map
 from webfluid.utils.core import build_sorted_tuple
 
 
+def _values(cls):
+    values = {}
+    for base in reversed(cls.__mro__):
+        for key, value in vars(base).items():
+            if key.isupper(): values[key] = value
+    return values
+
+
 def build_config():
-    cls = DefaultConfig
-    default_conf = ConfigMeta(cls.__name__, cls.__bases__, dict(cls.__dict__))
+    config = _values(DefaultConfig)
 
-    bases = tuple()
     for configs in build_sorted_tuple(config_map):
-        bases += tuple(configs)
+        for cls in configs: config.update(_values(cls))
 
-    return ConfigMeta(
-        "Config",
-        bases + (default_conf,),
-        {}
-    )
+    return config

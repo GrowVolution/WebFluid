@@ -43,6 +43,26 @@ class MergedTranslations(Translations):
         if db_val: return db_val
         return self._mo_pnget(context, singular, plural, num)
 
+    async def agettext(self, message):
+        db_val = await self._transaction_service.aget(message)
+        if db_val: return db_val
+        return self._mo_get(message)
+
+    async def angettext(self, msgid1, msgid2, n):
+        db_val = await self._transaction_service.aget(msgid1, n)
+        if db_val: return db_val
+        return self._mo_nget(msgid1, msgid2, n)
+
+    async def apgettext(self, context, message):
+        db_val = await self._transaction_service.aget(message, ctx=context)
+        if db_val: return db_val
+        return self._mo_pget(context, message)
+
+    async def anpgettext(self, context, singular, plural, num):
+        db_val = await self._transaction_service.aget(singular, num, context)
+        if db_val: return db_val
+        return self._mo_pnget(context, singular, plural, num)
+
     async def settext(self, key, message):
         await TransactionService.set(self._locale, self._domain, key, message, "one", None)
 

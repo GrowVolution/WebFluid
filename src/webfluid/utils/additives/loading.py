@@ -19,7 +19,7 @@ def _load_additives(package, target, additive_type, do_log):
         try:
             manifest = Manifest(additive / "manifest.json")
             if manifest["type"] != additive_type: continue
-            version = AdditiveVersion(*manifest["version"].split("."))
+            version = AdditiveVersion(manifest["version"])
             _additives[target][package].append(
                 (manifest.get("id", additive.name), version, additive.name)
             )
@@ -31,7 +31,7 @@ def _load_additives(package, target, additive_type, do_log):
 
 
 def installed_additives(package, do_log=False, cache=True):
-    if  _additives["additives"].get(package):
+    if cache and _additives["additives"].get(package) is not None:
         return _additives["additives"][package]
 
     if not package.name == "additives":
@@ -46,7 +46,7 @@ def installed_additives(package, do_log=False, cache=True):
 
 
 def installed_bases(package, do_log=False, cache=True):
-    if _additives["bases"].get(package):
+    if cache and _additives["bases"].get(package) is not None:
         return _additives["bases"][package]
 
     _additives["bases"][package] = []

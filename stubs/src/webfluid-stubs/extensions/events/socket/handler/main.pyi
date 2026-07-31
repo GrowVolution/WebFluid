@@ -1,7 +1,5 @@
-import asyncio
-from typing import Any
-
 from fastapi import WebSocket
+from typing import Any
 
 from webfluid.extensions.events.events import Events
 from webfluid.extensions.events.queries import Queries
@@ -17,4 +15,4 @@ class SocketHandler:
         self, socket_manager: SocketManager, events: Events, queries: Queries
     ) -> None: ...
     async def _handle(self, ws: WebSocket) -> None: ...
-    def handle(self, ws: WebSocket) -> asyncio.Task[None]: ...
+    async def handle(self, ws: WebSocket) -> None: ...

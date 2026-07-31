@@ -18,19 +18,15 @@ class Selector:
 
     @property
     def locale_selector_fn(self):
-        try:
-            fn = SelectorContext.current().locale_selector
-            if fn is None: return self._locale_selector_fn
-            return fn
-        except RuntimeError: return self._locale_selector_fn
+        ctx = SelectorContext.try_current()
+        fn = ctx.locale_selector if ctx else None
+        return fn if fn is not None else self._locale_selector_fn
 
     @property
     def timezone_selector_fn(self):
-        try:
-            fn = SelectorContext.current().timezone_selector
-            if fn is None: return self._timezone_selector_fn
-            return fn
-        except RuntimeError: return self._timezone_selector_fn
+        ctx = SelectorContext.try_current()
+        fn = ctx.timezone_selector if ctx else None
+        return fn if fn is not None else self._timezone_selector_fn
 
     @staticmethod
     @contextmanager

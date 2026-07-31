@@ -5,34 +5,33 @@ from .keys import current_key, acurrent_key
 
 
 class Encoder:
-    def __init__(self, jwt_manager):
-        self._jwt_manager = jwt_manager
+    def __init__(self, config):
+        self._config = config
 
     def _encode(self, payload, audience, secret, expire, kid):
-        jwt_manager = self._jwt_manager
         payload = payload.copy()
         now = datetime.now(UTC)
         payload.update({
-            "exp": now + timedelta(days=expire or jwt_manager._token_expiry_days),
+            "exp": now + timedelta(days=expire or self._config.expiry_days),
             "iat": now,
             "nbf": now,
-            "iss": jwt_manager._token_issuer,
-            "aud": jwt_manager._token_audiences.get(audience, audience)
+            "iss": self._config.issuer,
+            "aud": self._config.audience(audience)
         })
         return jwt.encode(
             payload, secret,
             headers={ "kid": kid },
-            algorithm=jwt_manager._token_algorithm
+            algorithm=self._config.algorithm
         )
 
     def encode(self, payload, audience="default", expire=None):
         from webfluid.core.ext import cache
         key = current_key(cache)
-        secret = cache.get(f"jwt:{key}")
-        return self._encode(payload, audience, secret, expire, key)
+        return self._encode(payload, audience, cache.get(f"jwt:{key}"), expire, key)
 
     async def aencode(self, payload, audience="default", expire=None):
         from webfluid.core.ext import cache
         key = await acurrent_key(cache)
-        secret = await cache.aget(f"jwt:{key}")
-        return self._encode(payload, audience, secret, expire, key)
+        return self._encode(
+            payload, audience, await cache.aget(f"jwt:{key}"), expire, key
+        )

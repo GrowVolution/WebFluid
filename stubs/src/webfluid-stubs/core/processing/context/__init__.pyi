@@ -1,3 +1,3 @@
-from webfluid.core.processing.context.main import add_processor as add_context_processor
+from webfluid.core.processing.context.main import install_context
 
-__all__ = ["add_context_processor"]
+__all__ = ["install_context"]

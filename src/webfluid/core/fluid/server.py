@@ -4,10 +4,11 @@ from webfluid.utils.logging import factory as log_factory
 
 
 class Server:
-    def __init__(self, fluid):
+    def __init__(self, fluid, lifecycle):
         self._loop = None
         self._server = None
         self._shutdown_flag = asyncio.Event()
+        self._lifecycle = lifecycle
         self.app = fluid
 
         fluid.startup_hook(self._add_shutdown_handlers)
@@ -48,7 +49,7 @@ class Server:
     async def _start(self):
         log_factory.start_session()
 
-        await self.app._lifecycle.run_startup()
+        await self._lifecycle.run_startup()
         serve = asyncio.create_task(self._run_server())
         await self._shutdown_flag.wait()
 
@@ -56,7 +57,7 @@ class Server:
             self._server.should_exit = True
             await serve
 
-        await self.app._lifecycle.run_shutdown()
+        await self._lifecycle.run_shutdown()
         log_factory.log("Server stopped.")
 
     def run(self): asyncio.run(self._start())

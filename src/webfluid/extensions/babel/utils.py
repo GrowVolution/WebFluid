@@ -65,23 +65,15 @@ def load_locale(locale):
     return Locale.parse(locale_key)
 
 
-def get_locale():
+def _request_locale():
     from webfluid.core.ext import babel
 
-    try: ctx = FluidContext.current()
-    except RuntimeError:
-        return load_locale(babel.default_locale)
-
-    if babel.locale_selector_fn is not None:
-        locale = babel.locale_selector_fn()
-        if isinstance(locale, Locale): return locale
-        return load_locale(locale)
-
-    request = ctx.request
+    ctx = FluidContext.try_current()
+    request = ctx.request if ctx else None
     if request is None:
         return load_locale(babel.default_locale)
 
-    locale = (
+    return load_locale(
         request.query_params.get("lang")
         or request.cookies.get("lang")
         or parse_best_match(
@@ -90,25 +82,41 @@ def get_locale():
         )
         or babel.default_locale
     )
-    return load_locale(locale)
+
+
+def _request_timezone():
+    from webfluid.core.ext import babel
+
+    ctx = FluidContext.try_current()
+    request = ctx.request if ctx else None
+    if request is None:
+        return ZoneInfo(babel.default_timezone)
+
+    return ZoneInfo(
+        request.cookies.get("tz")
+        or request.headers.get("X-Timezone")
+        or babel.default_timezone
+    )
+
+
+def get_locale():
+    from webfluid.core.ext import babel
+
+    selector = babel.locale_selector_fn
+    if selector is not None:
+        locale = selector()
+        return locale if isinstance(locale, Locale) else load_locale(locale)
+
+    return FluidContext.cached_or("locale", _request_locale)
 
 
 def get_timezone():
     from webfluid.core.ext import babel
 
-    try: ctx = FluidContext.current()
-    except RuntimeError:
-        return ZoneInfo(babel.default_timezone)
+    selector = babel.timezone_selector_fn
+    if selector is not None: return ZoneInfo(selector())
 
-    if babel.timezone_selector_fn is not None:
-        return ZoneInfo(babel.timezone_selector_fn())
-
-    tz = (
-        ctx.request.cookies.get("tz") or
-        ctx.request.headers.get("X-Timezone") or
-        babel.default_timezone
-    )
-    return ZoneInfo(tz)
+    return FluidContext.cached_or("timezone", _request_timezone)
 
 
 def format_message(message, **variables):

@@ -5,12 +5,12 @@ from webfluid.core.context.base import BaseContext
 
 class FluidContext(BaseContext):
     _ctx = ContextVar("fluid.context")
-    _ctx_cache = {}
 
     def __init__(self, fluid, request=None, *args, **kwargs):
         self.fluid = fluid
         self.request = request
         self._data = {}
+        self._cache = {}
 
         self._data.update(kwargs)
         for arg in args:
@@ -31,34 +31,13 @@ class FluidContext(BaseContext):
     def get(self, key, default=None): return self._data.get(key, default)
     def pop(self, key, default=None): return self._data.pop(key, default)
 
+    def cached(self, key, factory):
+        if key not in self._cache:
+            self._cache[key] = factory()
+        return self._cache[key]
+
     @classmethod
-    def get_ctx_data(cls, default_config, *requirements):
-        data = []
-
-        try:
-            ctx = cls.current()
-            for req in requirements:
-                if req in cls._ctx_cache:
-                    d = cls._ctx_cache[req]
-
-                else:
-                    d = ctx.fluid.config.get(
-                        req, getattr(default_config, req, None)
-                    )
-                    cls._ctx_cache[req] = d
-
-                data.append(d)
-
-        except RuntimeError:
-            from webfluid.utils.logging import factory as log_factory
-            log_factory.warning("Running outside a request, using cache or default config.")
-
-            for req in requirements:
-                if req in cls._ctx_cache:
-                    d = cls._ctx_cache[req]
-                else:
-                    d = getattr(default_config, req, None)
-
-                data.append(d)
-
-        return data[0] if len(data) == 1 else tuple(data)
+    def cached_or(cls, key, factory):
+        ctx = cls.try_current()
+        if ctx is None: return factory()
+        return ctx.cached(key, factory)

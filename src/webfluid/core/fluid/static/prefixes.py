@@ -1,18 +1,21 @@
-class StaticPrefixes:
+from webfluid.core.freeze import Freezable
+
+
+class StaticPrefixes(Freezable):
+    label = "Prefixes"
+    closed_after = "initialization"
+
     def __init__(self, *prefixes):
+        super().__init__()
         self._prefixes = set(prefixes)
-        self._frozen = None
 
     def add(self, prefix):
-        if self._frozen is not None:
-            raise RuntimeError("Prefixes cannot be added after initialization.")
+        self.guard()
         self._prefixes.add(prefix)
 
-    def freeze(self):
-        self._frozen = tuple(self._prefixes)
+    def freeze(self, value=None):
+        prefixes = tuple(self._prefixes)
         del self._prefixes
+        return super().freeze(prefixes)
 
-    def matches(self, path):
-        if self._frozen is None:
-            raise RuntimeError("Prefixes must be frozen before use.")
-        return path.startswith(self._frozen)
+    def matches(self, path): return path.startswith(self.frozen)

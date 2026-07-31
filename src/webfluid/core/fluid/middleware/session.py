@@ -5,19 +5,13 @@ from webfluid.utils.logging import factory as log_factory
 
 
 def add(fluid):
-    session_secure = fluid.config.get(
-        "SESSION_COOKIE_SECURE", not DEBUG
-    )
+    session_secure = fluid.config["SESSION_COOKIE_SECURE"]
     fluid.add_middleware(
         SessionMiddleware,
         secret_key=fluid.config["SECRET_KEY"],
-        session_cookie=fluid.config.get(
-            "SESSION_COOKIE_NAME", "session"
-        ),
+        session_cookie=fluid.config["SESSION_COOKIE_NAME"],
         https_only=session_secure,
-        same_site=fluid.config.get(
-            "SESSION_COOKIE_SAMESITE", "lax"
-        )
+        same_site=fluid.config["SESSION_COOKIE_SAMESITE"]
     )
     if not session_secure and not DEBUG:
         fluid.startup_hook(lambda: log_factory.warning(

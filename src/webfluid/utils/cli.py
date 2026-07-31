@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 from tqdm import tqdm
-import typer, requests, sys
+import typer, sys
 
 from webfluid.core.constants import EXECUTION
 from webfluid.core.context.base import BaseContext
@@ -25,6 +25,7 @@ def progress_bar(description, length, leave=True, **kwargs):
 
 
 def download_file(url, dest):
+    import requests
     typer.secho(f"Downloading '{url}'...", bold=True)
     with requests.get(url, stream=True, timeout=30) as r:
         r.raise_for_status()

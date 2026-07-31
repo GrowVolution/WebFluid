@@ -22,9 +22,7 @@ class Domain:
 
         translations = self.cache.get(str(locale))
         if translations is None:
-            try: ctx = FluidContext.current()
-            except RuntimeError: ctx = None
-
+            ctx = FluidContext.try_current()
             dirname = self.get_translations_path(ctx.fluid if ctx else None)
             wrapped = support.Translations.load(
                 dirname, locale, domain=self.domain

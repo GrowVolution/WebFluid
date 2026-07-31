@@ -15,7 +15,7 @@ class I18nKey(db.Model):
 
     messages: Mapped[list[I18nMessage]] = relationship(
         back_populates="key",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, key, domain, cached=True):
@@ -38,7 +38,7 @@ class I18nMessage(db.Model):
 
     key: Mapped[I18nKey] = relationship(
         back_populates="messages",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, kid, locale, text, pf="one", ctx=None):

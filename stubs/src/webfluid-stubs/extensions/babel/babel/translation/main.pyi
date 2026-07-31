@@ -1,9 +1,10 @@
+from typing import Any
+
 from webfluid.extensions.babel.domain import Domain
 from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.babel.babel.translation.domains import Domains
 from webfluid.extensions.babel.babel.translation.selection import Selector
 from webfluid.extensions.babel.babel.translation.translations import Translations
-from typing import Any
 
 
 class Translator:
@@ -15,6 +16,14 @@ class Translator:
     def ngettext(self, singular: str, plural: str, num: int, **variables: Any) -> str: ...
     def pgettext(self, context: str, string: str, **variables: Any) -> str: ...
     def npgettext(
+        self, context: str, singular: str, plural: str, num: int, **variables: Any
+    ) -> str: ...
+    async def agettext(self, string: str, **variables: Any) -> str: ...
+    async def angettext(
+        self, singular: str, plural: str, num: int, **variables: Any
+    ) -> str: ...
+    async def apgettext(self, context: str, string: str, **variables: Any) -> str: ...
+    async def anpgettext(
         self, context: str, singular: str, plural: str, num: int, **variables: Any
     ) -> str: ...
     def lazy_gettext(self, string: str, **variables: Any) -> LazyString: ...

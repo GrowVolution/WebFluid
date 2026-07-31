@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractContextManager, AbstractAsyncContextManager
 from typing import Any
 
@@ -20,44 +20,29 @@ class Babel(FluidExtension):
     default_timezone: str | None
     supported_locales: tuple[str, ...] | None
     date_formats: Any
+    gettext: Callable[..., str]
+    ngettext: Callable[..., str]
+    pgettext: Callable[..., str]
+    npgettext: Callable[..., str]
+    agettext: Callable[..., Awaitable[str]]
+    angettext: Callable[..., Awaitable[str]]
+    apgettext: Callable[..., Awaitable[str]]
+    anpgettext: Callable[..., Awaitable[str]]
+    lazy_gettext: Callable[..., LazyString]
+    lazy_ngettext: Callable[..., LazyString]
+    lazy_pgettext: Callable[..., LazyString]
+    lazy_npgettext: Callable[..., LazyString]
+    register_domain: Callable[..., None]
+    domain_context: Callable[..., Callable[..., Any]]
+    current_domain: Domain
+    update_translations: Callable[..., None]
+    locale_selector: Callable[..., Callable[..., Any]]
+    timezone_selector: Callable[..., Callable[..., Any]]
+    locale_selector_fn: Callable[..., Any] | None
+    timezone_selector_fn: Callable[..., Any] | None
+    force: Callable[..., AbstractContextManager[None]]
+    aforce: Callable[..., AbstractAsyncContextManager[None]]
     def __init__(
         self, fluid: Fluid | None = None, default_domain: Domain | None = None
     ) -> None: ...
     def expand_fluid(self, fluid: Fluid, *_: Any, **kwargs: Any) -> None: ...
-    def _ensure_initialized(self) -> None: ...
-    @property
-    def gettext(self) -> Callable[..., str]: ...
-    @property
-    def ngettext(self) -> Callable[..., str]: ...
-    @property
-    def pgettext(self) -> Callable[..., str]: ...
-    @property
-    def npgettext(self) -> Callable[..., str]: ...
-    @property
-    def lazy_gettext(self) -> Callable[..., LazyString]: ...
-    @property
-    def lazy_ngettext(self) -> Callable[..., LazyString]: ...
-    @property
-    def lazy_pgettext(self) -> Callable[..., LazyString]: ...
-    @property
-    def lazy_npgettext(self) -> Callable[..., LazyString]: ...
-    @property
-    def register_domain(self) -> Callable[..., None]: ...
-    @property
-    def domain_context(self) -> Callable[..., Callable[..., Any]]: ...
-    @property
-    def current_domain(self) -> Domain: ...
-    @property
-    def update_translations(self) -> Callable[..., None]: ...
-    @property
-    def locale_selector(self) -> Callable[..., Callable[..., Any]]: ...
-    @property
-    def timezone_selector(self) -> Callable[..., Callable[..., Any]]: ...
-    @property
-    def locale_selector_fn(self) -> Callable[..., Any] | None: ...
-    @property
-    def timezone_selector_fn(self) -> Callable[..., Any] | None: ...
-    @property
-    def force(self) -> Callable[..., AbstractContextManager[None]]: ...
-    @property
-    def aforce(self) -> Callable[..., AbstractAsyncContextManager[None]]: ...

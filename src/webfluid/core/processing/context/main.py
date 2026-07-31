@@ -6,7 +6,7 @@ from .url_for import url_for
 from webfluid.core.constants import FRAMEWORK_ID
 
 
-def add_processor(fluid):
+def install_context(fluid):
     get_locale = setup_and_get_locale_fn(fluid)
     theme, sources = get_source_callables(fluid)
 

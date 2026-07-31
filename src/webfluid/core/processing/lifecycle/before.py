@@ -2,7 +2,7 @@ from webfluid.core.context.fluid import FluidContext
 from webfluid.utils.logging import factory as log_factory
 
 
-def add_hook(fluid):
+def install_request_logger(fluid):
     @fluid.before_request
     def before_request():
         r = FluidContext.current().request

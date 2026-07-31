@@ -1,3 +1,3 @@
-from webfluid.core.fluid import Fluid
+from webfluid import Fluid
 
 def setup_processing(fluid: Fluid) -> None: ...

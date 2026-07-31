@@ -1,5 +1,7 @@
 from collections.abc import Callable
 
-from webfluid.core.fluid import Fluid
+from babel import Locale
 
-def setup_and_get_locale_fn(fluid: Fluid) -> Callable[[], str]: ...
+from webfluid import Fluid
+
+def setup_and_get_locale_fn(fluid: Fluid) -> Callable[[], Locale | str]: ...

@@ -7,7 +7,7 @@ from webfluid.utils.surface import validate_config
 
 
 def setup_frontend(fluid):
-    if "APP_FRONTEND" in fluid.config and fluid.config["APP_FRONTEND"] is not None:
+    if fluid.config.get("APP_FRONTEND") is not None:
         result = validate_config(fluid.config["APP_FRONTEND"])
         if not result[0]:
             raise ValueError(f"Invalid frontend configuration: {result[1]}")

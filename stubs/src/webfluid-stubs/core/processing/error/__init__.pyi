@@ -1,4 +1,4 @@
-from webfluid.core.processing.error.handler import add as add_exception_handler
-from webfluid.core.processing.error.templates import error_templates as error_templates
+from webfluid.core.processing.error.templates import error_templates
+from webfluid.core.processing.error.handler import install_error_handler
 
-__all__ = ["add_exception_handler", "error_templates"]
+__all__ = ["error_templates", "install_error_handler"]

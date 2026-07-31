@@ -1,4 +1,4 @@
-from .handler import add as add_exception_handler
 from .templates import error_templates
+from .handler import install_error_handler
 
-__all__ = ["add_exception_handler", "error_templates"]
+__all__ = ["error_templates", "install_error_handler"]

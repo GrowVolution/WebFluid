@@ -17,4 +17,7 @@ async def current_user(request: Request):
                 User.id == request.session["user_id"]
             )
         )
-        yield results.first()
+        user = results.first()
+        if user is not None: e.session.expunge(user)
+
+    yield user

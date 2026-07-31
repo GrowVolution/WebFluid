@@ -1,10 +1,8 @@
 import json
 
-from webfluid.utils.core import check_required_version, enabled
 from webfluid.utils.additives import id_check, version_check, type_check
 from webfluid.utils.surface import validate_config as frontend_check
-from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import AdditiveException, ManifestError
+from webfluid.exceptions import ManifestError
 
 
 class Manifest:
@@ -45,67 +43,8 @@ class Manifest:
     def pop(self, key, default=None): return self._data.pop(key, default)
 
     def check_requirements(self, additive_root):
-        if not "requires" in self:
-            return
-
-        requirements = self["requires"]
-        if not "wf" in requirements:
-            log_factory.warning(f"[{self['name']}] Required WebFluid version of not defined.")
-        else:
-            fulfilled = check_required_version(requirements["wf"])
-            if not fulfilled:
-                raise AdditiveException(
-                    f"[{self['name']}] Additive requires WebFluid version {requirements['wf']}."
-                )
-
-        if "additives" in requirements:
-            requirement = requirements["additives"]
-
-            if isinstance(requirement, list):
-                new = {}
-                for r in requirement:
-                    if not isinstance(r, str):
-                        raise ManifestError(f"[{self['name']}] Invalid additive requirement '{r}'.")
-                    r = r.split("@")
-                    if len(r) == 2:
-                        a, v = r
-                    else:
-                        a = r[0]
-                        v = "*"
-                    new[a] = v
-                requirement = new
-
-            if not isinstance(requirement, dict):
-                raise ManifestError(f"[{self['name']}] Invalid additives requirement type: {type(requirement)}")
-
-            from webfluid.utils.additives import installed_additives, installed_bases
-
-            additives = installed_additives(additive_root)
-            for additive in additives:
-                a, v, _ = additive
-                if a not in requirement: continue
-                if not enabled(a): continue
-
-                if check_required_version(
-                        requirement.get(a, "*"),
-                        "additive", v
-                ): requirement.pop(a)
-
-            if len(requirement) > 0:
-                bases = installed_bases(additive_root)
-                for base in bases:
-                    b, v, _ = base
-                    if b not in requirement: continue
-
-                    if check_required_version(
-                            requirement.get(b, "*"),
-                            "additive", v
-                    ): requirement.pop(b)
-
-            if len(requirement) > 0:
-                raise AdditiveException(
-                    f"[{self['name']}] Missing or mismatching additive requirements: {[a for a in requirement]}"
-                )
+        from .requirements import RequirementChecker
+        RequirementChecker(self, additive_root).check()
 
     @classmethod
     def validated_data(cls, target):

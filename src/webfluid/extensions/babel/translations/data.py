@@ -66,9 +66,31 @@ class TransactionService:
             row = result.first()
             return row.text if row else None
 
+    async def _afetch(self, key, num, ctx):
+        pf = plural_form(self._locale, num)
+
+        async with db.async_executor(model=I18nMessage) as e:
+            result = await e.exec(
+                select(I18nMessage).where(
+                    I18nMessage.locale == self._locale,
+                    I18nMessage.pf == pf,
+                    I18nMessage.ctx == ctx,
+                    I18nMessage.key.has(
+                        (I18nKey.key == key) & (I18nKey.domain == self._domain)
+                    )
+                )
+            )
+            row = result.first()
+            return row.text if row else None
+
     def get(self, key, num=1, ctx=None):
         if self._cache.is_uncached(key):
             return self._fetch(key, num, ctx)
+        return self._cache.get(key, num, ctx)
+
+    async def aget(self, key, num=1, ctx=None):
+        if self._cache.is_uncached(key):
+            return await self._afetch(key, num, ctx)
         return self._cache.get(key, num, ctx)
 
     async def uncache(self, key):

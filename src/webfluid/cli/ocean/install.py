@@ -34,12 +34,11 @@ def _latest_in_channel(versions, channel):
     from webfluid.core.additive import AdditiveVersion
     best = None
     for version in versions:
-        try: av = AdditiveVersion(*version.split("."))
+        try: av = AdditiveVersion(version)
         except (ValueError, TypeError): continue
         if av.stage != channel: continue
-        key = (tuple(av), av.build)
-        if best is None or key > best[0]:
-            best = (key, version)
+        if best is None or av > best[0]:
+            best = (av, version)
     return best[1] if best else None
 
 

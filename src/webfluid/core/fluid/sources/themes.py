@@ -13,7 +13,7 @@ class Themes:
                 f'<link rel="stylesheet" href="{WF_STATIC}/css/theme.css">'
             )
 
-        self.global_theme = fluid.config.get("GLOBAL_THEME", FRAMEWORK_ID)
+        self.global_theme = fluid.config["GLOBAL_THEME"]
 
     def _validate(self, name, exists):
         if not THEMES: raise FrameworkException("Themes are not enabled.")
@@ -29,17 +29,11 @@ class Themes:
 
     def get(self):
         if not THEMES: raise FrameworkException("Themes are not enabled.")
-        try:
-            ctx = FluidContext.current()
-            if not ctx.request: raise RuntimeError()
 
-            theme = ctx.request.session.get("theme")
-            if not theme: theme = self.global_theme
-
-        except RuntimeError:
-            theme = self.global_theme
-
-        return self.themes.get(theme) or self.themes[FRAMEWORK_ID]
+        ctx = FluidContext.try_current()
+        theme = ctx.request.session.get("theme") if ctx and ctx.request else None
+        return self.themes.get(theme or self.global_theme) \
+            or self.themes[FRAMEWORK_ID]
 
     def set(self, request, name):
         self._validate(name, True)

@@ -12,7 +12,7 @@ class SocketManager:
 
     async def socket(self, ws: WebSocket):
         await ws.accept()
-        self._handler.handle(ws)
+        await self._handler.handle(ws)
 
     def join(self, ws):
         sid = uuid4().hex

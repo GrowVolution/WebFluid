@@ -1,9 +1,13 @@
-from webfluid import AdditiveVersion
+from packaging.version import Version as _Version
 
-_stage_map: dict[str, int]
+class Version(_Version):
+    def __init__(self, *parts: object) -> None: ...
+    @property
+    def stage(self) -> str: ...
+    @property
+    def build(self) -> int: ...
 
-def final_version(v_str: str) -> tuple[int, str, int]: ...
 def check_required_version(
     requirement: str, version_type: str = "wf",
-    additive_version: AdditiveVersion | str | None = None
+    additive_version: Version | str | None = None
 ) -> bool: ...

@@ -7,6 +7,7 @@ from webfluid.core.constants import (
     DEBUG, TAILWIND, WF_STATIC, THEMES, FRAMEWORK_ID
 )
 from webfluid.surface.wf_tailwind import generate_asset
+from webfluid.exceptions import FrontendException
 
 _static_js = f"{WF_STATIC}/js"
 
@@ -23,47 +24,62 @@ class Frontend:
         self.rel = FRAMEWORK_ID + self.prefix
         self.tailwind = ""
 
+        self._vite = None
+        self._root = None
+        self._static = None
+        self._covered = False
+        self._raw_tailwind = f"tailwind{'_raw' if THEMES else '_no_themes'}.css"
+
         if fluid is not None: self.cover_fluid(fluid)
         if additive is not None: self.cover_additive(additive)
+
+    @property
+    def has_vite(self): return self._vite is not None
+
+    def _cover(self):
+        if self._covered:
+            raise FrontendException("Frontend has already been configured.")
+        self._covered = True
 
     def _init(self, frontend, root_path, name="app"):
         self.type = frontend["type"]
         self.alpine = frontend.get("alpine", self.alpine)
 
-        raw_tailwind = f"tailwind{'_raw' if THEMES else '_no_themes'}.css"
-        static = root_path / "static" / "css"
-        def generate_tailwind(f, s):
-            if f and hasattr(self, "_vite"):
-                self._vite.generate_tailwind(raw_tailwind)
-
-            if s:
-                generate_asset(
-                    static / raw_tailwind,
-                    static / "tailwind.css",
-                    root_path
-                )
-
-        self.generate_tailwind = generate_tailwind
+        self._root = root_path
+        self._static = root_path / "static" / "css"
 
         if self.type == "vite":
             self._vite = Vite(root_path / "frontend", self.rel, frontend)
             if not DEBUG: self._vite.add_static(name, self.prefix)
             if TAILWIND: self.generate_tailwind(True, False)
 
-        if TAILWIND and (root_path / "static" / "css" / raw_tailwind).exists():
+        if TAILWIND and (self._static / self._raw_tailwind).exists():
             self.tailwind = (
-                f"{self.prefix.removesuffix("/frontend")}/static/css/tailwind.css"
+                f"{self.prefix.removesuffix('/frontend')}/static/css/tailwind.css"
+            )
+
+    def generate_tailwind(self, frontend, static):
+        if frontend and self._vite is not None:
+            self._vite.generate_tailwind(self._raw_tailwind)
+
+        if static and self._static is not None:
+            generate_asset(
+                self._static / self._raw_tailwind,
+                self._static / "tailwind.css",
+                self._root
             )
 
     def cover_fluid(self, fluid):
+        self._cover()
         self._init(
             fluid.config["APP_FRONTEND"],
             fluid.project_root / "fluid"
         )
 
-        if hasattr(self, "_vite"): self._vite.register(fluid)
+        if self._vite is not None: self._vite.register(fluid)
 
     def cover_additive(self, additive):
+        self._cover()
         self.prefix = additive.prefix + self.prefix
         self.rel = f"additives/{additive.root_path.name}/frontend"
         self._init(
@@ -72,7 +88,7 @@ class Frontend:
             additive.id
         )
 
-        if hasattr(self, "_vite"): self._vite.register(additive.app)
+        if self._vite is not None: self._vite.register(additive.app)
 
     def include(self):
         template = ""
@@ -90,8 +106,7 @@ class Frontend:
         return Markup(template)
 
     async def vite(self):
-        has_vite = hasattr(self, "_vite")
-        if not has_vite: raise HTTPException(404)
+        if self._vite is None: raise HTTPException(404)
 
         if DEBUG: self.generate_tailwind(True, True)
         return await self._vite.response()

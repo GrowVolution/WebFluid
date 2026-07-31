@@ -57,7 +57,7 @@ class Migrate(FluidExtension):
         try: init_configs(Dummy)
         finally: sys.path.pop(0)
         config = Config()
-        config.from_object(build_config())
+        config.update(build_config())
 
         binds = config.get("SQLALCHEMY_BINDS", {})
         template = "multi_db" if binds else "single_db"

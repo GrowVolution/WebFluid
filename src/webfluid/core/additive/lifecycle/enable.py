@@ -3,10 +3,7 @@ from webfluid.exceptions import AdditiveException
 
 
 def _enable(additive, fluid):
-    if additive.is_base: raise AdditiveException(
-        f"[{additive.name}] Base additives are not allowed be enabled."
-    )
-
+    additive.check_enable()
     additive.manifest.check_requirements(fluid.additive_root)
 
     if additive.base and additive.base.parent:
@@ -49,12 +46,12 @@ def create_enable(additive):
 
     @require_extensions(*additive.required_extensions)
     async def enable(fluid):
-        await additive._lifecycle.before_enable.run_hooks(fluid)
-        if additive.base: await additive.base._lifecycle.before_enable.run_hooks(fluid)
+        await additive._lifecycle.run_before(fluid)
+        if additive.base: await additive.base._lifecycle.run_before(fluid)
 
         _enable(additive, fluid)
 
-        await additive._lifecycle.after_enable.run_hooks()
-        if additive.base: await additive.base._lifecycle.after_enable.run_hooks()
+        await additive._lifecycle.run_after()
+        if additive.base: await additive.base._lifecycle.run_after()
 
     return enable

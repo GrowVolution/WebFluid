@@ -6,8 +6,8 @@ from webfluid.core.constants import DEBUG, PROCESSING, THEMES
 
 
 async def manipulate_index(frontend_path, relative_path, framework, html_str):
-    try: ctx = FluidContext.current()
-    except RuntimeError: return html_str
+    ctx = FluidContext.try_current()
+    if ctx is None: return html_str
     html = LexborHTMLParser(html_str)
 
     if DEBUG:
@@ -44,10 +44,7 @@ async def manipulate_index(frontend_path, relative_path, framework, html_str):
 
     theme = ctx.fluid.get_theme() if THEMES else ""
     if PROCESSING:
-        src = await ctx.fluid.render(
-            f"{theme}" + "{{ src() }}",
-            is_string=True
-        )
+        src = await ctx.fluid.render_string(f"{theme}" + "{{ src() }}")
 
     else: src = "\n\t".join([theme, *ctx.fluid.sources])
 

@@ -1,7 +1,6 @@
-from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from webfluid.core.additive.router import Router
+from webfluid.core.additive.kind import kind_for
 from webfluid.core.additive.version import Version
 from webfluid.core.lifecycle import AdditiveLifecycle, RequestLifecycle
 from webfluid.core.additive.lifecycle import install, configure, create_enable
@@ -9,7 +8,6 @@ from webfluid.core.additive.middleware import add_http_middleware
 from webfluid.core.additive.processing import configure as configure_processing
 from webfluid.core.additive.jinja import Jinja
 
-from webfluid.surface.frontend import Frontend
 from webfluid.utils.core import get_root_path
 from webfluid.exceptions import AdditiveException, ManifestError
 
@@ -27,17 +25,19 @@ class Additive:
         from webfluid.core.additive.manifest import Manifest
         try: self.manifest = Manifest(self.root_path / "manifest.json")
         except (FileNotFoundError, ManifestError) as e:
-            print(e)
             raise AdditiveException(f"[{self.name}] Failed to load manifest: {e}")
 
         if not "name" in self.manifest:
             self.manifest["name"] = self.name
         else:
             self.name = self.manifest["name"]
+
         self.id = self.manifest["id"]
         self.prefix = f"/{self.id.replace('_', '-')}"
+        self.version = Version(self.manifest["version"])
 
-        self.is_base = self.manifest["type"] == "base"
+        self._kind = kind_for(self.manifest)
+        self.is_base = self._kind.is_base
         self.required_extensions = required_extensions or []
 
         if base and self.is_base:
@@ -53,19 +53,10 @@ class Additive:
 
         self._lifecycle = AdditiveLifecycle()
         self._request_lifecycle = RequestLifecycle()
+        self._jinja = Jinja(self, self._kind.loader(self))
 
-        self._jinja = Jinja(self)
-
-        if self.is_base:
-            self.api = Router()
-            self.app = Router(default_response_class=HTMLResponse)
-            self.ws = Router()
-            self.frontend = None
-        else:
-            self.api = Router(prefix="/api")
-            self.app = Router(default_response_class=HTMLResponse)
-            self.ws = Router(prefix="/ws")
-            self.frontend = Frontend()
+        self.api, self.app, self.ws = self._kind.routers()
+        self.frontend = self._kind.frontend()
 
         add_http_middleware(self)
         configure_processing(self)
@@ -77,21 +68,26 @@ class Additive:
         if self.parent: return self.parent.unique_name(name)
         return f"{self.id}_{name}"
 
+    def check_enable(self): self._kind.check_enable(self)
+
+    def install(self, _seen=None): install(self, _seen)
+    def configure(self, config): configure(self, config)
+
     @property
     def before_enable(self):
-        return self._lifecycle.before_enable.add_hook
+        return self._lifecycle.before_enable.add
 
     @property
     def after_enable(self):
-        return self._lifecycle.after_enable.add_hook
+        return self._lifecycle.after_enable.add
 
     @property
     def before_request(self):
-        return self._request_lifecycle.before.add_hook
+        return self._request_lifecycle.before.add
 
     @property
     def after_request(self):
-        return self._request_lifecycle.after.add_hook
+        return self._request_lifecycle.after.add
 
     @property
     def jinja_context(self):
@@ -104,11 +100,3 @@ class Additive:
     @property
     def render(self):
         return self._jinja.renderer.render
-
-    @property
-    def version(self):
-        version_str = self.manifest["version"]
-        return Version(*version_str.split("."))
-
-    def install(self, _seen=None): install(self, _seen)
-    def configure(self, config): configure(self, config)

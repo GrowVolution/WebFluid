@@ -16,7 +16,7 @@ from webfluid.utils.core.func import (
     run_in_executor as run_in_executor,
 )
 from webfluid.utils.core.versioning import (
-    final_version as final_version,
+    Version as Version,
     check_required_version as check_required_version,
 )
 from webfluid.utils.core.proxy import (
@@ -34,7 +34,7 @@ __all__ = [
     "required_arg_count", "async_result",
     "safe_execute", "run_in_executor",
 
-    "final_version", "check_required_version",
+    "Version", "check_required_version",
 
     "get_proxy", "get_websocket_proxy",
     "add_proxy", "close_proxy_client",

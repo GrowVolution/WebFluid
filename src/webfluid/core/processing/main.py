@@ -1,14 +1,15 @@
-from . import lifecycle, api
-from .context import add_context_processor
-from .error import add_exception_handler
+from . import api
+from .lifecycle import install_request_logger, install_error_pages
+from .context import install_context
+from .error import install_error_handler
 
 
 def setup_processing(fluid):
-    lifecycle.before.add_hook(fluid)
-    lifecycle.after.add_hook(fluid)
+    install_request_logger(fluid)
+    install_error_pages(fluid)
 
     api.identity.add_route(fluid)
     api.url_for.add_route(fluid)
 
-    add_context_processor(fluid)
-    add_exception_handler(fluid)
+    install_context(fluid)
+    install_error_handler(fluid)

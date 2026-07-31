@@ -1,6 +1,5 @@
 import os, subprocess, signal
 
-from webfluid.utils.core import add_proxy
 from webfluid.surface.wf_node import node_proc
 
 
@@ -33,6 +32,8 @@ def stop():
 
 
 def startup_hook(fluid):
+    from webfluid.utils.core import add_proxy
+
     def wrapped():
         global proc
 

@@ -8,12 +8,12 @@ def match_version(meta, constraint):
     for release in meta.get("releases", []):
         version = release["version"]
         try:
-            candidate = Version(*version.split("."))
+            candidate = Version(version)
             if candidate.stage != "": continue
             if constraint != "*" and not check_required_version(
                     constraint, "additive", candidate
             ): continue
-            matching.append((tuple(candidate), version))
+            matching.append((candidate, version))
         except (ValueError, TypeError): continue
 
     if not matching: return None

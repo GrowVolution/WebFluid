@@ -1,5 +1,4 @@
 from pathlib import Path
-from git import Repo, exc
 import typer, shutil
 
 from webfluid.core.constants import WF_STATIC
@@ -13,6 +12,7 @@ _static_js = (Path(__file__).parent.parent / WF_STATIC.lstrip("/") / "js").resol
 
 
 def setup_frontend(project):
+    from git import Repo, exc
     from .cli import download_file
 
     htmx_file = _static_js / "htmx.min.js"

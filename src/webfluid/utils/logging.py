@@ -39,8 +39,7 @@ class _Formatter(logging.Formatter):
 class _ColoredStreamHandler(logging.StreamHandler):
     def emit(self, record):
         from .cli import CliContext
-        try: ctx = CliContext.current()
-        except RuntimeError: ctx = None
+        ctx = CliContext.try_current()
 
         if ctx is None:
             self.stream.write(self.format(record) + self.terminator)
@@ -109,10 +108,8 @@ class LogFactory:
 
     @property
     def logger(self):
-        try: ctx = _LogContext.current()
-        except RuntimeError: ctx = None
-        logger = ctx.logger if ctx else self.main_logger
-        return logging.getLogger(logger)
+        ctx = _LogContext.try_current()
+        return logging.getLogger(ctx.logger if ctx else self.main_logger)
 
 
 factory = LogFactory()

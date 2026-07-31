@@ -5,8 +5,11 @@ class Renderer:
         self.env = jinja.env
         self.context = jinja.context
 
-    async def render(self, template, **ctx):
-        is_string = ctx.get("is_string", False)
-        target = self.env.from_string(template) \
-            if is_string else self.env.get_template(template)
+    async def _render(self, target, ctx):
         return await target.render_async(**await self.context.process(ctx))
+
+    async def render(self, template, **ctx):
+        return await self._render(self.env.get_template(template), ctx)
+
+    async def render_string(self, source, **ctx):
+        return await self._render(self.env.from_string(source), ctx)

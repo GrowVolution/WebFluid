@@ -6,11 +6,9 @@ from webfluid.core.context.fluid import FluidContext
 
 
 def url_for():
-    try:
-        ctx = FluidContext.current()
-        if not ctx.request: return None
-        fn = FluidContext.current().request.url_for
-    except RuntimeError: return None
+    ctx = FluidContext.try_current()
+    if ctx is None or ctx.request is None: return None
+    fn = ctx.request.url_for
 
     def wrapper(endpoint, **path_params):
         external = path_params.pop("external", False)

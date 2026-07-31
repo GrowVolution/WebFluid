@@ -1,7 +1,6 @@
 from importlib import import_module
 
 config_map = {}
-class ConfigMeta(type): pass
 
 
 class Config(dict):

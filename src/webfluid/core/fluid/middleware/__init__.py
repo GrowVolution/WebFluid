@@ -1,3 +1,3 @@
-from . import http, session, proxy_headers
+from . import request, session, proxy_headers
 
-__all__ = ["http", "session", "proxy_headers"]
+__all__ = ["request", "session", "proxy_headers"]

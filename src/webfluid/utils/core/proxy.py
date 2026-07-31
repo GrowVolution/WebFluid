@@ -2,7 +2,14 @@ from fastapi import Request, Response, WebSocket
 from starlette.websockets import WebSocketDisconnect
 import httpx, asyncio, websockets
 
-_proxy_client = httpx.AsyncClient()
+_proxy_client = None
+
+
+def proxy_client():
+    global _proxy_client
+    if _proxy_client is None:
+        _proxy_client = httpx.AsyncClient()
+    return _proxy_client
 
 
 def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
@@ -14,7 +21,7 @@ def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
             if pass_prefix: url = f"{base_url}{prefix}/{p}"
             else: url = f"{base_url}/{p}"
 
-            resp = await _proxy_client.request(
+            resp = await proxy_client().request(
                 r.method,
                 url,
                 headers=httpx.Headers(r.headers),
@@ -101,4 +108,8 @@ def add_proxy(target, base_url, prefix="", pass_prefix=False, proxy_plugin=None)
 
 
 async def close_proxy_client():
+    global _proxy_client
+    if _proxy_client is None: return
+
     await _proxy_client.aclose()
+    _proxy_client = None

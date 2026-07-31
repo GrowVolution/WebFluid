@@ -23,10 +23,13 @@ class BaseContext:
         return self.__exit__(*args)
 
     @classmethod
+    def try_current(cls): return cls._ctx.get(None)
+
+    @classmethod
     def current(cls):
-        try: return cls._ctx.get()
-        except LookupError:
-            raise RuntimeError(f"No active {cls.__name__}.")
+        ctx = cls._ctx.get(None)
+        if ctx is None: raise RuntimeError(f"No active {cls.__name__}.")
+        return ctx
 
     @classmethod
     @contextmanager

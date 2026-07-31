@@ -1,5 +1,9 @@
 from collections.abc import Callable
 
-from webfluid.core.fluid import Fluid
+from markupsafe import Markup
 
-def get_source_callables(fluid: Fluid) -> tuple[Callable[[], str], Callable[[], str]]: ...
+from webfluid import Fluid
+
+def get_source_callables(
+    fluid: Fluid
+) -> tuple[Callable[[], Markup | str], Callable[[], str]]: ...

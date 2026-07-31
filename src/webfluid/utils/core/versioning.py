@@ -1,67 +1,42 @@
-
-_stage_map = {
-    "a": 0,
-    "b": 1,
-    "rc": 2
-}
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion, Version as _Version
 
 
-def final_version(v_str):
-    if "a" in v_str:
-        stage = "a"
-        v, build = map(int, v_str.split("a"))
-    elif "b" in v_str:
-        stage = "b"
-        v, build = map(int, v_str.split("b"))
-    elif "rc" in v_str:
-        stage = "rc"
-        v, build = map(int, v_str.split("rc"))
-    else:
-        stage = ""
-        v, build = int(v_str), 0
+class Version(_Version):
+    def __init__(self, *parts):
+        if not parts: raise ValueError("Invalid version format.")
 
-    return v, stage, build
+        v_str = ".".join(str(part) for part in parts)
+        try: super().__init__(v_str)
+        except InvalidVersion:
+            raise ValueError(f"Invalid version format '{v_str}'.")
+
+    @property
+    def stage(self): return self.pre[0] if self.pre else ""
+
+    @property
+    def build(self): return self.pre[1] if self.pre else 0
 
 
 def check_required_version(requirement, version_type="wf", additive_version=None):
     version_type = version_type.lower()
-    if version_type not in ["wf", "additive"]:
+    if version_type not in ("wf", "additive"):
         raise ValueError("Invalid version type.")
 
     if version_type == "additive" and additive_version is None:
         raise RuntimeError("Cannot check with unknown additive version.")
 
-    from webfluid import FluidVersion, AdditiveVersion, version
-    ver_cls = FluidVersion if version_type == "wf" else AdditiveVersion
+    if requirement == "*": return True
 
-    if requirement != "*":
-        for candidate in (">=", "<=", "==", ">", "<"):
-            if requirement.startswith(candidate):
-                op = candidate
-                ver = requirement[len(candidate):].strip()
-                break
-        else:
-            raise ValueError(f"Invalid version operator in requirement '{requirement}'.")
-    else:
-        return True
+    try: specifier = SpecifierSet(requirement, prereleases=True)
+    except InvalidSpecifier:
+        raise ValueError(f"Invalid requirement string '{requirement}'.")
 
     if version_type == "additive":
-        current = additive_version if isinstance(additive_version, ver_cls) \
-            else ver_cls(*additive_version.split("."))
+        current = additive_version if isinstance(additive_version, _Version) \
+            else Version(additive_version)
     else:
+        from webfluid import version
         current = version()
 
-    try: target = ver_cls(*ver.split("."))
-    except ValueError:
-        raise ValueError("Invalid requirement string.")
-
-    current_stage = _stage_map.get(current.stage, 3)
-    target_stage = _stage_map.get(target.stage, 3)
-
-    return {
-        ">":  current > target and (current_stage > target_stage or current.build > target.build),
-        ">=": current >= target and (current_stage >= target_stage or current.build >= target.build),
-        "<":  current < target and (current_stage < target_stage or current.build < target.build),
-        "<=": current <= target and (current_stage <= target_stage or current.build <= target.build),
-        "==": current == target and (current_stage == target_stage or current.build == target.build),
-    }.get(op, False)
+    return current in specifier

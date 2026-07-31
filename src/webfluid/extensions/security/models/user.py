@@ -42,13 +42,13 @@ class User(db.Model):
 
     identities: Mapped[list[Identity]] = relationship(
         back_populates="user",
-        lazy="selectin",
+        lazy="raise_on_sql",
         cascade="all, delete-orphan"
     )
     roles: Mapped[list[Role]] = relationship(
         secondary=user_roles,
         back_populates="users",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     totp_secret: Mapped[TOTPSecret | None] = relationship(
@@ -64,7 +64,7 @@ class User(db.Model):
     )
     backup_codes: Mapped[list[BackupCode]] = relationship(
         back_populates="user",
-        lazy="selectin",
+        lazy="raise_on_sql",
         cascade="all, delete-orphan"
     )
 
@@ -88,7 +88,7 @@ class Identity(db.Model):
 
     user: Mapped[User] = relationship(
         back_populates="identities",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, user_id, sub, provider):
@@ -113,7 +113,7 @@ class TOTPSecret(db.Model):
 
     user: Mapped[User] = relationship(
         back_populates="totp_secret",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, user_id, secret):
@@ -138,7 +138,7 @@ class WebAuthnCredential(db.Model):
 
     user: Mapped[User] = relationship(
         back_populates="webauthn_credentials",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, user_id, credential_id, public_key,
@@ -165,7 +165,7 @@ class BackupCode(db.Model):
 
     user: Mapped[User] = relationship(
         back_populates="backup_codes",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, user_id, code_hash):
@@ -184,12 +184,12 @@ class Role(db.Model):
     users: Mapped[list[User]] = relationship(
         secondary=user_roles,
         back_populates="roles",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
     permissions: Mapped[list[Permission]] = relationship(
         secondary=role_permissions,
         back_populates="roles",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, name, require_2fa=False):
@@ -208,7 +208,7 @@ class Permission(db.Model):
     roles: Mapped[list[Role]] = relationship(
         secondary=role_permissions,
         back_populates="permissions",
-        lazy="selectin"
+        lazy="raise_on_sql"
     )
 
     def __init__(self, name):

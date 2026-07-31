@@ -1,13 +1,46 @@
 from webfluid.core.constants import DEBUG, EXECUTION
-from webfluid.extensions.base import FluidExtension
+from webfluid.extensions.base import Delegated, FluidExtension
+from webfluid.extensions.security.utils import PasswordPolicy, set_policy
 from webfluid.extensions.sqlalchemy.utils import update_metadata
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import FrameworkException
 
-_not_initialized = "Security.expand_fluid() has not been called."
+_models = (
+    "User", "Identity", "Role", "Permission",
+    "TOTPSecret", "WebAuthnCredential", "BackupCode"
+)
+
+
+def _resolve_secret(fluid):
+    secret = fluid.config["SECURITY_SECRET"]
+    if not EXECUTION: return ""
+
+    if secret: return secret
+
+    if not DEBUG:
+        raise ValueError("SECURITY_SECRET must be configured in production.")
+
+    fluid.startup_hook(lambda: log_factory.warning(
+        "[Security] Missing SECURITY_SECRET, using a consistent debug secret."
+    ))
+    return "super-secret-key"
+
+
+def _bind_models(bind):
+    from .models import user as models
+    from .models.token import ExpiredToken
+
+    for name in _models: getattr(models, name).set_bind(bind)
+    update_metadata(models.user_roles, target_bind=bind)
+    update_metadata(models.role_permissions, target_bind=bind)
+    ExpiredToken.set_bind(bind)
 
 
 class Security(FluidExtension):
+    user_service = Delegated("_user_service")
+    token_service = Delegated("_token_service")
+    hash_service = Delegated("_hash_service")
+    oauth_service = Delegated("_oauth_service")
+
     def __init__(self, fluid=None):
         self._user_service = None
         self._token_service = None
@@ -17,74 +50,28 @@ class Security(FluidExtension):
         super().__init__(fluid)
 
     def expand_fluid(self, fluid, *_, **__):
-        secret = fluid.config.get("SECURITY_SECRET")
-        if EXECUTION:
-            if not secret and DEBUG:
-                fluid.startup_hook(lambda: log_factory.warning(
-                    "[Security] Missing SECURITY_SECRET, using a consistent debug secret."
-                ))
-                secret = "super-secret-key"
-            elif not secret:
-                raise ValueError("SECURITY_SECRET must be configured in production.")
-        else:
-            secret = ""
+        config = fluid.config
+        secret = _resolve_secret(fluid)
 
         from .services import UserService, TokenService, HashService, OAuthService
         self._token_service = TokenService(
-            secret, fluid.config.get("SECURITY_TOKEN_MAX_AGE", 3600),
-            fluid.config.get("SECURITY_CSRF_COOKIE_NAME", "csrf_token"),
-            fluid.config.get("SECURITY_CSRF_COOKIE_SECURE", True)
+            secret, config["SECURITY_TOKEN_MAX_AGE"],
+            config["SECURITY_CSRF_COOKIE_NAME"],
+            config["SECURITY_CSRF_COOKIE_SECURE"]
         )
         self._user_service = UserService(self._token_service)
         self._hash_service = HashService(
-            fluid.config.get("SECURITY_HASHER_TIME_COST", 3),
-            fluid.config.get("SECURITY_HASHER_MEMORY_COST", 65536),
-            fluid.config.get("SECURITY_HASHER_PARALLELISM", 4)
+            config["SECURITY_HASHER_TIME_COST"],
+            config["SECURITY_HASHER_MEMORY_COST"],
+            config["SECURITY_HASHER_PARALLELISM"],
+            config["SECURITY_HASHER_THREADS"]
         )
-        self._oauth_service = OAuthService(
-            fluid.config.get("SECURITY_OAUTH_CLIENTS", {})
-        )
+        self._oauth_service = OAuthService(config["SECURITY_OAUTH_CLIENTS"])
 
-        bind = fluid.config.get("SECURITY_MODELS_DB_BIND")
-        if bind:
-            from .models.user import (
-                User, Identity, Role, Permission,
-                TOTPSecret, WebAuthnCredential, BackupCode,
-                user_roles, role_permissions
-            )
-            User.set_bind(bind)
-            Identity.set_bind(bind)
-            Role.set_bind(bind)
-            Permission.set_bind(bind)
-            TOTPSecret.set_bind(bind)
-            WebAuthnCredential.set_bind(bind)
-            BackupCode.set_bind(bind)
-            update_metadata(user_roles, target_bind=bind)
-            update_metadata(role_permissions, target_bind=bind)
+        set_policy(PasswordPolicy(
+            config["SECURITY_PASSWORD_MIN_LENGTH"],
+            config["SECURITY_PASSWORD_REQUIREMENTS"]
+        ))
 
-            from .models.token import ExpiredToken
-            ExpiredToken.set_bind(bind)
-
-    @property
-    def user_service(self):
-        if self._user_service is None:
-            raise FrameworkException(_not_initialized)
-        return self._user_service
-
-    @property
-    def token_service(self):
-        if self._token_service is None:
-            raise FrameworkException(_not_initialized)
-        return self._token_service
-
-    @property
-    def hash_service(self):
-        if self._hash_service is None:
-            raise FrameworkException(_not_initialized)
-        return self._hash_service
-
-    @property
-    def oauth_service(self):
-        if self._oauth_service is None:
-            raise FrameworkException(_not_initialized)
-        return self._oauth_service
+        bind = config["SECURITY_MODELS_DB_BIND"]
+        if bind: _bind_models(bind)

@@ -1,4 +1,4 @@
-import json, asyncio
+import json
 
 from .subscribe import subscribe
 from .unsubscribe import unsubscribe
@@ -77,5 +77,5 @@ class SocketHandler:
 
         finally: self._manager.leave(sid)
 
-    def handle(self, ws):
-        return asyncio.create_task(self._handle(ws))
+    async def handle(self, ws):
+        await self._handle(ws)

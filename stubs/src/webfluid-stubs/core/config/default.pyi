@@ -1,5 +1,9 @@
 from typing import Any
 
+from frozendict import frozendict
+
+_redis: str
+
 class DefaultConfig:
     APP_CONFIG: dict[str, Any]
     APP_FRONTEND: dict[str, Any]
@@ -8,18 +12,34 @@ class DefaultConfig:
 
     SESSION_COOKIE_NAME: str
     SESSION_COOKIE_SAMESITE: str
+    SESSION_COOKIE_SECURE: bool
+
+    GLOBAL_THEME: str
 
     PROXY_FIX: bool
     PROXY_TRUSTED_HOSTS: str
+
+    STATIC_MAX_AGE: int
 
     RATELIMIT_ENABLED: bool
     RATELIMIT_STORAGE_URI: str
     RATELIMIT_DEFAULT: list[str]
 
     SQLALCHEMY_DATABASE_URI: str
+    SQLALCHEMY_BINDS: dict[str, str]
     SQLALCHEMY_ENGINE_OPTIONS: dict[str, Any]
 
     BABEL_DISABLE_AUTOUPDATE: bool
+    BABEL_DEFAULT_LOCALE: str
+    BABEL_DEFAULT_TIMEZONE: str
+    BABEL_SUPPORTED_LOCALES: list[str]
+    BABEL_DATE_FORMATS: frozendict[str, str | None]
+    BABEL_CONFIGURE_JINJA: bool
+    BABEL_CONFIGURE_SOCKET: bool
+    BABEL_DATABASE_BIND: str | None
+
+    EVENTS_EVENT_QUEUE_SIZE: int
+    EVENTS_CONFIGURE_SOCKET: bool
 
     SECURITY_SECRET: str | None
     SECURITY_TOKEN_MAX_AGE: int
@@ -28,13 +48,24 @@ class DefaultConfig:
     SECURITY_HASHER_TIME_COST: int
     SECURITY_HASHER_MEMORY_COST: int
     SECURITY_HASHER_PARALLELISM: int
+    SECURITY_HASHER_THREADS: int
     SECURITY_PASSWORD_MIN_LENGTH: int
     SECURITY_PASSWORD_REQUIREMENTS: dict[str, int]
+    SECURITY_OAUTH_CLIENTS: dict[str, dict[str, Any]]
+    SECURITY_MODELS_DB_BIND: str | None
+
+    JWT_ROTARY_INTERVAL: int
+    JWT_SECRET_LENGTH: int
+    JWT_EXPIRY_DAYS: int
+    JWT_ALGORITHM: str
+    JWT_ISSUER: str
+    JWT_AUDIENCES: dict[str, str]
 
     MAIL_SERVER: str
     MAIL_PORT: int
     MAIL_USE_TLS: bool
     MAIL_USE_STARTTLS: bool
+    MAIL_TIMEOUT: int
     MAIL_USERNAME: str | None
     MAIL_PASSWORD: str | None
     MAIL_DEFAULT_SENDER: str

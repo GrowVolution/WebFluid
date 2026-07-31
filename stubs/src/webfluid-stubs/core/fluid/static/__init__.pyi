@@ -1,4 +1,4 @@
-from webfluid.core.fluid.static.main import StaticFiles as StaticFiles
-from webfluid.core.fluid.static.prefixes import StaticPrefixes as StaticPrefixes
+from webfluid.core.fluid.static.main import CachedStaticFiles, StaticFiles
+from webfluid.core.fluid.static.prefixes import StaticPrefixes
 
-__all__ = ["StaticFiles", "StaticPrefixes"]
+__all__ = ["CachedStaticFiles", "StaticFiles", "StaticPrefixes"]

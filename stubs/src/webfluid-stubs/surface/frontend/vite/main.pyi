@@ -9,6 +9,7 @@ from webfluid.core.additive.router import Router
 
 class Vite:
     _static_files: dict[str, tuple[str, StaticFiles]]
+    _instances: int
     root: Path
     rel: str
     dist: Path

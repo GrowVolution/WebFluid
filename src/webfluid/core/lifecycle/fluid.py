@@ -1,43 +1,23 @@
-from webfluid.utils.core import safe_execute, required_arg_count
+from .phase import Phase
+from webfluid.utils.core import safe_execute
 from webfluid.utils.cli import progress_bar
-
-
-class HookPhase:
-    def __init__(self, name, reverse=False):
-        self.name = name
-
-        if self.name not in {"startup", "shutdown"}:
-            raise ValueError("Invalid hook phase.")
-
-        self.reverse = reverse
-        self._hooks = []
-        self._locked = False
-
-    def add_hook(self, fn):
-        if self._locked:
-            if self.name == "startup":
-                raise RuntimeError("Startup hooks cannot be added after the server was started.")
-            else:
-                raise RuntimeError("Shutdown hooks cannot be added after the server was stopped.")
-
-        if required_arg_count(fn) > 0:
-            raise TypeError(f"{self.name.capitalize()} hooks must not receive non optional arguments.")
-
-        self._hooks.append(fn)
-        return fn
-
-    async def run_hooks(self):
-        self._locked = True
-        with progress_bar(f"{self.name.capitalize()} hook phase", len(self._hooks)) as bar:
-            for hook in reversed(self._hooks) if self.reverse else self._hooks:
-                await safe_execute(hook, False)
-                bar.update()
 
 
 class Lifecycle:
     def __init__(self):
-        self.startup = HookPhase("startup")
-        self.shutdown = HookPhase("shutdown", reverse=True)
+        self.startup = Phase(
+            "Startup hooks", closed_after="the server was started"
+        )
+        self.shutdown = Phase(
+            "Shutdown hooks", reverse=True,
+            closed_after="the server was stopped"
+        )
 
-    async def run_startup(self): await self.startup.run_hooks()
-    async def run_shutdown(self): await self.shutdown.run_hooks()
+    async def _run(self, phase):
+        with progress_bar(f"{phase.name} phase", len(phase)) as bar:
+            for hook in phase.seal():
+                await safe_execute(hook, False)
+                bar.update()
+
+    async def run_startup(self): await self._run(self.startup)
+    async def run_shutdown(self): await self._run(self.shutdown)

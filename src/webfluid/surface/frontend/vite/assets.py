@@ -4,7 +4,6 @@ from mimetypes import guess_type
 
 from .dev import dev_server, dev_prefix
 from webfluid.core.constants import DEBUG
-from webfluid.utils.core import get_proxy
 
 
 def asset_catch(project_root):
@@ -32,6 +31,7 @@ def asset_catch(project_root):
             else: return Response(status_code=404)
 
         if DEBUG:
+            from webfluid.utils.core import get_proxy
             proxy = get_proxy(
                 dev_server,
                 prefix=dev_prefix,

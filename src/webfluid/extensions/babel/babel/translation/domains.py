@@ -35,5 +35,5 @@ class Domains:
 
     @property
     def current_domain(self):
-        try: return DomainContext.current().domain
-        except RuntimeError: return self.default_domain
+        ctx = DomainContext.try_current()
+        return ctx.domain if ctx else self.default_domain

@@ -4,6 +4,12 @@ import typer
 
 from webfluid import Fluid
 
+class Delegated:
+    path: list[str]
+    optional: bool
+    def __init__(self, path: str, optional: bool = False) -> None: ...
+    def __get__(self, instance: object, owner: type | None = None) -> Any: ...
+
 class FluidExtension:
     _cli: typer.Typer
     def __init__(self, fluid: Fluid | None = None, *args: Any, **kwargs: Any) -> None: ...

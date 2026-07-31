@@ -7,18 +7,38 @@ from contextlib import asynccontextmanager, contextmanager
 class Bind:
     def __init__(self, key, uris, metadata=None, **engine_kwargs):
         from .model import Model
-        sync_uri, async_uri = uris
 
         self.name = key
+        self.sync_uri, self.async_uri = uris
         self.metadata = metadata if metadata else Model.metadata_for(key)
-        self.sync_engine = create_engine(sync_uri, **engine_kwargs)
-        self.async_engine = create_async_engine(async_uri, **engine_kwargs)
-        self._sync_session = sessionmaker(self.sync_engine)
-        self._async_session = async_sessionmaker(self.async_engine)
+
+        self._options = engine_kwargs
+        self._sync = None
+        self._async = None
+
+    def _sync_bind(self):
+        if self._sync is None:
+            engine = create_engine(self.sync_uri, **self._options)
+            self._sync = (engine, sessionmaker(engine))
+        return self._sync
+
+    def _async_bind(self):
+        if self._async is None:
+            engine = create_async_engine(self.async_uri, **self._options)
+            self._async = (
+                engine, async_sessionmaker(engine, expire_on_commit=False)
+            )
+        return self._async
+
+    @property
+    def sync_engine(self): return self._sync_bind()[0]
+
+    @property
+    def async_engine(self): return self._async_bind()[0]
 
     @contextmanager
     def session(self):
-        with self._sync_session() as session:
+        with self._sync_bind()[1]() as session:
             try:
                 yield session
                 session.commit()
@@ -30,7 +50,7 @@ class Bind:
 
     @asynccontextmanager
     async def async_session(self):
-        async with self._async_session() as session:
+        async with self._async_bind()[1]() as session:
             try:
                 yield session
                 await session.commit()

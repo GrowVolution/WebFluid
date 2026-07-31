@@ -4,33 +4,39 @@ from .keys import current_key, acurrent_key
 
 
 class Decoder:
-    def __init__(self, jwt_manager):
-        self._jwt_manager = jwt_manager
+    def __init__(self, config):
+        self._config = config
 
-    def _decode(self, token, audience, secret, cache):
-        jwt_manager = self._jwt_manager
-        token = jwt.decode(
+    def _payload(self, token, audience, secret):
+        return jwt.decode(
             token, secret,
-            algorithms=[jwt_manager._token_algorithm],
-            issuer=jwt_manager._token_issuer,
-            audience=jwt_manager._token_audiences.get(audience, audience),
+            algorithms=[self._config.algorithm],
+            issuer=self._config.issuer,
+            audience=self._config.audience(audience),
             verify=True
         )
-        if "jti" in token:
-            revoked = cache.get(f"jwt:revoked:{token['jti']}")
-            if revoked: raise jwt.InvalidTokenError("Token revoked.")
-        return token
+
+    def _kid(self, token):
+        return jwt.get_unverified_header(token).get("kid")
 
     def decode(self, token, audience="default"):
         from webfluid.core.ext import cache
-        key = current_key(cache)
-        kid = jwt.get_unverified_header(token).get("kid", key)
-        secret = cache.get(f"jwt:{kid}")
-        return self._decode(token, audience, secret, cache)
+
+        kid = self._kid(token) or current_key(cache)
+        payload = self._payload(token, audience, cache.get(f"jwt:{kid}"))
+
+        if "jti" in payload and cache.get(f"jwt:revoked:{payload['jti']}"):
+            raise jwt.InvalidTokenError("Token revoked.")
+
+        return payload
 
     async def adecode(self, token, audience="default"):
         from webfluid.core.ext import cache
-        key = await acurrent_key(cache)
-        kid = jwt.get_unverified_header(token).get("kid", key)
-        secret = await cache.aget(f"jwt:{kid}")
-        return self._decode(token, audience, secret, cache)
+
+        kid = self._kid(token) or await acurrent_key(cache)
+        payload = self._payload(token, audience, await cache.aget(f"jwt:{kid}"))
+
+        if "jti" in payload and await cache.aget(f"jwt:revoked:{payload['jti']}"):
+            raise jwt.InvalidTokenError("Token revoked.")
+
+        return payload

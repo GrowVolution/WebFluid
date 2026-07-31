@@ -7,6 +7,7 @@ from frozendict import frozendict
 
 from webfluid import Fluid
 from webfluid.core.additive.jinja import Jinja
+from webfluid.core.additive.kind import BaseKind, FeatureKind
 from webfluid.core.additive.manifest import Manifest
 from webfluid.core.additive.router import Router
 from webfluid.core.additive.version import Version
@@ -20,6 +21,7 @@ class Additive:
     manifest: Manifest
     id: str
     prefix: str
+    version: Version
     is_base: bool
     required_extensions: list[str]
     base: Additive | None
@@ -29,6 +31,7 @@ class Additive:
     app: Router
     ws: Router
     frontend: Frontend | None
+    _kind: BaseKind | FeatureKind
     _lifecycle: AdditiveLifecycle
     _request_lifecycle: RequestLifecycle
     _jinja: Jinja
@@ -38,6 +41,7 @@ class Additive:
     ) -> None: ...
     def __repr__(self) -> str: ...
     def unique_name(self, name: str) -> str: ...
+    def check_enable(self) -> None: ...
     def install(self, _seen: set[str] | None = None) -> None: ...
     def configure(self, config: ConfigParser) -> None: ...
     @property
@@ -54,5 +58,3 @@ class Additive:
     def jinja_context(self) -> dict[str, Any] | frozendict[str, Any]: ...
     @property
     def render(self) -> Callable[..., Awaitable[str]]: ...
-    @property
-    def version(self) -> Version: ...

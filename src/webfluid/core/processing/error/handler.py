@@ -8,7 +8,7 @@ from webfluid.core.context.fluid import FluidContext
 from webfluid.utils.logging import factory as log_factory
 
 
-def add(fluid):
+def install_error_handler(fluid):
     @fluid.exception_handler(Exception)
     async def exception_handler(request, exc):
         if isinstance(exc, (RequestValidationError, HTTPException)): raise

@@ -56,6 +56,50 @@ class Translator:
 
         return self.ngettext(singular, plural, num, **variables)
 
+    async def agettext(self, string, **variables):
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = await t.agettext(string)
+            if msg != string:
+                return format_message(msg, **variables)
+
+        return format_message(string, **variables)
+
+    async def angettext(self, singular, plural, num, **variables):
+        variables.setdefault("num", num)
+
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = await t.angettext(singular, plural, num)
+            if msg not in (singular, plural):
+                return format_message(msg, **variables)
+
+        return format_message(singular if num == 1 else plural, **variables)
+
+    async def apgettext(self, context, string, **variables):
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = await t.apgettext(context, string)
+            if msg != string:
+                return format_message(msg, **variables)
+
+        return await self.agettext(string, **variables)
+
+    async def anpgettext(self, context, singular, plural, num, **variables):
+        variables.setdefault("num", num)
+
+        for domain in self._fallback_escalation:
+            t = domain.get_translations()
+
+            msg = await t.anpgettext(context, singular, plural, num)
+            if msg not in (singular, plural):
+                return format_message(msg, **variables)
+
+        return await self.angettext(singular, plural, num, **variables)
+
     def lazy_gettext(self, string, **variables):
         return LazyString(self.gettext, string, **variables)
 

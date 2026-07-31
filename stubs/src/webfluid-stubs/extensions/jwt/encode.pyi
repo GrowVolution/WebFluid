@@ -1,19 +1,19 @@
 from typing import Any
 
-from webfluid.extensions.jwt.main import JWTManager
+from webfluid.extensions.jwt.config import JWTConfig
 
 class Encoder:
-    _jwt_manager: JWTManager
-    def __init__(self, jwt_manager: JWTManager) -> None: ...
+    _config: JWTConfig
+    def __init__(self, config: JWTConfig) -> None: ...
     def _encode(
-        self, payload: dict[str, Any], audience: str, secret: str,
-        expire: int | None, kid: str
+        self, payload: dict[str, Any], audience: str,
+        secret: str, expire: int | None, kid: str
     ) -> str: ...
     def encode(
-        self, payload: dict[str, Any], audience: str = "default",
-        expire: int | None = None
+        self, payload: dict[str, Any],
+        audience: str = "default", expire: int | None = None
     ) -> str: ...
     async def aencode(
-        self, payload: dict[str, Any], audience: str = "default",
-        expire: int | None = None
+        self, payload: dict[str, Any],
+        audience: str = "default", expire: int | None = None
     ) -> str: ...

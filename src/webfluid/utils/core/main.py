@@ -60,8 +60,7 @@ def check_priority(priority):
 
 
 def build_sorted_tuple(data, defaults=None):
-    sorted_data = dict(sorted(data.items(), reverse=True)).values()
-    result = tuple(sorted_data)
+    result = tuple(value for _, value in sorted(data.items(), reverse=True))
     if defaults is not None:
         result += defaults
     return result
@@ -70,4 +69,4 @@ def build_sorted_tuple(data, defaults=None):
 def try_import(name):
     try: return import_module(name)
     except ModuleNotFoundError as e:
-        if e.name != name: raise
+        if e.name != name and not name.startswith(f"{e.name}."): raise

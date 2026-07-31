@@ -90,8 +90,8 @@ def options(locale=None):
 
 def country_from_request(request=None, fallback=DEFAULT_COUNTRY):
     if request is None:
-        try: request = FluidContext.current().request
-        except RuntimeError: request = None
+        ctx = FluidContext.try_current()
+        request = ctx.request if ctx else None
 
     if request is not None:
         for header in _GEO_HEADERS:

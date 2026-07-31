@@ -1,3 +1,4 @@
+from webfluid.core import ext
 from webfluid.core.constants import (
     EXECUTION,
     FRAMEWORK_ID,
@@ -11,32 +12,22 @@ from webfluid.core.constants import (
     EXT_MAIL,
     EXT_JWT
 )
-from webfluid.core.ext import (
-    scheduler,
-    db,
-    babel,
-    security,
-    events,
-    cache,
-    mail,
-    jwt
-)
 
 
 def enable_extensions(fluid):
-    if EXT_SCHEDULING: fluid.startup_hook(scheduler.start)
-    if EXT_SQLALCHEMY: db.expand_fluid(fluid)
+    if EXT_SCHEDULING: fluid.startup_hook(ext.scheduler.start)
+    if EXT_SQLALCHEMY: ext.db.expand_fluid(fluid)
 
     if EXT_BABEL:
-        babel.expand_fluid(fluid)
+        ext.babel.expand_fluid(fluid)
 
         if EXECUTION:
             from webfluid.fluid.i18n import translations
-            babel.register_domain(FRAMEWORK_ID)
-            babel.update_translations(FRAMEWORK_ID, translations)
+            ext.babel.register_domain(FRAMEWORK_ID)
+            ext.babel.update_translations(FRAMEWORK_ID, translations)
 
-    if EXT_SECURITY: security.expand_fluid(fluid)
-    if EXT_EVENTS: events.expand_fluid(fluid)
-    if EXT_CACHE: cache.expand_fluid(fluid)
-    if EXT_MAIL: mail.expand_fluid(fluid)
-    if EXT_JWT: jwt.expand_fluid(fluid)
+    if EXT_SECURITY: ext.security.expand_fluid(fluid)
+    if EXT_EVENTS: ext.events.expand_fluid(fluid)
+    if EXT_CACHE: ext.cache.expand_fluid(fluid)
+    if EXT_MAIL: ext.mail.expand_fluid(fluid)
+    if EXT_JWT: ext.jwt.expand_fluid(fluid)

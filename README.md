@@ -8,7 +8,7 @@ opinionated project layout, a set of optional built-in extensions (database,
 i18n, sessions, caching, mail, and more), a bundled frontend toolchain, and a
 package registry called **Ocean** for sharing reusable features between projects.
 
-The framework is currently in alpha (`1.0.0a2`) and targets Python 3.14+.
+The framework is currently in beta (`1.0.0b1`) and targets Python 3.14+.
 
 ---
 
@@ -144,6 +144,18 @@ Install both together when you want typing support:
 ```bash
 pip install "webfluid[typing]"
 ```
+
+---
+
+## API stability
+
+Everything listed in a package's `__all__` follows semantic versioning from
+`1.0.0b1` onwards. Anything else — module layout, private attributes, helper
+functions that are not exported — is internal and may change in any release.
+
+Breaking changes are listed in [CHANGELOG.md](CHANGELOG.md). Upgrading from
+`1.0.0a2` requires changes; the most common one is `Fluid.app_root`, which is
+now `Fluid.project_root` and warns when used under the old name.
 
 ---
 

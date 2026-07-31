@@ -42,12 +42,11 @@ class _ColoredStreamHandler(logging.StreamHandler):
         try: ctx = CliContext.current()
         except RuntimeError: ctx = None
 
-        if ctx:
-            ctx.bar.write(self.format(record))
-            return
+        if ctx is None:
+            self.stream.write(self.format(record) + self.terminator)
+            self.flush(); return
 
-        self.stream.write(self.format(record) + self.terminator)
-        self.flush()
+        ctx.bar.write(self.format(record))
 
 
 class LogFactory:

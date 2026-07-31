@@ -1,7 +1,7 @@
 from functools import wraps
 
 from ..context import DomainContext
-from webfluid.utils.core import is_async_function
+from webfluid.utils.core import async_result
 from webfluid.exceptions import FrameworkException
 
 
@@ -26,16 +26,10 @@ class Domains:
 
     def domain_context(self, domain):
         def decorator(fn):
-            if is_async_function(fn):
-                async def wrapper(*args, **kwargs):
-                    async with DomainContext(
-                            self.store.get(domain, self.default_domain)
-                    ): return await fn(*args, **kwargs)
-            else:
-                def wrapper(*args, **kwargs):
-                    with DomainContext(
-                            self.store.get(domain, self.default_domain)
-                    ): return fn(*args, **kwargs)
+            async def wrapper(*args, **kwargs):
+                with DomainContext(
+                        self.store.get(domain, self.default_domain)
+                ): return await async_result(fn(*args, **kwargs))
             return wraps(fn)(wrapper)
         return decorator
 

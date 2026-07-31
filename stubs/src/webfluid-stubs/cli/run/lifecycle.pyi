@@ -1,0 +1,19 @@
+import subprocess
+from pathlib import Path
+
+from webfluid.cli.run.output import LogService
+
+class Lifecycle:
+    proc: subprocess.Popen[str] | None
+    terminate: bool
+    def __init__(self) -> None: ...
+    def exit(self, signum: int, _: object) -> None: ...
+    def start(
+        self, env: dict[str, str], project_root: Path, log_service: LogService
+    ) -> None: ...
+    def stop(self) -> None: ...
+    def restart(
+        self, env: dict[str, str], project_root: Path, log_service: LogService
+    ) -> None: ...
+    @property
+    def status(self) -> str: ...

@@ -1,3 +1,5 @@
+
+
 def truncate(text, width):
     text = text.replace("\n", " ")
     if width <= 0 or len(text) <= width: return text

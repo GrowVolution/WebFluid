@@ -1,4 +1,5 @@
 from pathlib import Path
+from shutil import get_terminal_size
 import typer, os
 
 from webfluid.cli import questions
@@ -51,7 +52,7 @@ def run(
         )
         raise typer.Exit(1)
 
-    from .helpers import env_from_config
+    from .helpers import env_from_config, console_encoding
     env = env_from_config(config_file, debug)
     if interactive:
         if not host:  host = questions.host.ask()
@@ -68,11 +69,16 @@ def run(
         )
         raise typer.Exit(1)
 
+    size = get_terminal_size()
+
     env["APP_NAME"] = name
     env["SERVER_HOST"] = host
     env["SERVER_PORT"] = str(port)
     env["IN_EXECUTION"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONIOENCODING"] = f"{console_encoding()}:backslashreplace"
+    env["COLUMNS"] = str(size.columns)
+    env["LINES"] = str(size.lines)
     if debug:
         env["DEBUG_MODE"] = "1"
         env["LOG_LEVEL"] = "debug"
@@ -104,7 +110,7 @@ def run(
                 if opt == 2: lifecycle.start(env, project_root, log_service)
 
                 if opt == 3: log_service.join_log(lifecycle)
-                if opt == 4: log_service.clear_logs(lifecycle)
+                if opt == 4: log_service.clear_logs()
         else:
             log_service.start_stream(lifecycle)
 

@@ -1,9 +1,9 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
+from shutil import get_terminal_size
 from tqdm import tqdm
 import typer, sys
 
-from webfluid.core.constants import EXECUTION
 from webfluid.core.context.base import BaseContext
 
 
@@ -15,11 +15,11 @@ class CliContext(BaseContext):
 
 
 @contextmanager
-def progress_bar(description, length, leave=True, **kwargs):
+def progress_bar(description, length, **kwargs):
+    kwargs.setdefault("ncols", get_terminal_size().columns - 1)
     with tqdm(
             desc=description, total=length,
-            colour="green" if EXECUTION else None,
-            file=sys.stdout, leave=leave, **kwargs
+            file=sys.stdout, **kwargs
     ) as bar:
         with CliContext(bar): yield bar
 

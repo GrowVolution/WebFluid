@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import OperationalError
 import asyncio, json
 
@@ -198,10 +199,13 @@ class TransactionService:
             async def read():
                 async with db.async_executor(model=I18nMessage) as e:
                     results = await e.exec(
-                        select(I18nMessage).where(
+                        select(I18nMessage)
+                        .join(I18nMessage.key)
+                        .where(
                             I18nMessage.locale == locale,
-                            I18nMessage.key.has(I18nKey.domain == domain)
+                            I18nKey.domain == domain
                         )
+                        .options(contains_eager(I18nMessage.key))
                     )
 
                     Cache.db_load(locale, domain, results.all())

@@ -19,7 +19,7 @@ class Bind:
     def _sync_bind(self):
         if self._sync is None:
             engine = create_engine(self.sync_uri, **self._options)
-            self._sync = (engine, sessionmaker(engine))
+            self._sync = (engine, sessionmaker(engine, expire_on_commit=False))
         return self._sync
 
     def _async_bind(self):

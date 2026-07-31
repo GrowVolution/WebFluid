@@ -1,9 +1,11 @@
-import os, pytest
+from types import SimpleNamespace
+import json, os, pytest
 
 os.environ.setdefault("EXT_SQLALCHEMY", "1")
 
 from webfluid.core.ext import db
 from webfluid.extensions.babel.babel.translation.main import Translator
+from webfluid.extensions.babel.babel.translation.translations import Translations
 from webfluid.extensions.babel.translations import (
     Cache, I18nKey, I18nMessage, MergedTranslations, TransactionService
 )
@@ -12,6 +14,7 @@ from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
 
 LOCALE = "de"
 DOMAIN = "messages"
+ADMIN = "admin"
 
 
 class Catalog:
@@ -38,14 +41,32 @@ class Domain:
     def get_translations(self): return self._translations
 
 
-@pytest.fixture
-def bound(tmp_path):
+def bind_database(tmp_path):
     path = tmp_path / "i18n.db"
     bind = Bind("default", (f"sqlite:///{path}", f"sqlite+aiosqlite:///{path}"))
 
     db._binds["default"] = bind
     SQLAlchemy._instance = db
     db.Model.metadata.create_all(bind.sync_engine)
+
+    Cache._uncached = {}
+    Cache._db_cache = {}
+    TransactionService._locks = {}
+
+    return bind
+
+
+def reset_database():
+    db._binds.clear()
+    SQLAlchemy._instance = None
+    Cache._uncached = {}
+    Cache._db_cache = {}
+    TransactionService._locks = {}
+
+
+@pytest.fixture
+def bound(tmp_path):
+    bind = bind_database(tmp_path)
 
     with bind.session() as session:
         key = I18nKey("greeting", DOMAIN, cached=False)
@@ -54,14 +75,40 @@ def bound(tmp_path):
         session.add(I18nMessage(key.id, LOCALE, "Moin"))
 
     Cache._uncached = { DOMAIN: {"greeting"} }
-    Cache._db_cache = {}
 
     yield
+    reset_database()
 
-    db._binds.clear()
-    SQLAlchemy._instance = None
-    Cache._uncached = {}
-    Cache._db_cache = {}
+
+@pytest.fixture
+def catalog(tmp_path):
+    bind = bind_database(tmp_path)
+
+    with bind.session() as session:
+        ids = {}
+        for key, domain, cached in (
+                ("greeting", DOMAIN, True),
+                ("apples", DOMAIN, True),
+                ("secret", DOMAIN, False),
+                ("dashboard", ADMIN, True)
+        ):
+            row = I18nKey(key, domain, cached=cached)
+            session.add(row)
+            session.flush()
+            ids[key] = row.id
+
+        session.add_all([
+            I18nMessage(ids["greeting"], LOCALE, "Moin"),
+            I18nMessage(ids["greeting"], LOCALE, "Moin Chef", ctx="formal"),
+            I18nMessage(ids["greeting"], "en", "Hi"),
+            I18nMessage(ids["apples"], LOCALE, "ein Apfel"),
+            I18nMessage(ids["apples"], LOCALE, "viele Aepfel", pf="other"),
+            I18nMessage(ids["secret"], LOCALE, "geheim"),
+            I18nMessage(ids["dashboard"], LOCALE, "Uebersicht")
+        ])
+
+    yield
+    reset_database()
 
 
 def uncached(*keys):
@@ -131,6 +178,78 @@ async def test_async_variants_mirror_their_sync_pendants(bound):
     assert await t.apgettext("fruit", "apple") == t.pgettext("fruit", "apple")
     assert await t.anpgettext("fruit", "apple", "apples", 2) \
         == t.npgettext("fruit", "apple", "apples", 2)
+
+
+async def test_startup_load_fills_the_cache_from_the_database(catalog):
+    await TransactionService.load(LOCALE, DOMAIN)
+
+    assert Cache._db_cache[LOCALE][DOMAIN] == {
+        "greeting": { "one": { "": "Moin", "formal": "Moin Chef" } },
+        "apples": { "one": { "": "ein Apfel" }, "other": { "": "viele Aepfel" } }
+    }
+
+
+async def test_startup_load_keeps_locales_and_domains_apart(catalog):
+    await TransactionService.load(LOCALE, DOMAIN)
+    await TransactionService.load(LOCALE, ADMIN)
+
+    assert "dashboard" not in Cache._db_cache[LOCALE][DOMAIN]
+    assert Cache._db_cache[LOCALE][ADMIN] == {
+        "dashboard": { "one": { "": "Uebersicht" } }
+    }
+    assert "en" not in Cache._db_cache
+
+
+async def test_startup_load_leaves_uncached_keys_to_the_database(catalog):
+    await TransactionService.load(LOCALE, DOMAIN)
+
+    assert Cache._uncached[DOMAIN] == { "secret" }
+    assert "secret" not in Cache._db_cache[LOCALE][DOMAIN]
+    assert await TransactionService(LOCALE, DOMAIN).aget("secret") == "geheim"
+
+
+async def test_startup_load_runs_once_per_locale_and_domain(catalog):
+    await TransactionService.load(LOCALE, DOMAIN)
+    Cache._db_cache[LOCALE][DOMAIN]["greeting"] = { "one": { "": "unberuehrt" } }
+    await TransactionService.load(LOCALE, DOMAIN)
+
+    assert Cache._db_cache[LOCALE][DOMAIN]["greeting"]["one"][""] == "unberuehrt"
+
+
+async def test_startup_hook_loads_every_supported_locale(catalog):
+    babel = SimpleNamespace(supported_locales=(LOCALE, "en"))
+    domains = SimpleNamespace(
+        default_domain=SimpleNamespace(domain=DOMAIN),
+        store={ ADMIN: SimpleNamespace(domain=ADMIN) }
+    )
+
+    await Translations(True).startup_hook(babel, domains)
+
+    assert set(Cache._db_cache) == { LOCALE, "en" }
+    assert set(Cache._db_cache[LOCALE]) == { DOMAIN, ADMIN }
+    assert Cache._db_cache["en"][DOMAIN] == { "greeting": { "one": { "": "Hi" } } }
+
+
+async def test_update_writes_the_catalog_and_caches_it(catalog):
+    await TransactionService.update(DOMAIN, lambda: {
+        LOCALE: { "farewell": { json.dumps({ "pf": "one" }): "Tschuess" } }
+    })
+
+    assert Cache._db_cache[LOCALE][DOMAIN]["farewell"]["one"][""] == "Tschuess"
+    assert TransactionService(LOCALE, DOMAIN).get("farewell") == "Tschuess"
+
+
+async def test_uncache_and_recache_round_trip(catalog):
+    await TransactionService.load(LOCALE, DOMAIN)
+    service = TransactionService(LOCALE, DOMAIN)
+
+    await service.uncache("greeting")
+    assert "greeting" not in Cache._db_cache[LOCALE][DOMAIN]
+    assert await service.aget("greeting") == "Moin"
+
+    await service.recache("greeting")
+    assert Cache._db_cache[LOCALE][DOMAIN]["greeting"]["one"][""] == "Moin"
+    assert "greeting" not in Cache._uncached[DOMAIN]
 
 
 @pytest.fixture

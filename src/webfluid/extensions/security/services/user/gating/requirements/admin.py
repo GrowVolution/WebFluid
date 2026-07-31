@@ -6,19 +6,20 @@ from webfluid.extensions.sqlalchemy import SQLAlchemy
 
 
 async def requirement_fulfilled(user):
-    e = SQLAlchemy.get_instance().current_async_executor
-    result = await e.exec(
-        select(
-            select(Role.id)
-            .join(user_roles, user_roles.c.role_id == Role.id)
-            .where(
-                user_roles.c.user_id == user.id,
-                Role.is_admin == True
-            ).exists()
-        ),
-        scalars=False
-    )
-    return bool(result.scalar())
+    db = SQLAlchemy.get_instance()
+    async with db.ensured_async_executor(model=Role) as e:
+        result = await e.exec(
+            select(
+                select(Role.id)
+                .join(user_roles, user_roles.c.role_id == Role.id)
+                .where(
+                    user_roles.c.user_id == user.id,
+                    Role.is_admin == True
+                ).exists()
+            ),
+            scalars=False
+        )
+        return bool(result.scalar())
 
 
 def _resolver_fn(two_fa_gate):

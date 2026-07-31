@@ -1,6 +1,7 @@
 from .phase import Phase
 from webfluid.utils.core import safe_execute
 from webfluid.utils.cli import progress_bar
+from webfluid.utils.logging import factory as log_factory
 
 
 class Lifecycle:
@@ -14,7 +15,8 @@ class Lifecycle:
         )
 
     async def _run(self, phase):
-        with progress_bar(f"{phase.name} phase", len(phase)) as bar:
+        log_factory.log(f"Running {phase.name.lower()}...")
+        with progress_bar(f"{phase.name} phase", len(phase), leave=False) as bar:
             for hook in phase.seal():
                 await safe_execute(hook, False)
                 bar.update()

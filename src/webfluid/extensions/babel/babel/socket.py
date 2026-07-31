@@ -2,7 +2,6 @@ from fastapi import WebSocket
 import json
 
 from webfluid.extensions.babel.utils import load_locale, parse_best_match
-from webfluid.utils.core import async_result
 
 
 class Socket:
@@ -63,12 +62,12 @@ class Socket:
 
                     else:
                         domain = msg["data"].get("domain")
-                        fn = getattr(self.babel, fn_name)
+                        fn = getattr(self.babel, f"a{fn_name}")
                         if domain: fn = self.babel.domain_context(domain)(fn)
-                        response["data"] = await async_result(fn(
+                        response["data"] = await fn(
                             *msg["data"]["args"],
                             **msg["data"]["variables"]
-                        ))
+                        )
 
                 else:
                     response["error"] = f"Unknown request: {request}"

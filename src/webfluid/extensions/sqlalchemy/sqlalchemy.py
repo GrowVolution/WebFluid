@@ -69,17 +69,23 @@ class SQLAlchemy(FluidExtension):
 
     @contextmanager
     def ensured_executor(self, bind_key=None, model=None):
-        try: yield self.current_executor
-        except RuntimeError:
-            with self.executor(bind_key, model) as e:
-                yield e
+        e = Executor.try_current()
+        if e is not None:
+            yield e
+            return
+
+        with self.executor(bind_key, model) as e:
+            yield e
 
     @asynccontextmanager
     async def ensured_async_executor(self, bind_key=None, model=None):
-        try: yield self.current_async_executor
-        except RuntimeError:
-            async with self.async_executor(bind_key, model) as e:
-                yield e
+        e = AsyncExecutor.try_current()
+        if e is not None:
+            yield e
+            return
+
+        async with self.async_executor(bind_key, model) as e:
+            yield e
 
     @property
     def current_executor(self):

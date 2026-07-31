@@ -7,7 +7,7 @@ else is internal and may change in any release.
 ## 1.0.0b1
 
 First beta. This release completes the SOLID refactor started after `1.0.0a2`,
-fixes four regressions introduced by it, and removes the largest performance
+fixes six regressions introduced by it, and removes the largest performance
 bottlenecks in the request path.
 
 ### Breaking changes
@@ -58,9 +58,10 @@ Everything else is now `lazy="raise_on_sql"`:
 - `Role.users`, `Permission.roles`, `Identity.user`, `TOTPSecret.user`,
   `WebAuthnCredential.user`, `BackupCode.user` — reverse sides; `Role.users` was
   the unbounded fan-out in the `is_admin` gate.
-- `I18nMessage.key`, `I18nKey.messages` — `TransactionService` uses
-  `I18nMessage.key` only as a SQL expression (`.has(...)`), never as an
-  attribute, so eager-loading it only cost a query per bulk catalog load.
+- `I18nMessage.key`, `I18nKey.messages` — the per-key lookups use
+  `I18nMessage.key` only as a SQL expression (`.has(...)`); the one place that
+  reads it as an attribute, the bulk catalog load, joins and eager-loads it
+  explicitly with `contains_eager()`.
 
 Code that navigates any of those must now load it explicitly — `selectinload()`
 on the query, or a separate query. Reading `user.roles` in a handler or template
@@ -87,6 +88,47 @@ still deletes its identities, codes and credentials.
   uncovered frontend; `cover_additive` corrupted its own prefix when called
   twice.
 - `Themes.set` refused to set a theme that actually existed.
+- `Babel.domain_context` wrapped every decorated callable in an `async` wrapper,
+  so a synchronous function decorated with it returned a coroutine instead of
+  its value. A `@property` over it — the way a model exposes a translated
+  column — yielded a coroutine on attribute access, which surfaced as
+  `'coroutine' object is not iterable` once the value reached a response
+  encoder and as `cannot reuse already awaited coroutine` once a template
+  resolved the same attribute twice. It branches on the wrapped function again,
+  as it did in `1.0.0a2`.
+- `TransactionService.load` reads `I18nMessage.key` as an attribute to decide
+  whether a key belongs in the cache, which `lazy="raise_on_sql"` turns into
+  `InvalidRequestError: 'I18nMessage.key' is not available`. Every application
+  with `EXT_BABEL` died in its startup hook. The bulk load joins `I18nKey` and
+  loads it with `contains_eager()`, which also replaces the `EXISTS` subquery
+  the domain filter used with a plain join.
+- `wf run` streamed the application's console output through a text-mode pipe,
+  so Python's universal-newline translation turned every carriage return into a
+  newline before the parent ever saw it. A `tqdm` bar that redraws itself in
+  place arrived as one line per frame, interleaved with the blank lines and the
+  rows of spaces it writes to clear itself, and `readline()` held each frame
+  back until the next newline arrived. The pipe is read as bytes now and
+  forwarded in whatever chunks arrive, decoded incrementally so a multi-byte
+  character split across two reads survives. The reader stops at EOF instead of
+  spinning on empty reads once the application exits.
+- `wf run` gave the application process no terminal geometry, so `tqdm` fell
+  back to its 10-character bar and to ASCII blocks. `COLUMNS`, `LINES` and
+  `PYTHONIOENCODING` are exported to the child and `progress_bar` passes an
+  explicit `ncols`. The encoding follows the parent's console, so a redirected
+  `wf run` degrades to ASCII bars in the file instead of failing to encode the
+  Unicode ones.
+- `LogService.clear_logs` deleted the log file it was writing to whenever the
+  application was not running, which raises `PermissionError` on Windows and
+  detaches the open handle everywhere else. It keeps the current run's file and
+  drops the rest; it no longer takes a lifecycle.
+- `LogService.streaming` now decides whether output is echoed, not whether the
+  reader lives. The reader runs from the first `start_stream` or `join_log` to
+  EOF, so nothing is lost between `Stopping application...` and the last
+  shutdown hook, and the application can never block on a full pipe while its
+  output is muted in the interactive menu. `__exit__` joins the reader, which
+  puts the shutdown phase — its log lines and its progress bar — ahead of the
+  closing message instead of racing it. Repeatedly joining the log reuses the
+  running reader instead of starting a second one on the same pipe.
 
 ### Performance
 
@@ -144,6 +186,11 @@ Measured on Windows 11 / Python 3.14 with `benchmarks/bench.py`.
 - `Sources`, `StaticPrefixes` and `Loaders` share a `Freezable` base.
 - `BaseContext.try_current()` returns `None` instead of raising, removing the
   exception-driven control flow from the request path.
+- Both session factories run with `expire_on_commit=False`. Only the async one
+  did, so a row read through `db.executor(...)` expired on the way out of the
+  block and raised `DetachedInstanceError` on the next attribute access, while
+  the identical read through `db.async_executor(...)` stayed usable. Rows
+  survive their executor now, whichever one produced them.
 - `Fluid.__init__` is split into named build phases so the construction order is
   explicit.
 
@@ -156,11 +203,19 @@ Measured on Windows 11 / Python 3.14 with `benchmarks/bench.py`.
   the Jinja i18n callables deliberately keep using the synchronous methods —
   the new ones are for extension and application code that can await. There is
   no `alazy_gettext`: `LazyString` resolves through `str()`, which cannot await.
-- `tests/` — 93 tests covering the lifecycle contracts, request pipeline,
+- `tests/` — 136 tests covering the lifecycle contracts, request pipeline,
   version resolution, additive enabling, the events WebSocket (against a real
   uvicorn server, since `TestClient` does not reproduce the failure), the
   security gates' query counts and relationship loading strategies, the sync and
-  async translation lookups, and the cache backends.
+  async translation lookups, and the cache backends. Two of them mirror an
+  actual run rather than a unit: `test_bootstrap.py` mixes an application with
+  `EXT_SQLALCHEMY` and `EXT_BABEL` enabled and runs its startup and shutdown
+  phases against a real database, which is where the catalog load regressed,
+  and `test_console.py` drives `wf run`'s process lifecycle and log stream
+  against a real child process, asserting on the exact bytes that reach the
+  console. `test_sqlalchemy.py` pins what the two executors guarantee: rows
+  outlive their block, a raised exception rolls the transaction back, and
+  `ensured_executor` joins an open one instead of nesting a second session.
 - `benchmarks/bench.py` — import time, render time and request time with
   budgets, so the regressions above cannot come back silently.
 - `scripts/check_stubs.py` — verifies that the stub tree mirrors the runtime

@@ -1,14 +1,16 @@
 from pathlib import Path
 from datetime import datetime, UTC
 from threading import Thread
+from codecs import getincrementaldecoder
 import typer, time
 
-from .helpers import read_key
+from .helpers import read_key, console_encoding
 
 
 class LogService:
     def __init__(self, app_name):
         self.streaming = False
+        self._pump = None
 
         log_dir = Path("logs") / app_name
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -21,6 +23,7 @@ class LogService:
         return self
 
     def __exit__(self, *args):
+        self.drain()
         if self.log is not None:
             self.log.close()
         return False
@@ -29,18 +32,34 @@ class LogService:
         proc = lifecycle.proc
         if proc is None or proc.stdout is None: return
 
-        while self.streaming:
-            if proc is None: break
-            line = proc.stdout.readline()
-            if not self.streaming: break
-            if line: typer.echo(line, nl=False)
+        decode = getincrementaldecoder(console_encoding())("backslashreplace").decode
+
+        while True:
+            chunk = proc.stdout.read1(8192)
+            if not chunk: break
+
+            text = decode(chunk)
+            if self.streaming: typer.echo(text, nl=False)
+
+    def _pump_log(self, lifecycle):
+        if self._pump is not None and self._pump.is_alive(): return
+
+        self._pump = Thread(target=self._stream_log, daemon=True, args=(lifecycle,))
+        self._pump.start()
+
+    def drain(self, timeout=10):
+        if self._pump is None: return
+
+        self._pump.join(timeout)
+        self._pump = None
+        self.streaming = False
 
     def start_stream(self, lifecycle):
         proc = lifecycle.proc
         if proc is None: return
 
         self.streaming = True
-        Thread(target=self._stream_log, daemon=True, args=(lifecycle,)).start()
+        self._pump_log(lifecycle)
 
         while proc.poll() is None:
             time.sleep(0.05)
@@ -55,21 +74,13 @@ class LogService:
         time.sleep(1)
 
         self.streaming = True
-        Thread(target=self._stream_log, daemon=True, args=(lifecycle,)).start()
+        self._pump_log(lifecycle)
 
         while proc.poll() is None:
             if read_key() == '\x1b': break
 
         self.streaming = False
 
-    def clear_logs(self, lifecycle):
-        log_files = sorted(
-            [f for f in self.log_dir.iterdir() if f.is_file()],
-            key=lambda f: f.stat().st_mtime
-        )
-        if not log_files: return
-
-        proc = lifecycle.proc
-        running = proc and proc.poll() is None
-        to_delete = log_files[:-1] if running else log_files
-        for f in to_delete: f.unlink(True)
+    def clear_logs(self):
+        for f in self.log_dir.iterdir():
+            if f.is_file() and f != self.log_file: f.unlink(True)

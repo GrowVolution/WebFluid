@@ -4,6 +4,10 @@ import sys, os
 from webfluid.utils.core import parse_config
 
 
+def console_encoding():
+    return getattr(sys.stdout, "encoding", None) or "utf-8"
+
+
 def env_from_config(config_file, debug):
     env = os.environ.copy()
     cfg = ConfigParser()

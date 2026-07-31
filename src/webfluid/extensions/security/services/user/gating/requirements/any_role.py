@@ -8,17 +8,18 @@ from webfluid.extensions.sqlalchemy import SQLAlchemy
 async def requirement_fulfilled(user, roles):
     if not roles: return False
 
-    e = SQLAlchemy.get_instance().current_async_executor
-    result = await e.exec(
-        select(Role.id)
-        .join(user_roles, user_roles.c.role_id == Role.id)
-        .where(
-            user_roles.c.user_id == user.id,
-            Role.name.in_(roles)
+    db = SQLAlchemy.get_instance()
+    async with db.ensured_async_executor(model=Role) as e:
+        result = await e.exec(
+            select(Role.id)
+            .join(user_roles, user_roles.c.role_id == Role.id)
+            .where(
+                user_roles.c.user_id == user.id,
+                Role.name.in_(roles)
+            )
+            .limit(1)
         )
-        .limit(1)
-    )
-    return result.first() is not None
+        return result.first() is not None
 
 
 def _resolver_fn(two_fa_gate, roles):

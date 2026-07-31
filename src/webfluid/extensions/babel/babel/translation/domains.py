@@ -1,4 +1,5 @@
 from functools import wraps
+from inspect import iscoroutinefunction
 
 from ..context import DomainContext
 from webfluid.utils.core import async_result
@@ -26,10 +27,16 @@ class Domains:
 
     def domain_context(self, domain):
         def decorator(fn):
-            async def wrapper(*args, **kwargs):
-                with DomainContext(
-                        self.store.get(domain, self.default_domain)
-                ): return await async_result(fn(*args, **kwargs))
+            if iscoroutinefunction(fn):
+                async def wrapper(*args, **kwargs):
+                    with DomainContext(
+                            self.store.get(domain, self.default_domain)
+                    ): return await async_result(fn(*args, **kwargs))
+            else:
+                def wrapper(*args, **kwargs):
+                    with DomainContext(
+                            self.store.get(domain, self.default_domain)
+                    ): return fn(*args, **kwargs)
             return wraps(fn)(wrapper)
         return decorator
 

@@ -11,25 +11,26 @@ async def requirement_fulfilled(user, permissions):
     required = set(permissions)
     if not required: return True
 
-    e = SQLAlchemy.get_instance().current_async_executor
-    result = await e.exec(
-        select(func.count(distinct(Permission.name)))
-        .select_from(Permission)
-        .join(
-            role_permissions,
-            role_permissions.c.permission_id == Permission.id
+    db = SQLAlchemy.get_instance()
+    async with db.ensured_async_executor(model=Permission) as e:
+        result = await e.exec(
+            select(func.count(distinct(Permission.name)))
+            .select_from(Permission)
+            .join(
+                role_permissions,
+                role_permissions.c.permission_id == Permission.id
+            )
+            .join(
+                user_roles,
+                user_roles.c.role_id == role_permissions.c.role_id
+            )
+            .where(
+                user_roles.c.user_id == user.id,
+                Permission.name.in_(required)
+            ),
+            scalars=False
         )
-        .join(
-            user_roles,
-            user_roles.c.role_id == role_permissions.c.role_id
-        )
-        .where(
-            user_roles.c.user_id == user.id,
-            Permission.name.in_(required)
-        ),
-        scalars=False
-    )
-    return result.scalar() == len(required)
+        return result.scalar() == len(required)
 
 
 def _resolver_fn(two_fa_gate, permissions):

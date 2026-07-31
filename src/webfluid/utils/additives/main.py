@@ -35,7 +35,7 @@ async def register_additives(fluid):
     total = os.getenv("ENABLED_ADDITIVES")
     total = int(total) if total else None
 
-    with progress_bar("Additive registration phase", total, False) as bar:
+    with progress_bar("Additive registration phase", total, leave=False) as bar:
         for additive_info in installed_additives(fluid.additive_root, True):
             additive_id = additive_info[0]
             if not enabled(additive_id):

@@ -18,9 +18,9 @@ class Version(_Version):
     def build(self): return self.pre[1] if self.pre else 0
 
 
-def check_required_version(requirement, version_type="wf", additive_version=None):
+def check_required_version(requirement, version_type="framework", additive_version=None):
     version_type = version_type.lower()
-    if version_type not in ("wf", "additive"):
+    if version_type not in ("framework", "additive"):
         raise ValueError("Invalid version type.")
 
     if version_type == "additive" and additive_version is None:

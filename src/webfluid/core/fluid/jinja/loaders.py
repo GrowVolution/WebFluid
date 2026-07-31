@@ -1,6 +1,6 @@
 from jinja2 import ChoiceLoader, PrefixLoader, FileSystemLoader
 
-from webfluid.core.constants import FRAMEWORK_ID, FRAMEWORK_ROOT
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_ROOT
 from webfluid.core.freeze import Freezable
 
 _template_path = f"{FRAMEWORK_ID}/templates"

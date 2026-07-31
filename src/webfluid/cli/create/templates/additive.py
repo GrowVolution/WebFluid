@@ -1,4 +1,6 @@
-
+from webfluid.core.identity import (
+    FRAMEWORK_NAME, FRAMEWORK_PACKAGE, BASE_TEMPLATE
+)
 
 api_py = """from .health import handle_request as health
 from .v1 import setup as setup_v1
@@ -10,11 +12,11 @@ __all__ = [
 """
 
 
-adtv_v1_py = """from fastapi import APIRouter
+adtv_v1_py = f"""from fastapi import APIRouter
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from webfluid import Additive
+    from {FRAMEWORK_PACKAGE} import Additive
 
 v1 = APIRouter(prefix="/v1")
 
@@ -26,8 +28,8 @@ def setup(a: "Additive"):
 """
 
 
-adtv_index_html = """{{% extends "fluid_base.html" %}}
-{{# The base example is natively provided by WebFluid. #}}
+adtv_index_html = """{{% extends "{base}" %}}
+{{# The base example is natively provided by {framework}. #}}
 
 {{% block title %}}{{{{ _('{name}') }}}}{{% endblock %}}
 
@@ -78,10 +80,10 @@ app_py = """from .index import handle_request as index
 __all__ = ["index"]
 """
 
-init_py = """from webfluid import Additive
-{import_base}
+init_py = f"""from {FRAMEWORK_PACKAGE} import Additive
+{{import_base}}
 additive = Additive(
-    __name__,{base}{requirements}
+    __name__,{{base}}{{requirements}}
 )
 
 
@@ -89,7 +91,7 @@ additive = Additive(
 def before_enable(_):
     from .api import v1
     additive.api.include_router(v1)
-    {index}"""
+    {{index}}"""
 
 
 adtv_gitignore = """[folders]

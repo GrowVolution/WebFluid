@@ -1,6 +1,7 @@
 import os, platform, typer, subprocess
 
 from webfluid.core.constants import EXECUTION
+from webfluid.core.identity import CLI_NAME
 from webfluid.surface import dist
 from webfluid.surface.src import tailwind_cli
 from webfluid.utils.cli import download_file
@@ -65,8 +66,9 @@ def generate_asset(in_file, out_file, cwd):
 
 
 def generate_tailwind_css(fluid):
-    from webfluid.core.constants import FRAMEWORK_ROOT, THEMES
-    d =  (FRAMEWORK_ROOT / "fluid" / "static" / "css")
+    from webfluid.core.constants import THEMES
+    from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_ROOT
+    d =  (FRAMEWORK_ROOT / FRAMEWORK_ID / "static" / "css")
 
     raw_filename = f"tailwind{'_raw' if THEMES else '_no_themes'}.css"
 
@@ -103,7 +105,7 @@ def load_tailwind():
 
 def tailwind(ctx: typer.Context):
     if not ctx.args:
-        typer.echo(typer.style("Usage: wf tailwind -- [args]", bold=True))
+        typer.echo(typer.style(f"Usage: {CLI_NAME} tailwind -- [args]", bold=True))
         raise typer.Exit(1)
 
     tailwind_cmd(ctx.args)

@@ -1,8 +1,8 @@
 from .main import password, text, confirm, select, fixed_choice
-
+from webfluid.core.identity import HUB_NAME
 
 token = password(
-    "Paste your Ocean JWT token:"
+    f"Paste your {HUB_NAME} JWT token:"
 )
 
 license_query = text(

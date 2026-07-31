@@ -5,6 +5,9 @@ import traceback, sys, logging, typer, os
 
 from webfluid.core.context import BaseContext
 from webfluid.core.constants import EXECUTION
+from webfluid.core.identity import (
+    FRAMEWORK_NAME, ENV_PREFIX, MAIN_LOGGER, ADDITIVE_LOGGER
+)
 from webfluid.utils.core import async_result
 
 
@@ -25,7 +28,7 @@ class _Formatter(logging.Formatter):
     }
 
     def __init__(self):
-        fmt = "[WF]\t[%(asctime)s] [%(levelname)s]\t%(message)s"
+        fmt = f"[{ENV_PREFIX}]\t[%(asctime)s] [%(levelname)s]\t%(message)s"
         datefmt = "%Y-%m-%d %H:%M:%S %z"
         super().__init__(fmt, datefmt)
         self.simple_formatter = logging.Formatter(fmt, datefmt)
@@ -60,8 +63,8 @@ class LogFactory:
         self.console.setLevel(logging.NOTSET)
         self.console.setFormatter(self.formatter.simple_formatter)
 
-        self.main_logger = "webfluid"
-        self.adtv_logger = "webfluid.additives"
+        self.main_logger = MAIN_LOGGER
+        self.adtv_logger = ADDITIVE_LOGGER
 
     def additive_context(self, fn):
         @wraps(fn)
@@ -104,7 +107,7 @@ class LogFactory:
         init_logger(self.main_logger)
         init_logger(self.adtv_logger)
 
-        self.log("Mixing your WebFluid application.")
+        self.log(f"Mixing your {FRAMEWORK_NAME} application.")
 
     @property
     def logger(self):

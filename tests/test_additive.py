@@ -1,6 +1,7 @@
 from pathlib import Path
 import json, os, shutil, sys, tempfile, pytest
 
+from webfluid.core.identity import REQUIRES_KEY
 from webfluid.exceptions import AdditiveException
 
 
@@ -101,7 +102,7 @@ def test_base_additive_refuses_to_be_enabled(additives):
 
 def test_requirement_check_does_not_consume_the_manifest(additives):
     additive = build(additives, "demo", manifest={
-        "requires": { "wf": "*", "additives": { "missing": "*" } }
+        "requires": { REQUIRES_KEY: "*", "additives": { "missing": "*" } }
     })
 
     for _ in range(2):
@@ -114,7 +115,7 @@ def test_requirement_check_does_not_consume_the_manifest(additives):
 def test_requirement_check_accepts_the_list_form(additives):
     write_additive(additives, "dependency", manifest={ "version": "1.2.0" })
     additive = build(additives, "demo", manifest={
-        "requires": { "wf": "*", "additives": ["dependency@>=1.0"] }
+        "requires": { REQUIRES_KEY: "*", "additives": ["dependency@>=1.0"] }
     })
 
     os.environ["dependency"] = "1"

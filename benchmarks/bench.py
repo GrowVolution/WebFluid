@@ -4,6 +4,8 @@ import asyncio, os, subprocess, sys, tempfile, time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 os.environ.setdefault("SECRET_KEY", "benchmark")
 
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_PACKAGE
+
 BUDGETS = {
     "import Fluid": 900,
     "import cli": 400,
@@ -40,14 +42,14 @@ def measure_import(statement):
     total = 0
     for line in result.stderr.splitlines():
         parts = line.split("|")
-        if len(parts) == 3 and "webfluid" in parts[2]:
+        if len(parts) == 3 and FRAMEWORK_PACKAGE in parts[2]:
             total = max(total, int(parts[1].strip()))
     return total / 1000
 
 
 def project():
     root = Path(tempfile.mkdtemp())
-    templates = root / "fluid" / "templates"
+    templates = root / FRAMEWORK_ID / "templates"
     templates.mkdir(parents=True)
 
     (templates / "base.html").write_text("<html><body>{% block c %}{% endblock %}</body></html>")

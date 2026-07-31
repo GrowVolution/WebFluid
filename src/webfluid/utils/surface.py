@@ -1,14 +1,15 @@
 from pathlib import Path
 import typer, shutil
 
-from webfluid.core.constants import WF_STATIC
+from webfluid.core.constants import FRAMEWORK_STATIC
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.surface import dist
 from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node
 from webfluid.surface.wf_tailwind import load_tailwind
 from webfluid.exceptions import FrontendException
 
-_static_js = (Path(__file__).parent.parent / WF_STATIC.lstrip("/") / "js").resolve()
+_static_js = (Path(__file__).parent.parent / FRAMEWORK_STATIC.lstrip("/") / "js").resolve()
 
 
 def setup_frontend(project):
@@ -77,7 +78,7 @@ def setup_frontend(project):
 
     package_json_file = project_root / "package.json"
     package_json_file.write_text(
-        package_json.format(project=project)
+        package_json.format(project=project, id=FRAMEWORK_ID)
     )
 
     vite_config_file = project_root / "vite.config.js"

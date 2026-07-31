@@ -1,6 +1,7 @@
 import os
 
-from webfluid.core.constants import DEBUG, FRAMEWORK_ID
+from webfluid.core.constants import DEBUG
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_NAME
 from webfluid.extensions.babel.constants import (
     DEFAULT_DATE_FORMATS, DEFAULT_LOCALE, DEFAULT_TIMEZONE
 )
@@ -10,7 +11,7 @@ _redis = os.getenv("REDIS_URI", "redis://localhost:6379")
 
 class DefaultConfig:
     APP_CONFIG = {
-        "title": "WebFluid Application",
+        "title": f"{FRAMEWORK_NAME} Application",
         "version": "1.0.0"
     }
     APP_FRONTEND = {
@@ -76,7 +77,7 @@ class DefaultConfig:
     JWT_SECRET_LENGTH = 128
     JWT_EXPIRY_DAYS = 30
     JWT_ALGORITHM = "HS256"
-    JWT_ISSUER = "WebFluid"
+    JWT_ISSUER = FRAMEWORK_NAME
     JWT_AUDIENCES = {
         "default": "Application"
     }

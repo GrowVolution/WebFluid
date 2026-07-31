@@ -1,32 +1,37 @@
-from pathlib import Path
 import os
 
+from webfluid.core.identity import (
+    FRAMEWORK_ID, ENV_PREFIX,
+    HUB_NAME, HUB_API_URL, HUB_AUTH_URL
+)
 from webfluid.utils.core import enabled
 
-FRAMEWORK_ROOT = Path(__file__).parent.parent.resolve()
-FRAMEWORK_ID = "fluid"
-
 APP_STATIC = "/static"
-WF_STATIC = f"/{FRAMEWORK_ID}/static"
-WF_OCEAN = os.getenv("OCEAN_API", "https://ocean.webfluid.dev/hub/api/v1")
-OCEAN_AUTH = os.getenv("AUTH_API", "https://ocean.webfluid.dev/auth/api/v1")
+FRAMEWORK_STATIC = f"/{FRAMEWORK_ID}/static"
+
+HUB_API = os.getenv(f"{HUB_NAME.upper()}_API", HUB_API_URL)
+HUB_AUTH = os.getenv(f"{HUB_NAME.upper()}_AUTH", HUB_AUTH_URL)
+
+FEATURE_FLAGS = tuple(f"{ENV_PREFIX}_{name}" for name in (
+    "THEMES", "TAILWIND", "CHECK_FRONTEND",
+    "BUILD_FRONTEND", "PROCESSING", "ADDITIVES"
+))
+EXTENSION_FLAGS = tuple(f"EXT_{name}" for name in (
+    "SCHEDULING", "SQLALCHEMY", "BABEL", "SECURITY",
+    "EVENTS", "CACHE", "MAIL", "JWT"
+))
 
 DEBUG = enabled("DEBUG_MODE")
 EXECUTION = enabled("IN_EXECUTION")
-THEMES = enabled("WF_THEMES")
-TAILWIND = enabled("WF_TAILWIND")
-CHECK_FRONTEND = enabled("WF_CHECK_FRONTEND")
-BUILD_FRONTEND = enabled("WF_BUILD_FRONTEND")
-PROCESSING = enabled("WF_PROCESSING")
-ADDITIVES = enabled("WF_ADDITIVES")
 
-EXT_SCHEDULING = enabled("EXT_SCHEDULING")
-EXT_SQLALCHEMY = enabled("EXT_SQLALCHEMY")
-EXT_BABEL = enabled("EXT_BABEL")
-EXT_SECURITY = enabled("EXT_SECURITY")
-EXT_EVENTS = enabled("EXT_EVENTS")
-EXT_CACHE = enabled("EXT_CACHE")
-EXT_MAIL = enabled("EXT_MAIL")
-EXT_JWT = enabled("EXT_JWT")
+(
+    THEMES, TAILWIND, CHECK_FRONTEND,
+    BUILD_FRONTEND, PROCESSING, ADDITIVES
+) = map(enabled, FEATURE_FLAGS)
+
+(
+    EXT_SCHEDULING, EXT_SQLALCHEMY, EXT_BABEL, EXT_SECURITY,
+    EXT_EVENTS, EXT_CACHE, EXT_MAIL, EXT_JWT
+) = map(enabled, EXTENSION_FLAGS)
 
 DEV_AUTO_INSTALL = enabled("DEV_AUTO_INSTALL")

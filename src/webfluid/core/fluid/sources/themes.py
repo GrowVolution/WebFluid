@@ -1,6 +1,7 @@
 from markupsafe import Markup
 
-from webfluid.core.constants import THEMES, FRAMEWORK_ID, WF_STATIC
+from webfluid.core.constants import THEMES, FRAMEWORK_STATIC
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.core.context import FluidContext
 from webfluid.exceptions import FrameworkException
 
@@ -10,7 +11,7 @@ class Themes:
         self.themes = {}
         if THEMES:
             self.themes[FRAMEWORK_ID] = Markup(
-                f'<link rel="stylesheet" href="{WF_STATIC}/css/theme.css">'
+                f'<link rel="stylesheet" href="{FRAMEWORK_STATIC}/css/theme.css">'
             )
 
         self.global_theme = fluid.config["GLOBAL_THEME"]

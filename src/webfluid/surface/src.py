@@ -1,3 +1,4 @@
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_ABBR
 
 htmx = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"
 alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
@@ -21,7 +22,7 @@ package_json = """{{
     "private": true,
     "workspaces": [
       "additives/*/frontend",
-      "fluid/frontend"
+      "{id}/frontend"
     ],
     "scripts": {{
       "dev": "vite dev"
@@ -54,9 +55,9 @@ async function loadConfigs(command) {
     if (loaded?.config) configs.push(loaded.config)
   }
 
-  let fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.ts")
+  let fluidConfig = path.resolve(__dirname, "%(id)s", "frontend", "vite.config.ts")
   if (!fs.existsSync(fluidConfig))
-    fluidConfig = path.resolve(__dirname, "fluid", "frontend", "vite.config.js")
+    fluidConfig = path.resolve(__dirname, "%(id)s", "frontend", "vite.config.js")
   if (fs.existsSync(fluidConfig)) {
     const loaded = await loadConfigFromFile(
         { command, mode: "development" },
@@ -109,11 +110,11 @@ function mergeConfigs(configs) {
 
 function wfDevPlugin() {
 
-  const namespaceRegex = /(fluid\/frontend|additives\/[^/]+\/frontend)/
+  const namespaceRegex = /(%(id)s\/frontend|additives\/[^/]+\/frontend)/
 
   return {
 
-    name: "wf-dev-plugin",
+    name: "%(abbr)s-dev-plugin",
     enforce: "pre",
 
     resolveId(id, importer) {
@@ -176,4 +177,4 @@ export default defineConfig(async ({ command }) => {
   config.plugins.push(wfDevPlugin())
 
   return config
-})"""
+})""" % { "id": FRAMEWORK_ID, "abbr": FRAMEWORK_ABBR }

@@ -5,13 +5,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
+from webfluid.core.identity import FRAMEWORK_ID
+
 _STATUSES = (400, 401, 403, 404, 405, 429, 500, 502, 503)
 
 
 def build_project(root):
-    templates = root / "fluid" / "templates"
+    templates = root / FRAMEWORK_ID / "templates"
     (templates / "errors" / "debug").mkdir(parents=True, exist_ok=True)
-    (root / "fluid" / "static" / "css").mkdir(parents=True, exist_ok=True)
+    (root / FRAMEWORK_ID / "static" / "css").mkdir(parents=True, exist_ok=True)
 
     (templates / "page.html").write_text(
         "<html><body>{{ greeting }}</body></html>", encoding="utf-8"

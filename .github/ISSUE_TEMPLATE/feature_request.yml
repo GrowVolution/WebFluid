@@ -1,0 +1,136 @@
+name: Feature request
+description: The framework cannot express something it should, and you can show the gap.
+title: "[Feature] "
+labels: ["enhancement", "needs triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Read this before you type.**
+
+        A feature request has to establish three things, in this order:
+
+        1. **What the framework does today** — the real code you are forced to write.
+        2. **What concrete problem that causes** — what breaks, what it costs, what
+           cannot be expressed at all.
+        3. **What the change solves** — measured against 1 and 2, not in the abstract.
+
+        Requests that skip straight to a proposal are rejected. So are requests
+        that read well but rest on nothing: length is not evidence, and confident
+        prose is not a problem statement. If you cannot name the concrete thing
+        that is impossible or expensive today, there is nothing to build.
+
+        Ideas that are still forming belong in a
+        [discussion](https://github.com/GrowVolution/WebFluid/discussions).
+
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Before you continue
+      options:
+        - label: I searched the existing issues and discussions, and this is not a duplicate.
+          required: true
+        - label: I checked the documentation and this genuinely cannot be done today.
+          required: true
+        - label: This is a gap in the framework, not a bug and not a usage question.
+          required: true
+        - label: I can show real code for both the current state and the proposal.
+          required: true
+
+  - type: textarea
+    id: current_state
+    attributes:
+      label: What the framework does today
+      description: >-
+        The actual code you write right now to get as close as possible, and where
+        it stops. Name the classes, hooks and config keys involved. If the answer
+        is "there is no API for this at all", say which API you looked for and where.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The concrete problem this causes
+      description: >-
+        Be specific and, where you can, quantitative. Which use case is impossible?
+        What does the workaround cost — extra queries per request, duplicated code
+        across N additives, a startup hook that has to reach into private state?
+        "It would be cleaner" and "it is not developer friendly" are not problems.
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What the change has to solve
+      description: >-
+        Restate the problem above as the condition that makes this issue closable.
+        Someone reading only this field should be able to tell whether a given
+        implementation is finished.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or behaviour
+      description: >-
+        A sketch of the code as you want it to read after the change. Signatures,
+        config keys, template globals — whatever this touches. It does not have to
+        be the final design, but it has to be concrete enough to argue with.
+      render: python
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Where does this belong?
+      description: >-
+        Not everything belongs in core. An extension ships with the framework and
+        is toggled by an `EXT_` flag; an additive is a project-level package that
+        anyone can publish to the Ocean.
+      options:
+        - Core (webfluid.core — lifecycle, config, rendering, routing)
+        - Surface (frontend tooling, Vite, Tailwind, Node)
+        - An existing extension
+        - A new extension
+        - An additive — nothing in the framework needs to change
+        - CLI
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What you already tried
+      description: >-
+        The workarounds you built and why each one fails. If you have not tried
+        anything yet, the problem is probably not concrete enough to file.
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Effect on existing behaviour
+      description: >-
+        Does this change or remove anything that already works? Name the affected
+        symbols and whether they appear in a package's `__all__` — that is the line
+        semantic versioning is drawn along. Write "purely additive" if nothing breaks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >-
+        Optional. Prior art in other frameworks, a link to your fork if you already
+        implemented it, or the reason you think this was left out on purpose.
+    validations:
+      required: false

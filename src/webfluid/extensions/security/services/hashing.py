@@ -2,6 +2,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from concurrent.futures import ThreadPoolExecutor
 
+from webfluid.core.identity import FRAMEWORK_ABBR
 from webfluid.utils.core import run_in_executor
 
 
@@ -12,7 +13,7 @@ class HashService:
             parallelism=parallelism
         )
         self._executor = ThreadPoolExecutor(
-            max_workers=threads, thread_name_prefix="wf-hash"
+            max_workers=threads, thread_name_prefix=f"{FRAMEWORK_ABBR}-hash"
         )
 
     def hash(self, password):

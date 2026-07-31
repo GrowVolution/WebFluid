@@ -1,7 +1,7 @@
 from .domains import Domains
 from .translations import Translations
 from .selection import Selector
-from webfluid.core.constants import FRAMEWORK_ID
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.babel.utils import format_message
 

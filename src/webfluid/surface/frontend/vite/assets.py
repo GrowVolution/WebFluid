@@ -3,12 +3,14 @@ from fastapi.responses import FileResponse
 from mimetypes import guess_type
 
 from .dev import dev_server, dev_prefix
-from webfluid.core.constants import DEBUG
+from webfluid.core.constants import DEBUG, FRAMEWORK_STATIC
+
+_static = FRAMEWORK_STATIC.lstrip("/")
 
 
 def asset_catch(project_root):
     async def wrapped(request: Request, path: str):
-        if path.startswith(("api", "wf-static")) or "/frontend" in path:
+        if path.startswith(("api", _static)) or "/frontend" in path:
             return Response(status_code=404)
 
         if "." not in path:

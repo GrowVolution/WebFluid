@@ -1,11 +1,11 @@
 from fastapi.staticfiles import StaticFiles as _StaticFiles
 
-from webfluid.core.constants import (
-    APP_STATIC, WF_STATIC,
-    FRAMEWORK_ID, FRAMEWORK_ROOT
+from webfluid.core.constants import APP_STATIC, FRAMEWORK_STATIC
+from webfluid.core.identity import (
+    FRAMEWORK_ROOT, STATIC_MOUNT, STATIC_GLOBAL
 )
 
-_STATIC = WF_STATIC.lstrip("/")
+_STATIC = FRAMEWORK_STATIC.lstrip("/")
 
 
 class CachedStaticFiles(_StaticFiles):
@@ -29,9 +29,8 @@ class StaticFiles:
         if static.exists():
             self.add(APP_STATIC, static, "static")
 
-        wf_static = f"{FRAMEWORK_ID}_static"
-        self.add(WF_STATIC, FRAMEWORK_ROOT / _STATIC, wf_static)
-        fluid.jinja_env.globals["wf_static"] = wf_static
+        self.add(FRAMEWORK_STATIC, FRAMEWORK_ROOT / _STATIC, STATIC_MOUNT)
+        fluid.jinja_env.globals[STATIC_GLOBAL] = STATIC_MOUNT
 
     def add(self, path, directory, name=None):
         self._sources.append((

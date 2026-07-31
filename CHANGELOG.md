@@ -29,6 +29,11 @@ bottlenecks in the request path.
 | `core.processing.error.add_exception_handler`      | `install_error_handler`                                                       |
 | `core.fluid.middleware.http`                       | `core.fluid.middleware.request`                                               |
 | `Fluid.render(template, is_string=True, ...)`      | `Fluid.render_string(source, ...)`                                            |
+| `core.constants.WF_STATIC`                         | `core.constants.FRAMEWORK_STATIC`                                             |
+| `core.constants.WF_OCEAN`, `OCEAN_AUTH`            | `core.constants.HUB_API` / `HUB_AUTH`                                         |
+| `core.constants.FRAMEWORK_ROOT`                    | `core.identity.FRAMEWORK_ROOT`                                                |
+| `check_required_version(..., "wf")`                | `check_required_version(..., "framework")` (the new default)                  |
+| `AUTH_API` environment variable                    | `OCEAN_AUTH`, derived from the hub name                                       |
 
 `is_string` is gone entirely: `Fluid.render()` and `Additive.render()` no longer
 inspect it, so passing it now reaches the template as an ordinary variable and
@@ -160,6 +165,34 @@ Measured on Windows 11 / Python 3.14 with `benchmarks/bench.py`.
   budgets, so the regressions above cannot come back silently.
 - `scripts/check_stubs.py` — verifies that the stub tree mirrors the runtime
   tree and that every `__all__` entry is stubbed.
+- `core/identity.py` — the single module a fork edits to make the framework its
+  own. It holds the framework id, display name, abbreviation, site and docs
+  URLs, and the hub name and endpoints; everything else that used to hardcode
+  one of those is now derived from it. The environment prefix (`WF_THEMES` and
+  friends), the logger names, the extension entry-point group, the additive
+  manifest's version key, the identity route, the hub token file, the base
+  template name, the static mount and the `wf_static` / `wf_tailwind` Jinja
+  globals all follow from a value in that file. `FRAMEWORK_PACKAGE` reads the
+  package name off `__name__`, so renaming the distribution needs no edit at
+  all. `core/constants.py` keeps the runtime flags and paths and derives its
+  own values from the seam.
+
+- `scripts/rebrand.py` — a Typer and questionary workflow that applies a fork's
+  identity in one pass. It asks for the eight seam values and the package name,
+  previews every rewrite and rename, and then reseats the seam, rewrites the
+  sources, renames the package, the asset folder, the abbreviation-named modules
+  and the stub tree, and updates both `pyproject.toml` files, the `Dockerfile`
+  and `scripts/check_stubs.py`. It reads the current identity out of the seam
+  with `ast` instead of importing the framework, so it stays runnable after the
+  rebrand it just performed. `--dry-run` prints the plan and writes nothing; a
+  dirty working tree aborts unless `--force` is passed. Afterwards it scans for
+  leftover mentions of the old brand and reports what it deliberately left
+  alone — the class and module vocabulary (`Fluid`, `Ocean`, `Additive` and
+  friends), which belongs in an IDE refactor, and the logo assets.
+
+  Verified end to end: rebranding a copy of this repository to `WebAqua` /
+  `webaqua` / `aqua` / `wa` / `Lagoon` leaves zero leftovers, and the result
+  passes all 93 tests and the stub check unchanged.
 
 ### Known limitations
 

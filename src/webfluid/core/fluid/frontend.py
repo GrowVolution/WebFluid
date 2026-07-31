@@ -1,6 +1,7 @@
 from markupsafe import Markup
 
-from webfluid.core.constants import TAILWIND, WF_STATIC
+from webfluid.core.constants import TAILWIND, FRAMEWORK_STATIC
+from webfluid.core.identity import TAILWIND_GLOBAL
 from webfluid.surface.frontend import Frontend
 from webfluid.surface.wf_tailwind import generate_tailwind_css
 from webfluid.utils.surface import validate_config
@@ -17,6 +18,6 @@ def setup_frontend(fluid):
 
     if TAILWIND:
         fluid.startup_hook(lambda: generate_tailwind_css(fluid))
-        fluid.jinja_env.globals["wf_tailwind"] = Markup(
-            f'<link rel="stylesheet" href="{WF_STATIC}/css/tailwind.css">'
+        fluid.jinja_env.globals[TAILWIND_GLOBAL] = Markup(
+            f'<link rel="stylesheet" href="{FRAMEWORK_STATIC}/css/tailwind.css">'
         )

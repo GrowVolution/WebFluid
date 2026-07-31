@@ -15,7 +15,7 @@ from webfluid.extensions.babel.utils import (
     format_timedelta
 )
 from webfluid.core.constants import (
-    WF_STATIC, EXECUTION,
+    FRAMEWORK_STATIC, EXECUTION,
     EXT_SQLALCHEMY
 )
 from webfluid.exceptions import FrameworkException
@@ -107,7 +107,7 @@ class Babel(FluidExtension):
         if config["BABEL_CONFIGURE_SOCKET"]:
             fluid.websocket("/ws/i18n")(self._socket.endpoint)
             fluid.add_source(
-                f'<script src="{WF_STATIC}/js/i18n.js" type="module"></script>',
+                f'<script src="{FRAMEWORK_STATIC}/js/i18n.js" type="module"></script>',
                 priority=5
             )
 

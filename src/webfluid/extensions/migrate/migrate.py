@@ -4,6 +4,7 @@ from datetime import datetime, UTC
 import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
+from webfluid.core.identity import FRAMEWORK_NAME, ENV_PREFIX
 from webfluid.core.config.main import Config
 from webfluid.core.config.init import init_configs
 from webfluid.core.config.build import build_config
@@ -27,14 +28,14 @@ def _manipulated_env(app):
     env["EXT_CACHE"] = "0"
     env["EXT_MAIL"] = "0"
     env["EXT_JWT"] = "0"
-    env["WF_THEMES"] = "0"
-    env["WF_TAILWIND"] = "0"
-    env["WF_PROCESSING"] = "0"
+    env[f"{ENV_PREFIX}_THEMES"] = "0"
+    env[f"{ENV_PREFIX}_TAILWIND"] = "0"
+    env[f"{ENV_PREFIX}_PROCESSING"] = "0"
     return env
 
 
 class Migrate(FluidExtension):
-    _cli = typer.Typer(help="WebFluid Migrate CLI")
+    _cli = typer.Typer(help=f"{FRAMEWORK_NAME} Migrate CLI")
 
     @staticmethod
     @_cli.command()

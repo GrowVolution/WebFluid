@@ -2,6 +2,7 @@ from pathlib import Path
 import typer, sys
 
 from .match import match_version
+from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.exceptions import OceanError
 
 
@@ -32,7 +33,7 @@ def pull_dependency(additive, rid, constraint, additive_root, seen):
     if not meta.get("oss") and not meta.get("owned"):
         typer.echo(typer.style(
             f"[{additive.name}] Required additive '{rid}' is paid and not owned. "
-            "Install it manually with 'wf ocean install'.",
+            f"Install it manually with '{CLI_NAME} {HUB_NAME.lower()} install'.",
             fg=typer.colors.RED, bold=True
         ))
         return

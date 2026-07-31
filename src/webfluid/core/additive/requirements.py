@@ -1,3 +1,4 @@
+from webfluid.core.identity import FRAMEWORK_NAME, REQUIRES_KEY
 from webfluid.utils.core import check_required_version, enabled
 from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import AdditiveException, ManifestError
@@ -36,15 +37,16 @@ class RequirementChecker:
             self._check_additives(requirements["additives"])
 
     def _check_framework(self, requirements):
-        if "wf" not in requirements:
+        if REQUIRES_KEY not in requirements:
             log_factory.warning(
-                f"[{self.name}] Required WebFluid version of not defined."
+                f"[{self.name}] Required {FRAMEWORK_NAME} version not defined."
             )
             return
 
-        if not check_required_version(requirements["wf"]):
+        required = requirements[REQUIRES_KEY]
+        if not check_required_version(required):
             raise AdditiveException(
-                f"[{self.name}] Additive requires WebFluid version {requirements['wf']}."
+                f"[{self.name}] Additive requires {FRAMEWORK_NAME} version {required}."
             )
 
     def _check_additives(self, requirement):

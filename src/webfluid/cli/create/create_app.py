@@ -5,6 +5,7 @@ import typer
 
 from .helpers import setup_additives
 from webfluid.cli import questions
+from webfluid.core.constants import FEATURE_FLAGS, EXTENSION_FLAGS
 
 
 def create_app(
@@ -34,32 +35,14 @@ def create_app(
     }
 
     config["extensions"] = {}
-    extensions = (
-        "EXT_SCHEDULING",
-        "EXT_SQLALCHEMY",
-        "EXT_BABEL",
-        "EXT_SECURITY",
-        "EXT_EVENTS",
-        "EXT_CACHE",
-        "EXT_MAIL",
-        "EXT_JWT"
-    )
     enable_extensions = questions.extensions.ask()
-    for ext in extensions:
+    for ext in EXTENSION_FLAGS:
         enabled = ext in enable_extensions
         config["extensions"][ext] = "1" if enabled else "0"
 
     config["features"] = {}
-    features = (
-        "WF_THEMES",
-        "WF_TAILWIND",
-        "WF_CHECK_FRONTEND",
-        "WF_BUILD_FRONTEND",
-        "WF_PROCESSING",
-        "WF_ADDITIVES"
-    )
     enable_features = questions.features.ask()
-    for feat in features:
+    for feat in FEATURE_FLAGS:
         enabled = feat in enable_features
         config["features"][feat] = "1" if enabled else "0"
 

@@ -1,12 +1,12 @@
-from pathlib import Path
-
-FRAMEWORK_ROOT: Path
 FRAMEWORK_ID: str
 
 APP_STATIC: str
-WF_STATIC: str
-WF_OCEAN: str
-OCEAN_AUTH: str
+FRAMEWORK_STATIC: str
+HUB_API: str
+HUB_AUTH: str
+
+FEATURE_FLAGS: tuple[str, ...]
+EXTENSION_FLAGS: tuple[str, ...]
 
 DEBUG: bool
 EXECUTION: bool

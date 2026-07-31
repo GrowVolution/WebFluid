@@ -4,6 +4,7 @@ import re, sys, shutil, json, typer
 
 from . import templates
 from webfluid.cli import questions
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.surface import dist
 from webfluid.utils.additives import installed_additives
 
@@ -105,7 +106,7 @@ def create_frontend(base, conf, space, name):
         if config_file.exists() \
         else templates.vite_base
 
-    if space == "fluid":
+    if space == FRAMEWORK_ID:
         config_file.write_text(inject_base(config))
     else:
         config_file.write_text(

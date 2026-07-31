@@ -4,10 +4,11 @@ import typer
 from webfluid.cli.create import cli_entry as create_cli
 from webfluid.cli.ocean import cli_entry as ocean_cli
 from webfluid.cli.run import cli_entry as run_cli
+from webfluid.core.identity import FRAMEWORK_NAME, EXTENSION_GROUP
 from webfluid.surface import node_cli, tailwind_cli
 from webfluid.extensions.base import FluidExtension
 
-app = typer.Typer(name="WebFluid CLI")
+app = typer.Typer(name=f"{FRAMEWORK_NAME} CLI")
 
 
 def cli():
@@ -18,7 +19,7 @@ def cli():
     node_cli(app)
     tailwind_cli(app)
 
-    for ep in entry_points(group="webfluid.extensions"):
+    for ep in entry_points(group=EXTENSION_GROUP):
         ext = ep.load()
 
         if not issubclass(ext, FluidExtension) or not isinstance(ext, type(FluidExtension)):

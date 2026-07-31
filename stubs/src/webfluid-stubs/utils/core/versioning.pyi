@@ -8,6 +8,6 @@ class Version(_Version):
     def build(self) -> int: ...
 
 def check_required_version(
-    requirement: str, version_type: str = "wf",
+    requirement: str, version_type: str = "framework",
     additive_version: Version | str | None = None
 ) -> bool: ...

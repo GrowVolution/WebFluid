@@ -4,7 +4,9 @@ import typer, json, shutil
 from .helpers import frontend_conf, create_frontend, make_defaults
 from webfluid.cli import questions
 from webfluid.cli.create import templates
-from webfluid.core.constants import FRAMEWORK_ID
+from webfluid.core.identity import (
+    FRAMEWORK_ID, FRAMEWORK_NAME, REQUIRES_KEY, BASE_TEMPLATE
+)
 from webfluid.surface import node_cmd
 from webfluid.utils.core import safe_string
 
@@ -40,7 +42,7 @@ def additive(additive_id: str):
         "description": questions.description.ask(),
         "authors": [],
         "requires": {
-            "wf": f">={str(version()).lstrip('v')}",
+            REQUIRES_KEY: f">={str(version()).lstrip('v')}",
             "additives": {},
             "packages": []
         }
@@ -61,7 +63,9 @@ def additive(additive_id: str):
         manifest["type"] = "base"
         manifest["frontend"] = { "type": "none" }
         index_html = templates.adtv_index_html.format(
-            name=manifest["name"]
+            name=manifest["name"],
+            base=BASE_TEMPLATE,
+            framework=FRAMEWORK_NAME
         )
     else:
         manifest["type"] = "default"
@@ -87,7 +91,9 @@ def additive(additive_id: str):
             )
         else:
             index_html = templates.adtv_index_html.format(
-                name=manifest["name"]
+                name=manifest["name"],
+                base=BASE_TEMPLATE,
+                framework=FRAMEWORK_NAME
             )
 
     requirements = questions.requirements.ask()

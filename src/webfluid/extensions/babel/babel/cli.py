@@ -1,13 +1,13 @@
 from pathlib import Path
 import typer, subprocess, sys
 
-from webfluid.core.constants import FRAMEWORK_ROOT
+from webfluid.core.identity import FRAMEWORK_NAME, FRAMEWORK_ROOT
 
 _CONFIG = Path(__file__).parent.parent / "babel.cfg"
 
 
 class CLIExtension:
-    cli = typer.Typer(help="WebFluid Babel CLI")
+    cli = typer.Typer(help=f"{FRAMEWORK_NAME} Babel CLI")
 
     @staticmethod
     def extract_fallback(project_root):

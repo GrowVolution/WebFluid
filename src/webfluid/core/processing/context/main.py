@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from .babel import setup_and_get_locale_fn
 from .sources import get_source_callables
 from .url_for import url_for
-from webfluid.core.constants import FRAMEWORK_ID
+from webfluid.core.identity import FRAMEWORK_ID
 
 
 def install_context(fluid):

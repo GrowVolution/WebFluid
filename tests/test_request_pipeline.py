@@ -1,6 +1,8 @@
 from fastapi.responses import HTMLResponse, StreamingResponse
 import pytest
 
+from webfluid.core.constants import FRAMEWORK_STATIC
+
 
 @pytest.fixture
 def app(make_fluid):
@@ -126,7 +128,7 @@ async def test_static_requests_skip_the_pipeline(app, client):
     app.before_request(lambda: calls.append("hit"))
 
     async with client(app) as c:
-        response = await c.get("/fluid/static/js/base.js")
+        response = await c.get(f"{FRAMEWORK_STATIC}/js/base.js")
 
     assert response.status_code == 200
     assert calls == []
@@ -135,7 +137,7 @@ async def test_static_requests_skip_the_pipeline(app, client):
 @pytest.mark.asyncio
 async def test_static_files_are_cacheable(app, client):
     async with client(app) as c:
-        response = await c.get("/fluid/static/js/base.js")
+        response = await c.get(f"{FRAMEWORK_STATIC}/js/base.js")
 
     assert response.headers["cache-control"] == "public, max-age=31536000"
 

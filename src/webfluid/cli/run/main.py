@@ -2,6 +2,7 @@ from pathlib import Path
 import typer, os
 
 from webfluid.cli import questions
+from webfluid.core.identity import CLI_NAME
 
 
 def run(
@@ -39,7 +40,7 @@ def run(
             f"Config file '{name}.ini' does not exist.",
             fg=typer.colors.RED
         )
-        typer.echo(f"Try: {typer.style(f'wf create app {name}', bold=True)} "
+        typer.echo(f"Try: {typer.style(f'{CLI_NAME} create app {name}', bold=True)} "
                    "and then run this command again.")
         raise typer.Exit(1)
 

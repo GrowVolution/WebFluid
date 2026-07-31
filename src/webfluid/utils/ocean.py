@@ -1,24 +1,27 @@
 from pathlib import Path
 import io, tarfile, httpx
 
-from webfluid.core.constants import WF_OCEAN, OCEAN_AUTH
+from webfluid.core.constants import HUB_API, HUB_AUTH
+from webfluid.core.identity import CLI_NAME, HUB_NAME, HUB_TOKEN_FILE
 from webfluid.exceptions import OceanError
 
-TOKEN_FILE = Path.home() / ".wf-ocean"
+TOKEN_FILE = Path.home() / HUB_TOKEN_FILE
+
+_login = f"You need to log in first. Run '{CLI_NAME} {HUB_NAME.lower()} login'."
 
 ERROR_MESSAGES = {
     "NOT_AUTHORIZED": "You are not authorized to perform this action.",
     "UNAUTHORIZED": "You are not authorized. Please log in.",
-    "NOT_AUTHENTICATED": "You need to log in first. Run 'wf ocean login'.",
+    "NOT_AUTHENTICATED": _login,
     "FORBIDDEN": "You do not have permission to do this.",
     "NOT_FOUND": "The requested resource was not found.",
     "VALIDATION_ERROR": "The request was invalid.",
-    "LOGIN_REQUIRED": "You need to log in first. Run 'wf ocean login'.",
+    "LOGIN_REQUIRED": _login,
     "OWNERSHIP_REQUIRED": "You need to own this package first.",
     "INVALID_TOKEN": "The token is invalid or expired.",
     "TOKEN_EXPIRED": "Your token has expired. Please log in again.",
-    "NO_OCEAN_GRANT": "This token has no Ocean grants.",
-    "NO_OCEAN_ACCESS": "This account has no access to the Ocean.",
+    "NO_OCEAN_GRANT": f"This token has no {HUB_NAME} grants.",
+    "NO_OCEAN_ACCESS": f"This account has no access to the {HUB_NAME}.",
     "UNKNOWN_USER": "The token's user could not be found.",
     "PACKAGE_NOT_FOUND": "The package could not be found.",
     "UNKNOWN_PACKAGE": "The package could not be found.",
@@ -48,7 +51,7 @@ def humanize_error(detail, fallback=None):
     if detail in ERROR_MESSAGES:
         return ERROR_MESSAGES[detail]
     if isinstance(detail, str) and detail.isupper():
-        return f"{fallback or 'The Ocean reported an error'} ({detail})."
+        return f"{fallback or f'The {HUB_NAME} reported an error'} ({detail})."
     return detail
 
 
@@ -79,7 +82,7 @@ def extract_archive(data, target):
 
 
 class Ocean:
-    def __init__(self, token=None, base_url=WF_OCEAN, auth_url=OCEAN_AUTH):
+    def __init__(self, token=None, base_url=HUB_API, auth_url=HUB_AUTH):
         self.base_url = base_url.rstrip("/")
         self.auth_url = auth_url.rstrip("/")
         self.token = token if token is not None else load_token()

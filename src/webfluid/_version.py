@@ -1,5 +1,6 @@
 from importlib.metadata import version as _version
 
+from webfluid.core.identity import FRAMEWORK_PACKAGE
 from webfluid.utils.core.versioning import Version
 
 
@@ -7,4 +8,4 @@ class FluidVersion(Version): pass
 
 
 def version():
-    return FluidVersion(_version("webfluid").split(" ")[-1].lstrip("v"))
+    return FluidVersion(_version(FRAMEWORK_PACKAGE).split(" ")[-1].lstrip("v"))

@@ -1,4 +1,4 @@
-from webfluid.core.constants import FRAMEWORK_ID
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.utils.core import enabled, try_import
 from webfluid.utils.additives import installed_additives
 

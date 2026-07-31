@@ -19,8 +19,9 @@ from webfluid.core.config.init import init_configs
 from webfluid.core.config.build import build_config
 
 from webfluid.core.constants import (
-    APP_STATIC, WF_STATIC, PROCESSING, ADDITIVES
+    APP_STATIC, FRAMEWORK_STATIC, PROCESSING, ADDITIVES
 )
+from webfluid.core.identity import FRAMEWORK_NAME
 from webfluid.core.processing import setup_processing
 from webfluid.surface.frontend import Frontend
 from webfluid.utils.core import (
@@ -57,7 +58,7 @@ class Fluid(FastAPI):
 
     def __repr__(self):
         from webfluid import version
-        return f"<WebFluid {version()}>"
+        return f"<{FRAMEWORK_NAME} {version()}>"
 
     def __getattr__(self, name):
         moved = _moved.get(name)
@@ -80,14 +81,14 @@ class Fluid(FastAPI):
         self._themes = Themes(self)
 
         self.add_source(
-            f'<script src="{WF_STATIC}/js/base.js" type="module"></script>',
+            f'<script src="{FRAMEWORK_STATIC}/js/base.js" type="module"></script>',
             priority=5
         )
 
     def _build_static(self):
         self.static_files = StaticFiles(self)
         self.static_prefixes = StaticPrefixes(
-            APP_STATIC, WF_STATIC,
+            APP_STATIC, FRAMEWORK_STATIC,
             "/frontend", "/vite-dev"
         )
 

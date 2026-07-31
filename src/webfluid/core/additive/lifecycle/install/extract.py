@@ -1,6 +1,8 @@
 from pathlib import Path
 import typer
 
+from webfluid.core.identity import FRAMEWORK_ID
+
 
 def extract(additive):
     extract_path = Path(additive.root_path) / "extract"
@@ -11,7 +13,7 @@ def extract(additive):
                 continue
 
             rel = file.relative_to(path)
-            dst = Path.cwd() / "fluid" / rel
+            dst = Path.cwd() / FRAMEWORK_ID / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             if dst.exists():
                 typer.echo(typer.style(

@@ -3,6 +3,7 @@ import json, tomllib, typer
 
 from webfluid.cli import questions
 from webfluid.cli.ocean.archive import build_archive, sha256_hex
+from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.utils.ocean import Ocean, humanize_error
 from webfluid.exceptions import OceanError
 
@@ -39,7 +40,7 @@ def _choose_maintainer(status):
     if not options:
         typer.secho(
             "You are not enrolled as a publisher or organisation. "
-            "Enroll on the Ocean first.",
+            f"Enroll on the {HUB_NAME} first.",
             fg=typer.colors.RED
         )
         raise typer.Exit(1)
@@ -115,8 +116,10 @@ def publish():
     project_root = Path.cwd()
     ocean = Ocean()
     if not ocean.authenticated:
-        typer.secho("Publishing requires login. Run 'wf ocean login' first.",
-                    fg=typer.colors.RED)
+        typer.secho(
+            f"Publishing requires login. Run '{CLI_NAME} {HUB_NAME.lower()} login' first.",
+            fg=typer.colors.RED
+        )
         raise typer.Exit(1)
 
     ptype, package_id = _detect_package(project_root)

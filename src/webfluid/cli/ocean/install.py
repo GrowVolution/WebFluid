@@ -2,6 +2,7 @@ from pathlib import Path
 from importlib import import_module
 import sys, subprocess, typer
 
+from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
 from webfluid.exceptions import OceanError
 from webfluid.cli import questions
@@ -112,7 +113,7 @@ def _install_package(ocean, ptype, pid, pinned, channel, target):
     try: meta = ocean.resolve(ptype, pid)
     except OceanError as e:
         if e.status == 404:
-            typer.secho(f"[{pid}] Not found on the Ocean.", fg=typer.colors.RED)
+            typer.secho(f"[{pid}] Not found on the {HUB_NAME}.", fg=typer.colors.RED)
         else:
             typer.secho(f"[{pid}] Could not resolve: {humanize_error(e.detail)}",
                         fg=typer.colors.RED)
@@ -124,14 +125,14 @@ def _install_package(ocean, ptype, pid, pinned, channel, target):
     if not meta.get("oss") and not meta.get("owned"):
         if not ocean.authenticated:
             typer.secho(
-                f"[{pid}] Paid package. Run 'wf ocean login' and purchase "
-                "it on the Ocean first.",
+                f"[{pid}] Paid package. Run '{CLI_NAME} {HUB_NAME.lower()} login' "
+                f"and purchase it on the {HUB_NAME} first.",
                 fg=typer.colors.RED
             )
         else:
             typer.secho(
                 f"[{pid}] You do not own this paid package. "
-                "Purchase it on the Ocean first.",
+                f"Purchase it on the {HUB_NAME} first.",
                 fg=typer.colors.RED
             )
         return False

@@ -1,0 +1,157 @@
+name: Bug report
+description: Something in WebFluid behaves differently than documented, and you can prove it.
+title: "[Bug] "
+labels: ["bug", "needs triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Read this before you type.**
+
+        A bug report is evidence, not a description. We need the code that fails,
+        the exact steps that make it fail, and the log output it produces. A well
+        written narrative without those three things cannot be acted on and will
+        be closed unread.
+
+        If you cannot reduce the problem to code someone else can run, it is not
+        yet a bug report — open a
+        [discussion](https://github.com/GrowVolution/WebFluid/discussions) instead.
+
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Before you continue
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I reproduced this on the latest release, not on an older version.
+          required: true
+        - label: I reduced this to a minimal example — not my application, not a screenshot of my editor.
+          required: true
+        - label: This is a defect in WebFluid, not a question about how to use it.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: WebFluid version
+      description: Output of `python -c "import webfluid; print(webfluid.version())"`
+      placeholder: "1.0.0b1"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and operating system
+      description: Output of `python -V`, plus the OS and its version.
+      placeholder: "Python 3.14.0 — Windows 11 26200 / Ubuntu 24.04 / macOS 15.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - PyPI (pip install webfluid)
+        - Git checkout (editable install)
+        - Docker image
+        - Ocean
+    validations:
+      required: true
+
+  - type: textarea
+    id: app_config
+    attributes:
+      label: Enabled extensions and features
+      description: >-
+        The `[extensions]` and `[features]` sections of the app config you ran
+        (`app_configs/<name>.ini`). Strip secrets, keep every flag.
+      render: ini
+      placeholder: |
+        [extensions]
+        EXT_SQLALCHEMY = 1
+        EXT_BABEL = 1
+        EXT_EVENTS = 0
+
+        [features]
+        WF_THEMES = 1
+        WF_TAILWIND = 1
+        WF_PROCESSING = 1
+        WF_ADDITIVES = 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: What happens, and what should happen instead
+      description: >-
+        Two short paragraphs. If "what should happen" is your expectation rather
+        than something the documentation states, say so and link the part of the
+        docs you based it on.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Exact steps to reproduce
+      description: >-
+        A numbered list someone can follow on a clean machine, starting from
+        `wf create project`. Include every command, in order, with its flags.
+        "Run the app and open the page" is not a step.
+      placeholder: |
+        1. wf create project bugdemo -sf
+        2. cd bugdemo
+        3. wf create app dev  (accept defaults, enable WF_PROCESSING)
+        4. Replace fluid/app/index.py with the snippet below
+        5. wf run dev --debug
+        6. curl http://localhost:8000/
+        7. The response is 500 instead of 200
+    validations:
+      required: true
+
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal reproducing code
+      description: >-
+        The smallest file (or files) that trigger this. It must be runnable as
+        written — no `...`, no placeholders, no "and then my service does X".
+        Mark file boundaries with a comment.
+      render: python
+      placeholder: |
+        # fluid/app/index.py
+        from webfluid.core.context import FluidContext
+
+
+        async def handle_request():
+            ctx = FluidContext.current()
+            return await ctx.fluid.render("index.html")
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output and traceback
+      description: >-
+        The actual output, copied verbatim. Include the full traceback and the
+        surrounding `[WF]` lines. Run with `--debug` and `LOG_LEVEL=debug` if
+        the failure is silent. A paraphrase of an error is not an error.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >-
+        Optional. Related issues, the commit that introduced it, a workaround
+        you found, or why the obvious fix does not work.
+    validations:
+      required: false

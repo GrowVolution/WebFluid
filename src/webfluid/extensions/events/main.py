@@ -4,7 +4,7 @@ from .loop import LoopManager
 from .socket import SocketManager
 
 from webfluid.extensions.base import Delegated, FluidExtension
-from webfluid.core.constants import WF_STATIC
+from webfluid.core.constants import FRAMEWORK_STATIC
 from webfluid.core.context import FluidContext
 from webfluid.utils.core import safe_execute
 
@@ -46,7 +46,7 @@ class EventManager(FluidExtension):
             socket_manager = SocketManager(self._events, self._queries)
             fluid.websocket("/ws/events")(socket_manager.socket)
             fluid.add_source(
-                f'<script src="{WF_STATIC}/js/events.js" type="module"></script>',
+                f'<script src="{FRAMEWORK_STATIC}/js/events.js" type="module"></script>',
                 priority=5
             )
 

@@ -5,6 +5,7 @@ from .main import (
     select, confirm, checkbox, text,
     choice, fixed_choice
 )
+from webfluid.core.constants import FEATURE_FLAGS, EXTENSION_FLAGS
 
 frontend_type = select(
     "Select your frontend type:",
@@ -173,25 +174,17 @@ mail_password = text(
 extensions = checkbox(
     "Enable your app extensions:",
     choices=[
-        "EXT_SCHEDULING",
-        questionary.Choice("EXT_SQLALCHEMY", checked=True),
-        questionary.Choice("EXT_BABEL", checked=True),
-        "EXT_SECURITY",
-        questionary.Choice("EXT_EVENTS", checked=True),
-        "EXT_CACHE",
-        "EXT_MAIL",
-        "EXT_JWT"
+        questionary.Choice(flag, checked=flag.endswith(
+            ("SQLALCHEMY", "BABEL", "EVENTS")
+        )) for flag in EXTENSION_FLAGS
     ]
 )
 
 features = checkbox(
     "Enable your app features:  ",
     choices=[
-        questionary.Choice("WF_THEMES", checked=True),
-        questionary.Choice("WF_TAILWIND", checked=True),
-        "WF_CHECK_FRONTEND",
-        "WF_BUILD_FRONTEND",
-        questionary.Choice("WF_PROCESSING", checked=True),
-        questionary.Choice("WF_ADDITIVES", checked=True)
+        questionary.Choice(flag, checked=flag.endswith(
+            ("THEMES", "TAILWIND", "PROCESSING", "ADDITIVES")
+        )) for flag in FEATURE_FLAGS
     ]
 )

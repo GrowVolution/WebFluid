@@ -1,6 +1,7 @@
 import os, platform, typer, subprocess
 
 from webfluid.core.constants import EXECUTION
+from webfluid.core.identity import CLI_NAME
 from webfluid.surface import dist
 from webfluid.surface.src import node_standalone
 from webfluid.utils.cli import download_file
@@ -33,7 +34,7 @@ def _node_cmd(cmd):
     if not node.exists():
         if not _sys_node()[0]:
             raise NodeError("Missing node installation / integration... "
-                            "Try running 'wf create project dummy -sd'.")
+                            f"Try running '{CLI_NAME} create project dummy -sd'.")
         return cmd
 
     if os.name == "nt":
@@ -132,7 +133,8 @@ def load_node():
 
 def node(ctx: typer.Context):
     if not ctx.args:
-        typer.echo(typer.style("Usage: wf node <command> [args]", bold=True, fg=typer.colors.YELLOW))
+        typer.echo(typer.style(f"Usage: {CLI_NAME} node <command> [args]",
+                               bold=True, fg=typer.colors.YELLOW))
         raise typer.Exit(1)
 
     node_cmd(ctx.args)

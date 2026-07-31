@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Documentation
+    url: https://docs.webfluid.dev/latest/
+    about: Read this first. Most reported bugs turn out to be configuration.
+
+  - name: Questions, ideas and "would it be possible"
+    url: https://github.com/GrowVolution/WebFluid/discussions
+    about: Usage questions and half-formed ideas belong here, not in the issue tracker.

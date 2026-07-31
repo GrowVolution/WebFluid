@@ -4,12 +4,13 @@ from datetime import datetime, UTC
 
 from .vite import Vite
 from webfluid.core.constants import (
-    DEBUG, TAILWIND, WF_STATIC, THEMES, FRAMEWORK_ID
+    DEBUG, TAILWIND, FRAMEWORK_STATIC, THEMES
 )
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.surface.wf_tailwind import generate_asset
 from webfluid.exceptions import FrontendException
 
-_static_js = f"{WF_STATIC}/js"
+_static_js = f"{FRAMEWORK_STATIC}/js"
 
 
 class Frontend:
@@ -73,7 +74,7 @@ class Frontend:
         self._cover()
         self._init(
             fluid.config["APP_FRONTEND"],
-            fluid.project_root / "fluid"
+            fluid.project_root / FRAMEWORK_ID
         )
 
         if self._vite is not None: self._vite.register(fluid)

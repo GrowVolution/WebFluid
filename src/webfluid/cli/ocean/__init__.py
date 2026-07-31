@@ -1,6 +1,10 @@
 import typer
 
-ocean = typer.Typer(help="Browse, publish and install packages from the Ocean.")
+from webfluid.core.identity import HUB_NAME
+
+ocean = typer.Typer(
+    help=f"Browse, publish and install packages from the {HUB_NAME}."
+)
 
 from webfluid.cli.ocean.search import search
 from webfluid.cli.ocean.install import install
@@ -15,4 +19,4 @@ ocean.command()(logout)
 
 
 def cli_entry(app):
-    app.add_typer(ocean, name="ocean")
+    app.add_typer(ocean, name=HUB_NAME.lower())

@@ -3,7 +3,7 @@ import typer, shutil
 
 from .helpers import make_defaults, frontend_conf, create_frontend
 from webfluid.cli.create import templates
-from webfluid.core.constants import FRAMEWORK_ID
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.surface import node_cmd
 from webfluid.utils.surface import setup_frontend
 
@@ -64,13 +64,13 @@ def project(
         if skip_defaults: return
 
         conf = frontend_conf()
-        if create_frontend(app_dir, conf, "fluid", name):
+        if create_frontend(app_dir, conf, FRAMEWORK_ID, name):
             node_cmd(
                 ["npm", "install"],
                 project_root
             )
             node_cmd(
-                ["npm", "install", "-w", "fluid/frontend"],
+                ["npm", "install", "-w", f"{FRAMEWORK_ID}/frontend"],
                 project_root
             )
 
@@ -89,8 +89,8 @@ def project(
             )
             (project_root / "main.py").write_text(
                 templates.main_py.format(
-                    index="""
-    from fluid.app import app_router
+                    index=f"""
+    from {FRAMEWORK_ID}.app import app_router
     app.include_router(app_router)
                 """)
             )

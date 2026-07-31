@@ -1,7 +1,7 @@
 from webfluid.core import ext
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.core.constants import (
     EXECUTION,
-    FRAMEWORK_ID,
 
     EXT_SCHEDULING,
     EXT_SQLALCHEMY,

@@ -1,6 +1,8 @@
 import typer
 
-create = typer.Typer(help="Create new WebFluid instances.")
+from webfluid.core.identity import FRAMEWORK_NAME
+
+create = typer.Typer(help=f"Create new {FRAMEWORK_NAME} instances.")
 
 from .project import project
 from .additive import additive

@@ -4,8 +4,8 @@ from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
 
 _backends = {
-    "legacy": ("webfluid.extensions.cache.legacy", "LegacyCache"),
-    "redis": ("webfluid.extensions.cache.redis", "RedisCache")
+    "legacy": (f"{__package__}.legacy", "LegacyCache"),
+    "redis": (f"{__package__}.redis", "RedisCache")
 }
 
 

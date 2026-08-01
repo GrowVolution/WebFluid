@@ -4,8 +4,8 @@ from webfluid.core.identity import FRAMEWORK_PACKAGE
 from webfluid.utils.core.versioning import Version
 
 
-class FluidVersion(Version): pass
-
-
 def version():
-    return FluidVersion(_version(FRAMEWORK_PACKAGE).split(" ")[-1].lstrip("v"))
+    return Version(
+        _version(FRAMEWORK_PACKAGE)
+        .split(" ")[-1].lstrip("v")
+    )

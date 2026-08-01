@@ -21,3 +21,6 @@ def __getattr__(name):
         return register_config
 
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

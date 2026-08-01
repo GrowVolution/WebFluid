@@ -193,6 +193,18 @@ Measured on Windows 11 / Python 3.14 with `benchmarks/bench.py`.
   survive their executor now, whichever one produced them.
 - `Fluid.__init__` is split into named build phases so the construction order is
   explicit.
+- The default stylesheets (`tailwind_raw.css` and `tailwind_no_themes.css`) no
+  longer bottom out in a hardcoded `#060f1f` navy. Page and error backgrounds,
+  the nav, footer, dropdowns, cards and traceback frames now derive from four
+  surface tokens declared on `:root`: `--wf-blend` (the theme's structural hue —
+  `--primary-5` tinted with `--secondary-5`), `--wf-deep`, `--wf-veil` and
+  `--wf-sunk`, plus `--wf-page` for the full page gradient, which adds a third
+  glow from `--tertiary-4` along the bottom edge. A theme that is not blue-grey
+  no longer ends in a blue-grey lower half, and embedded third-party surfaces
+  branded from the same theme sit on a background that matches them. Every token
+  falls back to the `--default-*` ramp, so a theme that only defines the neutral
+  scale still renders. Themes keep working unchanged; only the derived tones
+  move.
 
 ### Added
 

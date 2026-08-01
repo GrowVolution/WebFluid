@@ -1,8 +1,7 @@
-from webfluid._version import FluidVersion as FluidVersion, version as version
+from webfluid._version import version as version
 from webfluid.core.fluid import Fluid as Fluid
 from webfluid.core.additive import (
     Additive as Additive,
-    AdditiveVersion as AdditiveVersion,
     Manifest as Manifest,
 )
 from . import (
@@ -13,7 +12,7 @@ from . import (
 )
 
 __all__ = [
-    "Fluid", "FluidVersion", "version",
-    "Additive", "AdditiveVersion", "Manifest",
+    "Fluid", "version",
+    "Additive", "Manifest",
     "utils", "fluid", "extensions", "exceptions",
 ]

@@ -32,10 +32,10 @@ def _channel(alpha, beta, rc):
 
 
 def _latest_in_channel(versions, channel):
-    from webfluid.core.additive import AdditiveVersion
+    from webfluid.utils.core import Version
     best = None
     for version in versions:
-        try: av = AdditiveVersion(version)
+        try: av = Version(version)
         except (ValueError, TypeError): continue
         if av.stage != channel: continue
         if best is None or av > best[0]:

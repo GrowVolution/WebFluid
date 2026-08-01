@@ -1,5 +1,5 @@
 
-__all__ = ["Additive", "Manifest", "AdditiveVersion"]
+__all__ = ["Additive", "Manifest"]
 
 
 def __getattr__(name):
@@ -11,8 +11,7 @@ def __getattr__(name):
         from .manifest import Manifest
         return Manifest
 
-    if name == "AdditiveVersion":
-        from .version import Version
-        return Version
-
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

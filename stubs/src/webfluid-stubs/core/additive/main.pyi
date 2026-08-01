@@ -10,9 +10,9 @@ from webfluid.core.additive.jinja import Jinja
 from webfluid.core.additive.kind import BaseKind, FeatureKind
 from webfluid.core.additive.manifest import Manifest
 from webfluid.core.additive.router import Router
-from webfluid.core.additive.version import Version
 from webfluid.core.lifecycle import AdditiveLifecycle, RequestLifecycle
 from webfluid.surface.frontend import Frontend
+from webfluid.utils.core import Version
 
 class Additive:
     name: str

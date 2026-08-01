@@ -14,7 +14,7 @@ def _values(cls):
 def build_config():
     config = _values(DefaultConfig)
 
-    for configs in build_sorted_tuple(config_map):
-        for cls in configs: config.update(_values(cls))
+    for configs in reversed(build_sorted_tuple(config_map)):
+        for cls in reversed(configs): config.update(_values(cls))
 
     return config

@@ -29,6 +29,10 @@
     --info-3: #155DFCFF;
     --info-4: #1447E6FF;
     --info-5: #193CB8FF;
+
+    --display: "Sora", system-ui, sans-serif;
+    --body: "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root[data-theme="light"] {

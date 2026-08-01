@@ -1,8 +1,7 @@
 
 
 def match_version(meta, constraint):
-    from webfluid.core.additive.version import Version
-    from webfluid.utils.core import check_required_version
+    from webfluid.utils.core import Version, check_required_version
 
     matching = []
     for release in meta.get("releases", []):

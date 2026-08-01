@@ -20,3 +20,6 @@ def __getattr__(name):
         return HashService
 
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

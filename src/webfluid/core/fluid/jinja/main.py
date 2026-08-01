@@ -9,7 +9,9 @@ from webfluid.core.context.jinja import JinjaContext
 class Jinja:
     def __init__(self, fluid):
         self.env = Environment(
-            enable_async=True, auto_reload=DEBUG, cache_size=-1
+            enable_async=True,
+            auto_reload=DEBUG,
+            cache_size=-1
         )
         self.context = JinjaContext()
         self.loaders = Loaders(fluid)

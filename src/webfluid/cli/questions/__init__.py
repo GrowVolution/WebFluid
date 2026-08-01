@@ -56,3 +56,6 @@ def __getattr__(name):
         return getattr(ocean, name.replace("ocean_", ""))
 
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

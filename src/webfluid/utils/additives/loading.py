@@ -10,7 +10,8 @@ _additives = {
 
 
 def _load_additives(package, target, additive_type, do_log):
-    from webfluid.core.additive import AdditiveVersion, Manifest
+    from webfluid.core.additive import Manifest
+    from webfluid.utils.core import Version
 
     for additive in package.iterdir():
         if not additive.is_dir(): continue
@@ -19,7 +20,7 @@ def _load_additives(package, target, additive_type, do_log):
         try:
             manifest = Manifest(additive / "manifest.json")
             if manifest["type"] != additive_type: continue
-            version = AdditiveVersion(manifest["version"])
+            version = Version(manifest["version"])
             _additives[target][package].append(
                 (manifest.get("id", additive.name), version, additive.name)
             )

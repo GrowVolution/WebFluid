@@ -42,3 +42,6 @@ def __getattr__(name):
         return getattr(proxy, name)
 
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

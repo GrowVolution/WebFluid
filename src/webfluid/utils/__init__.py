@@ -21,4 +21,13 @@ def __getattr__(name):
         from . import core
         return getattr(core, name)
 
+    if name in {
+        "additives", "ocean", "countries", "logging", "cli", "surface"
+    }:
+        from importlib import import_module
+        return import_module(f".{name}", __name__)
+
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

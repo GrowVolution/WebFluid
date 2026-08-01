@@ -1,14 +1,13 @@
 from pathlib import Path
 
 from webfluid.core.additive.kind import kind_for
-from webfluid.core.additive.version import Version
 from webfluid.core.lifecycle import AdditiveLifecycle, RequestLifecycle
 from webfluid.core.additive.lifecycle import install, configure, create_enable
 from webfluid.core.additive.middleware import add_http_middleware
 from webfluid.core.additive.processing import configure as configure_processing
 from webfluid.core.additive.jinja import Jinja
 
-from webfluid.utils.core import get_root_path
+from webfluid.utils.core import Version, get_root_path
 from webfluid.exceptions import AdditiveException, ManifestError
 
 

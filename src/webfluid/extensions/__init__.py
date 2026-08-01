@@ -42,4 +42,11 @@ def __getattr__(name):
         from .jwt import JWTManager
         return JWTManager
 
+    if name in {"babel", "cache", "sqlalchemy", "security"}:
+        from importlib import import_module
+        return import_module(f".{name}", __name__)
+
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

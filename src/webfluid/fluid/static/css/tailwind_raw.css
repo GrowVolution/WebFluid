@@ -49,18 +49,29 @@
     --color-info-4: var(--info-4);
     --color-info-5: var(--info-5);
 
-    --font-display: "Sora", system-ui, sans-serif;
-    --font-body: "Inter", system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --font-display: var(--display);
+    --font-body: var(--body);
+    --font-mono: var(--mono);
 }
 
 @layer base {
+    :root {
+        --wf-blend: color-mix(in srgb,
+                var(--primary-5, var(--default-5)) 62%,
+                var(--secondary-5, var(--default-4)));
+        --wf-deep: color-mix(in srgb, var(--wf-blend) 52%, #000);
+        --wf-veil: color-mix(in srgb, var(--wf-blend) 90%, #000);
+        --wf-sunk: color-mix(in srgb, var(--wf-blend) 78%, #000);
+        --wf-page:
+                radial-gradient(900px 600px at 78% -8%, color-mix(in srgb, var(--secondary-2) 32%, transparent), transparent 60%),
+                radial-gradient(800px 600px at 8% 22%, color-mix(in srgb, var(--tertiary-3) 28%, transparent), transparent 55%),
+                radial-gradient(1200px 720px at 50% 110%, color-mix(in srgb, var(--tertiary-4) 30%, transparent), transparent 62%),
+                linear-gradient(180deg, var(--primary-5, var(--default-5)), var(--wf-deep) 76%);
+    }
+
     body {
         @apply font-body text-slate-100 min-h-dvh flex flex-col;
-        background:
-                radial-gradient(900px 600px at 78% -8%, color-mix(in srgb, var(--secondary-2) 35%, transparent), transparent 60%),
-                radial-gradient(800px 600px at 8% 22%, color-mix(in srgb, var(--tertiary-3) 30%, transparent), transparent 55%),
-                linear-gradient(180deg, var(--primary-5), #060f1f 70%);
+        background: var(--wf-page);
     }
 
     a { @apply no-underline; }
@@ -101,7 +112,7 @@
 
     nav {
         @apply sticky top-0 z-50 border-b border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 75%, transparent);
+        background: color-mix(in srgb, var(--wf-blend) 75%, transparent);
         backdrop-filter: blur(14px);
     }
     .navbar {
@@ -135,7 +146,7 @@
     }
     .nav-dropdown-menu {
         @apply absolute right-0 mt-2 min-w-44 p-1.5 rounded-xl flex flex-col gap-0.5 border border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 92%, #000);
+        background: var(--wf-veil);
         backdrop-filter: blur(14px);
         box-shadow: 0 18px 45px rgba(0, 0, 0, .5);
     }
@@ -155,7 +166,7 @@
 
     footer {
         @apply mt-auto border-t border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 80%, #000);
+        background: var(--wf-sunk);
     }
     .footer {
         @apply max-w-7xl mx-auto px-6 py-8 flex flex-wrap gap-4 items-center justify-between;
@@ -246,10 +257,7 @@
     .error-layout {
         @apply relative flex items-center justify-center px-6 overflow-hidden;
         min-height: calc(100dvh - 4rem - 6rem);
-        background:
-                radial-gradient(720px 460px at 80% -10%, color-mix(in srgb, var(--secondary-3) 26%, transparent), transparent 60%),
-                radial-gradient(680px 460px at 8% 18%, color-mix(in srgb, var(--tertiary-3) 22%, transparent), transparent 58%),
-                linear-gradient(180deg, var(--primary-5), #060f1f 70%);
+        background: var(--wf-page);
     }
     .error-container {
         @apply relative w-full max-w-lg;
@@ -267,7 +275,7 @@
     .error-info    { --error-accent: var(--info-2); }
     .error-card {
         @apply relative flex flex-col items-center gap-5 rounded-3xl p-10 text-center border border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 88%, #000);
+        background: var(--wf-veil);
         backdrop-filter: blur(12px);
         filter: drop-shadow(0 0 24px color-mix(in srgb, var(--error-accent, var(--danger-3)) 32%, transparent));
     }
@@ -342,12 +350,12 @@
     }
     .trace-frame {
         @apply rounded-2xl overflow-hidden border border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 92%, #000);
+        background: var(--wf-veil);
         box-shadow: 0 30px 70px rgba(0, 0, 0, .45);
     }
     .trace-bar {
         @apply flex items-center gap-2 px-4 py-3 border-b border-white/10;
-        background: color-mix(in srgb, var(--primary-5) 80%, #000);
+        background: var(--wf-sunk);
     }
     .trace-dot {
         @apply w-3 h-3 rounded-full;

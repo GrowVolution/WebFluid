@@ -26,7 +26,7 @@ class Themes:
 
     def add(self, name, link):
         self._validate(name, False)
-        self.themes[name] = link
+        self.themes[name] = link if isinstance(link, Markup) else Markup(link)
 
     def get(self):
         if not THEMES: raise FrameworkException("Themes are not enabled.")

@@ -42,6 +42,8 @@ def __getattr__(name):
         from . import wf_tailwind
         if name == "tailwind_cli":
             return getattr(wf_tailwind, "cli_entry")
+        if name == "generate_tailwind_asset":
+            return getattr(wf_tailwind, "generate_asset")
         return getattr(wf_tailwind, name)
 
     if name == "Frontend":
@@ -49,3 +51,6 @@ def __getattr__(name):
         return Frontend
 
     raise AttributeError(name)
+
+
+def __dir__(): return sorted(__all__)

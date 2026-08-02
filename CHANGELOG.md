@@ -4,6 +4,30 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
+## Unreleased
+
+### Fixed
+
+- `slowapi`'s `_rate_limit_exceeded_handler` was installed without seating the
+  limiter on `app.state`, which it reads to inject its headers. Every request
+  that actually hit a limit raised `AttributeError` inside the handler and came
+  back as a 500 instead of a 429.
+- `SECURITY_CSRF_COOKIE_NAME` was read into the token service and then ignored —
+  both `csrf_response` and `csrf_protect` hardcoded `csrf_token`, so configuring
+  a different name silently did nothing.
+- `Frontend.include` emitted `<link rel="stylesheet" href="">` when a surface had
+  no Tailwind entry point, which makes the browser re-fetch the page as a
+  stylesheet. The link is only rendered when there is a compiled sheet to point
+  at.
+- `I18nKey.key` was unique across the whole table instead of per domain. Two
+  domains declaring the same source string shared one row: whichever domain
+  registered it first owned the key, and `TransactionService.kid` /
+  `resolve_keys` kept resolving back to that row regardless of which domain
+  asked, so the second domain's messages were written against the first
+  domain's key and were never seen again through its own domain. `I18nKey` now
+  carries a `(key, domain)` unique constraint, and both lookups filter on
+  `domain` — existing databases need a migration to update the index.
+
 ## 1.0.0b1
 
 First beta. This release completes the SOLID refactor started after `1.0.0a2`,

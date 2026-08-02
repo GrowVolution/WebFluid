@@ -97,7 +97,7 @@ class Frontend:
             template += f'<script src="{Frontend.htmx}"></script>\n'
             if self.alpine: template += f'<script src="{Frontend.alpine}" defer></script>\n'
 
-        if TAILWIND:
+        if TAILWIND and self.tailwind:
             if DEBUG:
                 self.generate_tailwind(False, True)
                 src = self.tailwind + f"?t={datetime.now(UTC).timestamp()}"

@@ -144,13 +144,17 @@ class TransactionService:
     async def kid(cls, domain, key):
         async def run():
             async with db.async_executor(model=I18nKey) as e:
-                result = await e.exec(select(I18nKey).where(I18nKey.key == key))
+                result = await e.exec(select(I18nKey).where(
+                    I18nKey.key == key, I18nKey.domain == domain
+                ))
                 row = result.first()
                 if row: return row.id
 
                 await e.insert(I18nKey(key, domain))
 
-                result = await e.exec(select(I18nKey).where(I18nKey.key == key))
+                result = await e.exec(select(I18nKey).where(
+                    I18nKey.key == key, I18nKey.domain == domain
+                ))
                 return result.first().id
 
         return await _retry_locked(run)
@@ -161,7 +165,9 @@ class TransactionService:
             kids = {}
 
             async with db.async_executor(model=I18nKey) as e:
-                result = await e.exec(select(I18nKey).where(I18nKey.key.in_(keys)))
+                result = await e.exec(select(I18nKey).where(
+                    I18nKey.key.in_(keys), I18nKey.domain == domain
+                ))
                 for row in result.all(): kids[row.key] = row.id
 
                 missing = [k for k in keys if k not in kids]
@@ -169,7 +175,7 @@ class TransactionService:
 
                 if missing:
                     result = await e.exec(select(I18nKey).where(
-                        I18nKey.key.in_(missing)
+                        I18nKey.key.in_(missing), I18nKey.domain == domain
                     ))
                     for row in result.all(): kids[row.key] = row.id
 

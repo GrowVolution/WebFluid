@@ -69,7 +69,7 @@ class TokenService:
             content={ "status": "ok" }
         )
         response.set_cookie(
-            key="csrf_token",
+            key=self._csrf_cookie,
             value=csrf_token,
             httponly=False,
             secure=self._csrf_secure,
@@ -82,7 +82,7 @@ class TokenService:
         if request.method in {"GET", "HEAD", "OPTIONS"}:
             return
 
-        csrf_cookie = request.cookies.get("csrf_token")
+        csrf_cookie = request.cookies.get(self._csrf_cookie)
         csrf_header = request.headers.get("X-CSRF-Token")
         csrf_session = request.session.get("csrf_token", "")
 

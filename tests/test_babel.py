@@ -239,6 +239,41 @@ async def test_update_writes_the_catalog_and_caches_it(catalog):
     assert TransactionService(LOCALE, DOMAIN).get("farewell") == "Tschuess"
 
 
+@pytest.fixture
+def isolated_domains(tmp_path):
+    bind_database(tmp_path)
+    yield
+    reset_database()
+
+
+async def test_kid_keeps_the_same_source_string_isolated_per_domain(isolated_domains):
+    await TransactionService.set(LOCALE, DOMAIN, "shared", "geteilt", "one", None)
+    await TransactionService.set(LOCALE, ADMIN, "shared", "geteilt (admin)", "one", None)
+
+    Cache._db_cache = {}
+    await TransactionService.load(LOCALE, DOMAIN)
+    await TransactionService.load(LOCALE, ADMIN)
+
+    assert Cache._db_cache[LOCALE][DOMAIN]["shared"]["one"][""] == "geteilt"
+    assert Cache._db_cache[LOCALE][ADMIN]["shared"]["one"][""] == "geteilt (admin)"
+
+
+async def test_resolve_keys_keeps_the_same_source_string_isolated_per_domain(isolated_domains):
+    await TransactionService.update(DOMAIN, lambda: {
+        LOCALE: { "shared": { json.dumps({ "pf": "one" }): "geteilt" } }
+    })
+    await TransactionService.update(ADMIN, lambda: {
+        LOCALE: { "shared": { json.dumps({ "pf": "one" }): "geteilt (admin)" } }
+    })
+
+    Cache._db_cache = {}
+    await TransactionService.load(LOCALE, DOMAIN)
+    await TransactionService.load(LOCALE, ADMIN)
+
+    assert Cache._db_cache[LOCALE][DOMAIN]["shared"]["one"][""] == "geteilt"
+    assert Cache._db_cache[LOCALE][ADMIN]["shared"]["one"][""] == "geteilt (admin)"
+
+
 async def test_uncache_and_recache_round_trip(catalog):
     await TransactionService.load(LOCALE, DOMAIN)
     service = TransactionService(LOCALE, DOMAIN)

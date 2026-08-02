@@ -11,7 +11,7 @@ from webfluid.core.config.build import build_config
 from webfluid.utils.core import parse_config
 
 _templates = Path(__file__).parent / "templates"
-
+class _Dummy: project_root = None
 
 def _manipulated_env(app):
     cfg = ConfigParser()
@@ -53,9 +53,9 @@ class Migrate(FluidExtension):
             )
             raise typer.Exit()
 
-        class Dummy: project_root = project_root
         sys.path.insert(0, str(project_root))
-        try: init_configs(Dummy)
+        _Dummy.project_root = project_root
+        try: init_configs(_Dummy)
         finally: sys.path.pop(0)
         config = Config()
         config.update(build_config())

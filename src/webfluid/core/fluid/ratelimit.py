@@ -18,6 +18,7 @@ class Limiter:
             default_limits=fluid.config["RATELIMIT_DEFAULT"],
             storage_uri=fluid.config["RATELIMIT_STORAGE_URI"]
         )
+        fluid.state.limiter = self.limiter
         fluid.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     @property

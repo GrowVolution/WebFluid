@@ -185,14 +185,14 @@ translation extraction and compilation, and Migrate adds migration commands.
 from webfluid import Fluid
 
 
-def create_app() -> Fluid:
+def prepare_fluid() -> Fluid:
     app = Fluid(__name__)
     # register routers, additives, sources, and hooks here
     return app
 
 
 if __name__ == "__main__":
-    fluid = create_app()
+    fluid = prepare_fluid()
     fluid.mix()
 ```
 

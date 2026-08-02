@@ -7,9 +7,10 @@ from webfluid.core.ext import db
 
 class I18nKey(db.Model):
     __tablename__ = "i18n_keys"
+    __table_args__ = (UniqueConstraint("key", "domain"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    key: Mapped[str] = mapped_column(unique=True)
+    key: Mapped[str]
     domain: Mapped[str]
     cached: Mapped[bool]
 

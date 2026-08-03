@@ -4,7 +4,8 @@ WORKDIR /app
 
 RUN apt update && apt install -y --no-install-recommends git \
         && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir webfluid==1.0.0b1
+ARG WEBFLUID_VERSION=1.0.0b2
+RUN pip install --no-cache-dir webfluid==${WEBFLUID_VERSION}
 RUN wf create project dummy -sd && rm -rf dummy
 
 ENTRYPOINT ["wf", "run"]

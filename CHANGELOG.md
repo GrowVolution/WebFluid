@@ -4,10 +4,74 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
-## Unreleased
+## 1.0.0b2
+
+A stabilisation release. No new features — it closes the holes `1.0.0b1` left in
+the request path, the run and release tooling, and the stub tree.
+
+### Breaking changes
+
+| Removed / renamed                    | Replacement                                          |
+|--------------------------------------|------------------------------------------------------|
+| `format_date(d, ftm=...)`            | `format_date(d, fmt=...)` — the typo is gone         |
+| `to_utc(dt)` stripping the offset    | `to_utc(dt)` converting to UTC first                 |
+| `parse_best_match(None, available)`  | returns `None` instead of `available[0]`             |
+
+`to_utc` used to return `dt.replace(tzinfo=None)`, which keeps the wall clock and
+throws the offset away: a Berlin `12:00+02:00` came back as a naive `12:00` that
+every consumer then read as UTC, two hours off. It now converts to UTC before
+dropping the offset and reads a naive input as user-local time, which makes it
+the inverse of `to_user_timezone` again. Code that relied on the old behaviour to
+strip a `tzinfo` should call `dt.replace(tzinfo=None)` itself.
+
+`parse_best_match` answered a missing `Accept-Language` header with the first
+supported locale rather than no match at all, so an app whose
+`BABEL_SUPPORTED_LOCALES` does not start with `BABEL_DEFAULT_LOCALE` served the
+wrong language to every client that sends no header. It reports "no match" now
+and lets the caller fall back to the configured default.
 
 ### Fixed
 
+- Anything that stopped `wf run`'s server task other than a signal hung the
+  process forever. `Server._start` waited on the shutdown flag alone, so a task
+  that died — most commonly uvicorn calling `sys.exit(1)` because the port is
+  already bound — left nothing to set that flag. The wait now covers the server
+  task as well, the failure is re-raised, and shutdown hooks run through a
+  `finally` on every path.
+- A request could crash every rendered page with three characters. `?lang=xx`,
+  a `lang` cookie or an `Accept-Language` value that `Locale.parse` rejects
+  raised `UnknownLocaleError`/`ValueError` straight out of the context
+  processor, and a `tz` cookie or `X-Timezone` header that is not a zone name
+  did the same through `ZoneInfo`. Both selectors now skip candidates they
+  cannot resolve and fall through to the next one, ending at the configured
+  default.
+- The 500 handler put `str(exc)` into its JSON body outside debug mode, handing
+  callers whatever the exception happened to say — SQL fragments, file system
+  paths, connection strings. The message, its type and the traceback are debug
+  only now; production answers with the status text alone.
+- `POST /url-for` answered an unknown endpoint name with a 500 and a logged
+  traceback. `NoMatchFound` maps to a 404 with `UNKNOWN_ENDPOINT`.
+- The HTTP proxy forwarded the upstream's `Content-Encoding` and `Content-Length`
+  next to a body `httpx` had already decoded, so a compressed upstream response
+  reached the browser as a broken one. Hop-by-hop and encoding headers are
+  dropped and the length is recomputed, while repeated headers such as
+  `Set-Cookie` survive. The websocket proxy replaced *every* `http` in the target
+  URL, mangling any path or query string that contained the word.
+- Pressing an arrow or function key in `wf run --interactive` killed the CLI with
+  `UnicodeDecodeError`. Windows reports those as a two byte sequence starting
+  with `\x00` or `\xe0`, and `read_key` decoded the first byte as UTF-8. The
+  prefix is consumed and decoding no longer raises.
+- Generated project and additive files were written in the interpreter's locale
+  encoding. On a non-UTF-8 console — every default Windows install — a
+  `manifest.json` carrying a non-ASCII name, description or author was written
+  as cp1252 and read back as UTF-8 by the machine that installed the additive.
+  Every read and write of a manifest, a `package.json`, a vite config and a
+  generated source file is explicitly UTF-8 now.
+- The `alembic.ini` written by `wf migrate init` logged under a hardcoded `[WF]`
+  prefix that no rebrand could reach, since `.mako` is not among the suffixes
+  `scripts/rebrand.py` rewrites. The prefix is a template field filled from
+  `ENV_PREFIX`. The multi-database template also described itself as a single
+  database configuration.
 - `slowapi`'s `_rate_limit_exceeded_handler` was installed without seating the
   limiter on `app.state`, which it reads to inject its headers. Every request
   that actually hit a limit raised `AttributeError` inside the handler and came
@@ -27,6 +91,50 @@ else is internal and may change in any release.
   domain's key and were never seen again through its own domain. `I18nKey` now
   carries a `(key, domain)` unique constraint, and both lookups filter on
   `domain` — existing databases need a migration to update the index.
+- `wf migrate init` raised `NameError` on every call. The throwaway class it
+  built to hand `project_root` to `init_configs` was declared inside the same
+  function as `project_root = project_root`, which Python resolves against the
+  class's own, still-empty namespace rather than the enclosing function. The
+  class is now a module-level helper instead.
+- `FluidContext` was falsy whenever it carried no handler data, because `__len__`
+  reports the size of `_data`. Every caller that asked `if ctx` to find out
+  whether a context is active read a plain request context — the kind
+  `RequestMiddleware` builds — as if there were none. `get_locale` was the most
+  visible casualty: `?lang=`, the `lang` cookie and `Accept-Language` were all
+  dropped and every rendered page fell back to `BABEL_DEFAULT_LOCALE`, while
+  event and query handlers kept working because their contexts carry `event` and
+  `event_data`. The same check also cost `Themes.get` the session theme and
+  `country_from_request` the request headers. `FluidContext` is now always
+  truthy, and the affected call sites test against `None` explicitly.
+
+### Typing
+
+The stub tree had drifted from the runtime in places `scripts/check_stubs.py`
+does not look — it compares module layout and `__all__`, not signatures:
+
+- `LogService.drain` was missing and `clear_logs` still carried the `lifecycle`
+  parameter it lost in `1.0.0b1`.
+- `console_encoding` was missing from `cli.run.helpers`.
+- `progress_bar` declared a `leave` parameter that only exists as a `**kwargs`
+  passthrough.
+- `format_date` mirrored the `ftm` typo.
+- `Model` declared neither `__tablename__` nor `__bind_key__`, so a model
+  setting a bind key was a type error.
+- `Fluid.app_root` had no declaration at all, which made the deprecated name a
+  type error instead of a warning. It is a `@deprecated` property now, matching
+  the runtime shim.
+
+### Release
+
+- The version lived in three places and one of them was stale: the `Dockerfile`
+  still installed `1.0.0b1`. It reads a `WEBFLUID_VERSION` build argument now,
+  and a test asserts that the runtime, the stubs, their cross dependencies and
+  the image agree.
+- `publish.bat` and `publish.sh` ran every step unconditionally, so a failed
+  build or a rejected upload still went on to publish the stubs. Each step is
+  checked, a leftover `tmp` clone is removed before cloning, and the scripts
+  refuse to publish when the freshly cloned branch is not the commit in the
+  working tree — the case where the release commit was never pushed or merged.
 
 ## 1.0.0b1
 

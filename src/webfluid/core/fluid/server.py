@@ -51,13 +51,21 @@ class Server:
 
         await self._lifecycle.run_startup()
         serve = asyncio.create_task(self._run_server())
-        await self._shutdown_flag.wait()
+        stop = asyncio.create_task(self._shutdown_flag.wait())
 
-        if self._server:
-            self._server.should_exit = True
+        try:
+            await asyncio.wait(
+                (serve, stop),
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            stop.cancel()
+
+            if not serve.done() and self._server:
+                self._server.should_exit = True
             await serve
 
-        await self._lifecycle.run_shutdown()
-        log_factory.log("Server stopped.")
+        finally:
+            await self._lifecycle.run_shutdown()
+            log_factory.log("Server stopped.")
 
     def run(self): asyncio.run(self._start())

@@ -132,7 +132,8 @@ def additive(additive_id: str):
         index_registry = ""
 
     (additive_root / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False)
+        json.dumps(manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8"
     )
     (additive_root / "__init__.py").write_text(
         templates.init_py.format(
@@ -140,8 +141,8 @@ def additive(additive_id: str):
             base=base_import,
             requirements=requirements,
             index=index_registry
-        )
+        ), encoding="utf-8"
     )
     (additive_root / ".gitignore").write_text(
-        templates.adtv_gitignore
+        templates.adtv_gitignore, encoding="utf-8"
     )

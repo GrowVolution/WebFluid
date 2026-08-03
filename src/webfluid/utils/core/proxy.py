@@ -4,6 +4,10 @@ import httpx, asyncio, websockets
 
 _proxy_client = None
 
+_SKIPPED_HEADERS = frozenset({
+    "content-encoding", "content-length", "transfer-encoding", "connection"
+})
+
 
 def proxy_client():
     global _proxy_client
@@ -28,11 +32,16 @@ def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
                 content=await r.body()
             )
 
-            return Response(
+            response = Response(
                 content=resp.content,
-                status_code=resp.status_code,
-                headers=resp.headers
+                status_code=resp.status_code
             )
+            response.raw_headers = [
+                (key.encode(), value.encode())
+                for key, value in resp.headers.multi_items()
+                if key.lower() not in _SKIPPED_HEADERS
+            ] + [(b"content-length", str(len(resp.content)).encode())]
+            return response
 
         if proxy_plugin:
             return await proxy_plugin(request, path, handler)
@@ -49,7 +58,7 @@ def get_websocket_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=Non
             if pass_prefix: url = f"{base_url}{prefix}/{p}"
             else: url = f"{base_url}/{p}"
 
-            ws_url = url.replace("http", "ws")
+            ws_url = url.replace("http", "ws", 1)
 
             subprotocol = ws.headers.get("sec-websocket-protocol")
             await ws.accept(subprotocol=subprotocol)

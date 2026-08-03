@@ -78,11 +78,11 @@ def setup_frontend(project):
 
     package_json_file = project_root / "package.json"
     package_json_file.write_text(
-        package_json.format(project=project, id=FRAMEWORK_ID)
+        package_json.format(project=project, id=FRAMEWORK_ID), encoding="utf-8"
     )
 
     vite_config_file = project_root / "vite.config.js"
-    vite_config_file.write_text(vite_dev)
+    vite_config_file.write_text(vite_dev, encoding="utf-8")
 
 
 def validate_config(f):

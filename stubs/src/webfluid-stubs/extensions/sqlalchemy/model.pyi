@@ -6,7 +6,9 @@ from sqlalchemy.orm import DeclarativeBase
 
 class Model(DeclarativeBase):
     __bind_set__: bool
+    __bind_key__: str
     __metadata__: dict[str, MetaData]
+    __tablename__: Any
     def __init_subclass__(cls, **kwargs: Any) -> None: ...
     def __hash__(self) -> int: ...
     @classmethod

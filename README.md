@@ -8,7 +8,7 @@ opinionated project layout, a set of optional built-in extensions (database,
 i18n, sessions, caching, mail, and more), a bundled frontend toolchain, and a
 package registry called **Ocean** for sharing reusable features between projects.
 
-The framework is currently in beta (`1.0.0b1`) and targets Python 3.14+.
+The framework is currently in beta (`1.0.0b2`) and targets Python 3.14+.
 
 ---
 
@@ -105,8 +105,10 @@ an `EXT_*` flag, so an app only pays for what it uses.
 | **JWT**        | Signing and verification of JSON Web Tokens.                          |
 | **Scheduling** | Cron and interval background jobs via APScheduler.                    |
 
-Extensions are discovered through Python entry points, so third parties can ship
-their own.
+Extensions plug their own subcommands into the CLI through the
+`webfluid.extensions` entry point group — that is how Babel adds its catalog
+commands and Migrate its migration ones — so third parties can ship extensions
+that feel like the built-in ones.
 
 ---
 
@@ -155,7 +157,11 @@ functions that are not exported — is internal and may change in any release.
 
 Breaking changes are listed in [CHANGELOG.md](CHANGELOG.md). Upgrading from
 `1.0.0a2` requires changes; the most common one is `Fluid.app_root`, which is
-now `Fluid.project_root` and warns when used under the old name.
+now `Fluid.project_root` and warns when used under the old name. `1.0.0b2`
+adds three smaller ones, all in the Babel helpers: `format_date`'s second
+parameter is spelled `fmt` rather than `ftm`, `to_utc` converts to UTC instead
+of only dropping the offset, and `parse_best_match` reports no match for a
+missing `Accept-Language` header instead of picking the first supported locale.
 
 ---
 

@@ -13,6 +13,7 @@ from webfluid.utils.core import parse_config
 _templates = Path(__file__).parent / "templates"
 class _Dummy: project_root = None
 
+
 def _manipulated_env(app):
     cfg = ConfigParser()
     cfg.optionxform = str
@@ -71,8 +72,10 @@ class Migrate(FluidExtension):
             migrations_dir
         )
         alembic_ini.write_text(
-            (template_dir / "alembic.ini.mako").read_text()
-            .format(app=app)
+            (template_dir / "alembic.ini.mako")
+            .read_text(encoding="utf-8")
+            .format(app=app, prefix=ENV_PREFIX),
+            encoding="utf-8"
         )
         (migrations_dir / "versions").mkdir(exist_ok=True)
 

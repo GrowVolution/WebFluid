@@ -13,7 +13,6 @@ class CliContext(BaseContext):
 
 @contextmanager
 def progress_bar(
-    description: str, length: int | None,
-    leave: bool = True, **kwargs: Any
+    description: str, length: int | None, **kwargs: Any
 ) -> Iterator[Any]: ...
 def download_file(url: str, dest: Path) -> None: ...

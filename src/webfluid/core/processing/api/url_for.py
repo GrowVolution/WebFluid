@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from fastapi import Request
+from fastapi import HTTPException, Request
+from starlette.routing import NoMatchFound
 from datetime import datetime, UTC
 from typing import Any
 
@@ -17,7 +18,10 @@ def add_route(fluid):
 
     @fluid.post("/url-for")
     async def url_for(request: Request, data: UrlFor):
-        url = request.url_for(data.endpoint, **data.path_params)
+        try: url = request.url_for(data.endpoint, **data.path_params)
+        except NoMatchFound:
+            raise HTTPException(status_code=404, detail="UNKNOWN_ENDPOINT")
+
         result = str(url) if data.external else url.path
         return {
             "url": timestamped(

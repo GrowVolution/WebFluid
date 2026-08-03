@@ -1,8 +1,15 @@
-import pytest
+from types import SimpleNamespace
+import asyncio, pytest
 
 from webfluid.core.lifecycle import (
     AdditiveLifecycle, FluidLifecycle, Phase, RequestLifecycle
 )
+
+
+class Recorder:
+    def __init__(self): self.calls = []
+    async def run_startup(self): self.calls.append("startup")
+    async def run_shutdown(self): self.calls.append("shutdown")
 
 
 def test_phase_keeps_registration_order():
@@ -76,3 +83,38 @@ async def test_after_processors_chain_in_reverse():
     lifecycle.after.add(lambda response: response + "-second")
 
     assert await lifecycle.process_after("r") == "r-second-first"
+
+
+@pytest.mark.asyncio
+async def test_a_failing_server_shuts_down_instead_of_hanging():
+    from webfluid.core.fluid.server import Server
+
+    lifecycle = Recorder()
+    server = Server(SimpleNamespace(startup_hook=lambda fn: fn), lifecycle)
+
+    async def crash(): raise RuntimeError("address already in use")
+    server._run_server = crash
+
+    with pytest.raises(RuntimeError):
+        await asyncio.wait_for(server._start(), timeout=5)
+
+    assert lifecycle.calls == ["startup", "shutdown"]
+
+
+@pytest.mark.asyncio
+async def test_a_signalled_server_stops_the_running_uvicorn():
+    from webfluid.core.fluid.server import Server
+
+    lifecycle = Recorder()
+    server = Server(SimpleNamespace(startup_hook=lambda fn: fn), lifecycle)
+
+    async def serve():
+        server._server = SimpleNamespace(should_exit=False)
+        server._shutdown_flag.set()
+        while not server._server.should_exit: await asyncio.sleep(0)
+
+    server._run_server = serve
+    await asyncio.wait_for(server._start(), timeout=5)
+
+    assert lifecycle.calls == ["startup", "shutdown"]
+    assert server._server.should_exit

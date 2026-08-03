@@ -23,7 +23,9 @@ class Manifest:
             raise FileNotFoundError("Missing manifest.")
 
         try:
-            self._data = json.loads(manifest_file.read_text())
+            self._data = json.loads(
+                manifest_file.read_text(encoding="utf-8")
+            )
         except json.decoder.JSONDecodeError:
             raise ManifestError("Invalid manifest format.")
 

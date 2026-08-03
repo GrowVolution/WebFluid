@@ -154,3 +154,23 @@ async def test_url_path_for_uses_the_index(app, client):
 def test_deprecated_app_root_still_resolves(app):
     with pytest.deprecated_call():
         assert app.app_root == app.project_root
+
+
+@pytest.mark.asyncio
+async def test_request_context_is_truthy_without_data(app, client):
+    from webfluid.core.context import FluidContext
+
+    seen = {}
+
+    @app.get("/context")
+    async def context_route():
+        ctx = FluidContext.try_current()
+        seen["length"] = len(ctx)
+        seen["request"] = ctx.request if ctx else None
+        return { "ok": True }
+
+    async with client(app) as c:
+        await c.get("/context")
+
+    assert seen["length"] == 0
+    assert seen["request"] is not None

@@ -1,4 +1,4 @@
-# A generic, single database configuration.
+# A generic, multi database configuration.
 
 [alembic]
 # template used to generate migration files
@@ -43,5 +43,5 @@ level = NOTSET
 formatter = generic
 
 [formatter_generic]
-format = [WF]   [%(asctime)s] [%(levelname)s]    [Migrate] %(message)s
+format = [{prefix}]   [%(asctime)s] [%(levelname)s]    [Migrate] %(message)s
 datefmt = %Y-%m-%d %H:%M:%S %z

@@ -16,21 +16,21 @@ def make_defaults(base, api_init, api_v1, app_init, index_py):
 
     (static_dir / "css").mkdir(exist_ok=True)
     (static_dir / "css/tailwind_raw.css").write_text(
-        templates.tailwind_raw
+        templates.tailwind_raw, encoding="utf-8"
     )
 
     (base / "templates").mkdir(exist_ok=True)
 
     (base / "api/v1").mkdir(parents=True, exist_ok=True)
     (base / "api/health.py").write_text(
-        templates.health_py
+        templates.health_py, encoding="utf-8"
     )
-    (base / "api/v1/__init__.py").write_text(api_v1)
-    (base / "api/__init__.py").write_text(api_init)
+    (base / "api/v1/__init__.py").write_text(api_v1, encoding="utf-8")
+    (base / "api/__init__.py").write_text(api_init, encoding="utf-8")
 
     (base / "app").mkdir(exist_ok=True)
-    (base / "app/index.py").write_text(index_py)
-    (base / "app/__init__.py").write_text(app_init)
+    (base / "app/index.py").write_text(index_py, encoding="utf-8")
+    (base / "app/__init__.py").write_text(app_init, encoding="utf-8")
 
     models = base / "models"
     models.mkdir(exist_ok=True)
@@ -102,26 +102,28 @@ def create_frontend(base, conf, space, name):
     else:
         config_file = template_dst / "vite.config.js"
 
-    config = config_file.read_text() \
+    config = config_file.read_text(encoding="utf-8") \
         if config_file.exists() \
         else templates.vite_base
 
     if space == FRAMEWORK_ID:
-        config_file.write_text(inject_base(config))
+        config_file.write_text(inject_base(config), encoding="utf-8")
     else:
         config_file.write_text(
-            inject_base(config, f"/{name}")
+            inject_base(config, f"/{name}"), encoding="utf-8"
         )
 
     package_json = template_dst / "package.json"
-    package = json.loads(package_json.read_text())
+    package = json.loads(package_json.read_text(encoding="utf-8"))
     package["name"] = f"@{space}/{name}-frontend"
     package["scripts"].pop("dev")
     if "&&" in package["scripts"]["build"]:
         tsc, build = package["scripts"]["build"].split(" && ")
         package["scripts"]["check"] = tsc
         package["scripts"]["build"] = build
-    package_json.write_text(json.dumps(package, indent=2, ensure_ascii=False))
+    package_json.write_text(
+        json.dumps(package, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     return True
 

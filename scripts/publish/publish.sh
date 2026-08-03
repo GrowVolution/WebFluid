@@ -9,13 +9,28 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
+LOCAL="$(git rev-parse HEAD)"
+
+trap 'rm -rf tmp' EXIT
+
+rm -rf tmp
 git clone https://github.com/GrowVolution/WebFluid tmp
 cd tmp
+
+CLONED="$(git rev-parse HEAD)"
+if [ "$LOCAL" != "$CLONED" ]; then
+    echo "ERROR: the published branch is at ${CLONED:0:8}, your working tree at ${LOCAL:0:8}." >&2
+    echo "Push and merge your release commit before publishing." >&2
+    exit 1
+fi
+
 pip install -r requirements.txt
 python -m build
 twine upload dist/*
+
 cd stubs
 python -m build
 twine upload dist/*
+
 cd ../..
-rm -rf tmp
+echo "Published."

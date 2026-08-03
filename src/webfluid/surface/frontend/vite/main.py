@@ -31,7 +31,7 @@ class Vite:
             self.root,
             self.rel,
             self.framework,
-            index_file.read_text()
+            index_file.read_text(encoding="utf-8")
         )
 
     async def response(self):

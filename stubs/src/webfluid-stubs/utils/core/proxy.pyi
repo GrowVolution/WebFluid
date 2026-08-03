@@ -6,6 +6,7 @@ import httpx
 from fastapi import Request, Response, WebSocket
 
 _proxy_client: httpx.AsyncClient | None
+_SKIPPED_HEADERS: frozenset[str]
 
 def proxy_client() -> httpx.AsyncClient: ...
 def get_proxy(

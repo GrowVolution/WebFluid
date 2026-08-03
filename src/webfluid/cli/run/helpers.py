@@ -32,7 +32,8 @@ def read_key():
     if os.name == "nt":
         import msvcrt
         c = msvcrt.getch()
-        return c.decode()
+        if c in (b"\x00", b"\xe0"): msvcrt.getch()
+        return c.decode(errors="replace")
 
     import termios, tty
     fd = sys.stdin.fileno()

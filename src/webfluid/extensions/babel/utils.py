@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
-from babel import Locale, dates, numbers
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from babel import Locale, UnknownLocaleError, dates, numbers
 from functools import lru_cache
 import json
 
@@ -32,31 +32,31 @@ def translation_resolver(path, locale_map):
 
 
 def parse_best_match(accept_header, available):
-        if not accept_header: return available[0] if available else None
+    if not accept_header: return None
 
-        parsed = []
+    parsed = []
 
-        for part in accept_header.split(","):
-            lang, *params = part.strip().split(";")
+    for part in accept_header.split(","):
+        lang, *params = part.strip().split(";")
 
-            q = 1.0
-            for p in params:
-                if p.strip().startswith("q="):
-                    try: q = float(p.strip()[2:])
-                    except ValueError: pass
+        q = 1.0
+        for p in params:
+            if p.strip().startswith("q="):
+                try: q = float(p.strip()[2:])
+                except ValueError: pass
 
-            parsed.append((lang.strip(), q))
+        parsed.append((lang.strip(), q))
 
-        parsed.sort(key=lambda x: x[1], reverse=True)
+    parsed.sort(key=lambda x: x[1], reverse=True)
 
-        for lang, _ in parsed:
-            base = lang.split("-")[0]
+    for lang, _ in parsed:
+        base = lang.split("-")[0]
 
-            for candidate in available:
-                if candidate == lang or candidate == base:
-                    return candidate
+        for candidate in available:
+            if candidate == lang or candidate == base:
+                return candidate
 
-        return None
+    return None
 
 
 @lru_cache(maxsize=512)
@@ -65,22 +65,34 @@ def load_locale(locale):
     return Locale.parse(locale_key)
 
 
+def _try_locale(locale):
+    if not locale: return None
+    try: return load_locale(locale)
+    except (ValueError, TypeError, UnknownLocaleError): return None
+
+
+def _try_timezone(name):
+    if not name: return None
+    try: return ZoneInfo(name)
+    except (ValueError, ZoneInfoNotFoundError): return None
+
+
 def _request_locale():
     from webfluid.core.ext import babel
 
     ctx = FluidContext.try_current()
-    request = ctx.request if ctx else None
+    request = ctx.request if ctx is not None else None
     if request is None:
         return load_locale(babel.default_locale)
 
-    return load_locale(
-        request.query_params.get("lang")
-        or request.cookies.get("lang")
-        or parse_best_match(
+    return (
+        _try_locale(request.query_params.get("lang"))
+        or _try_locale(request.cookies.get("lang"))
+        or _try_locale(parse_best_match(
             request.headers.get("Accept-Language"),
             babel.supported_locales
-        )
-        or babel.default_locale
+        ))
+        or load_locale(babel.default_locale)
     )
 
 
@@ -88,14 +100,14 @@ def _request_timezone():
     from webfluid.core.ext import babel
 
     ctx = FluidContext.try_current()
-    request = ctx.request if ctx else None
+    request = ctx.request if ctx is not None else None
     if request is None:
         return ZoneInfo(babel.default_timezone)
 
-    return ZoneInfo(
-        request.cookies.get("tz")
-        or request.headers.get("X-Timezone")
-        or babel.default_timezone
+    return (
+        _try_timezone(request.cookies.get("tz"))
+        or _try_timezone(request.headers.get("X-Timezone"))
+        or ZoneInfo(babel.default_timezone)
     )
 
 
@@ -138,14 +150,13 @@ def _get_format(key, fmt=None):
 def to_user_timezone(dt):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    tzinfo = get_timezone()
-    if tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(tzinfo)
+    return dt.astimezone(get_timezone())
 
 
 def to_utc(dt):
-    return dt.replace(tzinfo=None)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=get_timezone())
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def format_datetime(dt=None, fmt=None, rebase=True):
@@ -153,11 +164,11 @@ def format_datetime(dt=None, fmt=None, rebase=True):
     return _date_format(dates.format_datetime, dt, fmt, rebase)
 
 
-def format_date(d=None, ftm=None, rebase=True):
+def format_date(d=None, fmt=None, rebase=True):
     if rebase and isinstance(d, datetime):
         d = to_user_timezone(d)
-    ftm = _get_format("date", ftm)
-    return _date_format(dates.format_date, d, ftm, rebase)
+    fmt = _get_format("date", fmt)
+    return _date_format(dates.format_date, d, fmt, rebase)
 
 
 def format_time(t=None, fmt=None, rebase=True):

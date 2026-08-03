@@ -15,11 +15,9 @@ def install_error_handler(fluid):
         log_factory.exception(exc, f"{request.method} {request.url.path}")
 
         if "text/html" not in request.headers.get("accept", ""):
-            content = {
-                "error": "Internal Server Error",
-                "message": str(exc)
-            }
+            content = { "error": "Internal Server Error" }
             if DEBUG:
+                content["message"] = str(exc)
                 content["type"] = type(exc).__name__
                 content["method"] = request.method
                 content["path"] = request.url.path

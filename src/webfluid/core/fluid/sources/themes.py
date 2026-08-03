@@ -32,7 +32,8 @@ class Themes:
         if not THEMES: raise FrameworkException("Themes are not enabled.")
 
         ctx = FluidContext.try_current()
-        theme = ctx.request.session.get("theme") if ctx and ctx.request else None
+        request = ctx.request if ctx is not None else None
+        theme = request.session.get("theme") if request is not None else None
         return self.themes.get(theme or self.global_theme) \
             or self.themes[FRAMEWORK_ID]
 

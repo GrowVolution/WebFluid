@@ -1,11 +1,33 @@
-import pytest
+from pathlib import Path
+import re, tomllib, pytest
 
 from webfluid.utils.additives import version_check
 from webfluid.utils.core import Version, check_required_version
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def check(requirement, version):
     return check_required_version(requirement, "additive", version)
+
+
+def declared(path):
+    return tomllib.loads(path.read_text(encoding="utf-8"))
+
+
+def test_every_release_artifact_carries_the_same_version():
+    runtime = declared(ROOT / "pyproject.toml")
+    stubs = declared(ROOT / "stubs" / "pyproject.toml")
+    version = runtime["project"]["version"]
+
+    assert stubs["project"]["version"] == version
+    assert f"webfluid=={version}" in stubs["project"]["dependencies"]
+    assert f"webfluid-stubs=={version}" in \
+           runtime["project"]["optional-dependencies"]["typing"]
+    assert re.search(
+        rf"WEBFLUID_VERSION={re.escape(version)}\b",
+        (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    )
 
 
 @pytest.mark.parametrize("requirement, version, expected", [

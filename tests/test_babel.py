@@ -111,8 +111,93 @@ def catalog(tmp_path):
     reset_database()
 
 
+@pytest.fixture
+def selection(monkeypatch):
+    import webfluid.core.ext as ext
+
+    monkeypatch.setattr(
+        ext, "babel", SimpleNamespace(
+            default_locale="en", supported_locales=("en", "de"),
+            default_timezone="UTC",
+            locale_selector_fn=None, timezone_selector_fn=None
+        ), raising=False
+    )
+
+
 def uncached(*keys):
     Cache._uncached.setdefault(DOMAIN, set()).update(keys)
+
+
+def request(query=None, cookies=None, headers=None):
+    return SimpleNamespace(
+        query_params=query or {}, cookies=cookies or {}, headers=headers or {}
+    )
+
+
+@pytest.mark.parametrize("source, expected", [
+    (request(query={"lang": LOCALE}), LOCALE),
+    (request(cookies={"lang": LOCALE}), LOCALE),
+    (request(headers={"Accept-Language": "de-DE,de;q=0.9,en;q=0.8"}), LOCALE),
+    (request(query={"lang": LOCALE}, cookies={"lang": "en"}), LOCALE),
+    (request(), "en"),
+    (None, "en")
+])
+def test_request_locale_follows_the_request(selection, source, expected):
+    from webfluid.core.context import FluidContext
+    from webfluid.extensions.babel.utils import _request_locale
+
+    with FluidContext(None, source):
+        assert str(_request_locale()) == expected
+
+
+@pytest.mark.parametrize("source", [
+    request(query={"lang": "xx"}),
+    request(query={"lang": "../../etc/passwd"}),
+    request(query={"lang": ""}),
+    request(cookies={"lang": "not a locale"}),
+    request(headers={"Accept-Language": "!!"})
+])
+def test_unresolvable_request_locale_falls_back(selection, source):
+    from webfluid.core.context import FluidContext
+    from webfluid.extensions.babel.utils import _request_locale
+
+    with FluidContext(None, source):
+        assert str(_request_locale()) == "en"
+
+
+@pytest.mark.parametrize("source, expected", [
+    (request(cookies={"tz": "Europe/Berlin"}), "Europe/Berlin"),
+    (request(headers={"X-Timezone": "Europe/Berlin"}), "Europe/Berlin"),
+    (request(cookies={"tz": "Mars/Olympus"}), "UTC"),
+    (request(cookies={"tz": "../../etc/passwd"}), "UTC"),
+    (request(), "UTC"),
+    (None, "UTC")
+])
+def test_request_timezone_falls_back_on_junk(selection, source, expected):
+    from webfluid.core.context import FluidContext
+    from webfluid.extensions.babel.utils import _request_timezone
+
+    with FluidContext(None, source):
+        assert str(_request_timezone()) == expected
+
+
+def test_to_utc_converts_before_dropping_the_offset(selection):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from webfluid.core.context import FluidContext
+    from webfluid.extensions.babel.utils import to_user_timezone, to_utc
+
+    berlin = request(cookies={"tz": "Europe/Berlin"})
+
+    with FluidContext(None, berlin):
+        assert to_utc(
+            datetime(2026, 8, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+        ) == datetime(2026, 8, 3, 10, 0)
+
+    with FluidContext(None, berlin):
+        assert to_utc(
+            to_user_timezone(datetime(2026, 8, 3, 10, 0))
+        ) == datetime(2026, 8, 3, 10, 0)
 
 
 async def test_afetch_matches_fetch(bound):

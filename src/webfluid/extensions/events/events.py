@@ -1,5 +1,5 @@
 from .broadcast import BroadCaster
-from webfluid.utils.core import required_arg_count
+from webfluid.utils.core import required_arg_count, in_running_loop
 from webfluid.exceptions import FrameworkException
 
 
@@ -9,7 +9,12 @@ class Events:
         self._ctx_decorator = ctx_decorator
         self._broadcasters = {}
         self._events = {}
+        self._pending = []
         self.create_loop = None
+
+    def _create_loop(self, name):
+        if callable(self.create_loop):
+            self.create_loop(name)
 
     def _prepare_event(self, name, singleton, internal):
         if singleton and name in self._events:
@@ -34,8 +39,23 @@ class Events:
             self._broadcasters[name] = BroadCaster(
                 name, self._event_queue_size
             )
-            if callable(self.create_loop):
-                self.create_loop(name)
+            if not in_running_loop():
+                if self._pending is None:
+                    raise FrameworkException(
+                        f"Cannot register event '{name}': the application has "
+                        "already started and this call is not running inside "
+                        "its event loop. Register events from an enable hook, "
+                        "a startup hook or a request handler instead."
+                    )
+                self._pending.append(name)
+                return
+            self._create_loop(name)
+
+    def create_pending_loops(self):
+        if callable(self.create_loop):
+            for event in self._pending or ():
+                self.create_loop(event)
+        self._pending = None
 
     def create_signal(self, name, singleton=False, internal=False):
         self._prepare_event(name, singleton, internal)

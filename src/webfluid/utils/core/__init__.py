@@ -2,7 +2,8 @@
 __all__ = [
     "enabled", "random_code", "safe_string",
     "camel_to_snake", "get_root_path", "parse_config",
-    "check_priority", "build_sorted_tuple", "try_import",
+    "read_config", "check_priority", "build_sorted_tuple",
+    "try_import", "in_running_loop",
 
     "required_arg_count", "async_result",
     "safe_execute", "run_in_executor",
@@ -18,7 +19,8 @@ def __getattr__(name):
     if name in {
         "enabled", "random_code", "safe_string",
         "camel_to_snake", "get_root_path", "parse_config",
-        "check_priority", "build_sorted_tuple", "try_import"
+        "read_config", "check_priority", "build_sorted_tuple",
+        "try_import", "in_running_loop"
     }:
         from . import main
         return getattr(main, name)

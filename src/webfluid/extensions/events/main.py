@@ -52,3 +52,4 @@ class EventManager(FluidExtension):
 
         loop_manager = LoopManager(self._events, socket_manager)
         self._events.create_loop = loop_manager.create_loop
+        fluid.startup_hook(self._events.create_pending_loops)

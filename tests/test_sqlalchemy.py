@@ -9,6 +9,7 @@ from webfluid.extensions.babel.translations import I18nKey
 from webfluid.extensions.sqlalchemy.bind import Bind
 from webfluid.extensions.sqlalchemy.executor import AsyncExecutor, Executor
 from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
+from webfluid.extensions.sqlalchemy.utils import database_uris
 
 
 @pytest.fixture
@@ -125,3 +126,31 @@ def test_an_unexpanded_extension_refuses_to_resolve():
 
     with pytest.raises(FrameworkException): db.bind_keys
     with pytest.raises(FrameworkException): SQLAlchemy.get_instance()
+
+
+@pytest.mark.parametrize("uri, expected", [
+    (
+        "sqlite:///data/sqlite/app.db",
+        ("sqlite:///data/sqlite/app.db", "sqlite+aiosqlite:///data/sqlite/app.db")
+    ),
+    (
+        "mysql://mysql:mysql@localhost/mysql_prod",
+        ("mysql+pymysql://mysql:mysql@localhost/mysql_prod",
+         "mysql+aiomysql://mysql:mysql@localhost/mysql_prod")
+    ),
+    (
+        "postgresql://u:p@host/postgresql",
+        ("postgresql+psycopg://u:p@host/postgresql",) * 2
+    )
+])
+def test_only_the_leading_scheme_gets_a_driver(uri, expected):
+    assert database_uris(uri) == expected
+
+
+def test_declaring_a_driver_is_rejected():
+    with pytest.raises(ValueError):
+        database_uris("postgresql+psycopg://u:p@host/db")
+
+
+def test_an_unsupported_scheme_is_rejected():
+    with pytest.raises(ValueError): database_uris("oracle://u:p@host/db")

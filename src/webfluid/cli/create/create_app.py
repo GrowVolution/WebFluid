@@ -66,4 +66,4 @@ def create_app(
             "MAIL_PASSWORD": questions.mail_password.ask()
         }
 
-    with open(config_file, "w") as f: config.write(f)
+    with open(config_file, "w", encoding="utf-8") as f: config.write(f)

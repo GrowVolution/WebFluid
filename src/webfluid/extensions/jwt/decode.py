@@ -8,6 +8,9 @@ class Decoder:
         self._config = config
 
     def _payload(self, token, audience, secret):
+        if secret is None:
+            raise jwt.InvalidTokenError("Unknown key id.")
+
         return jwt.decode(
             token, secret,
             algorithms=[self._config.algorithm],

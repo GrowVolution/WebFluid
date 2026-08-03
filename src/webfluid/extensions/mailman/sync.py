@@ -43,17 +43,20 @@ class SyncManager:
 
     @contextmanager
     def client(self):
-        smtp = smtplib.SMTP(
-            host=self.host,
-            port=self.port,
-            timeout=self.timeout
-        )
-
-        if self.start_tls: smtp.starttls()
-        if self.user and self.password:
-            smtp.login(self.user, self.password)
+        client = smtplib.SMTP_SSL if self.use_tls else smtplib.SMTP
+        smtp = None
 
         try:
+            smtp = client(
+                host=self.host,
+                port=self.port,
+                timeout=self.timeout
+            )
+
+            if self.start_tls: smtp.starttls()
+            if self.user and self.password:
+                smtp.login(self.user, self.password)
+
             with ClientContext(smtp, False): yield smtp
         except (
                 smtplib.SMTPConnectError,
@@ -63,5 +66,6 @@ class SyncManager:
         except smtplib.SMTPException as e:
             raise FrameworkException(f"Unexpected SMTP error: {type(e).__name__}: {e}")
         finally:
-            try: smtp.quit()
-            except: pass
+            if smtp is not None:
+                try: smtp.quit()
+                except: pass

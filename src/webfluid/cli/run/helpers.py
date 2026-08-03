@@ -1,7 +1,6 @@
-from configparser import ConfigParser
 import sys, os
 
-from webfluid.utils.core import parse_config
+from webfluid.utils.core import parse_config, read_config
 
 
 def console_encoding():
@@ -10,9 +9,7 @@ def console_encoding():
 
 def env_from_config(config_file, debug):
     env = os.environ.copy()
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(config_file)
+    cfg = read_config(config_file)
 
     pairs = [parse_config(k, v) for k, v in cfg.defaults().items()]
     for k, v in pairs: env[k] = v

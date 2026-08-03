@@ -1,19 +1,23 @@
 from sqlalchemy.orm import DeclarativeBase
 
 
+def _with_driver(uri, scheme, driver):
+    return f"{scheme}+{driver}{uri[len(scheme):]}"
+
+
 def database_uris(uri):
     if "+" in uri.split("://")[0]:
         raise ValueError(f"Invalid database URI '{uri}': Please do not define drivers.")
 
     if uri.startswith("sqlite:"):
         sync_uri = uri
-        async_uri = uri.replace("sqlite", "sqlite+aiosqlite")
+        async_uri = _with_driver(uri, "sqlite", "aiosqlite")
     elif uri.startswith("postgresql:"):
-        sync_uri = uri.replace("postgresql", "postgresql+psycopg")
+        sync_uri = _with_driver(uri, "postgresql", "psycopg")
         async_uri = sync_uri
     elif uri.startswith("mysql:"):
-        sync_uri = uri.replace("mysql", "mysql+pymysql")
-        async_uri = uri.replace("mysql", "mysql+aiomysql")
+        sync_uri = _with_driver(uri, "mysql", "pymysql")
+        async_uri = _with_driver(uri, "mysql", "aiomysql")
     else:
         raise ValueError(f"Invalid database URI '{uri}': Unsupported database type.")
 

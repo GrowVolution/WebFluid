@@ -19,5 +19,5 @@ def install_context(fluid):
             "id": FRAMEWORK_ID,
             "theme": theme(),
             "src": sources,
-            "url_for": url_for()
+            "url_for": url_for(fluid)
         }

@@ -84,8 +84,8 @@ class DefaultConfig:
 
     MAIL_SERVER = "localhost"
     MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USE_STARTTLS = False
+    MAIL_USE_TLS = False
+    MAIL_USE_STARTTLS = True
     MAIL_TIMEOUT = 10
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")

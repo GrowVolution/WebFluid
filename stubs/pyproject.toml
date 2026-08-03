@@ -1,8 +1,8 @@
 [project]
 name = "webfluid-stubs"
-version = "1.0.0b2"
+version = "1.0.0b3"
 requires-python = ">=3.14"
-dependencies = ["webfluid==1.0.0b2"]
+dependencies = ["webfluid==1.0.0b3"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

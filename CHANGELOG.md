@@ -4,6 +4,156 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
+## 1.0.0b3
+
+The second stabilisation release, and the first with no breaking changes at all.
+It works through the known-issues list `1.0.0b2` published and closes the eight
+entries that could be closed without moving the shape of the framework — a
+plaintext SMTP session, a URI rewriter that rewrote too much, a bearer token
+that answered `500` where it meant `401`, a `url_for` that was `None` off
+request, a translation that was skipped whenever a domain translated a string
+to itself, and an event registry that only worked once the event loop was
+already running. One more bug turned up next to the mail fix and is closed with
+it. What is left of that list is under *Known limitations*, with the reason each
+one is still there.
+
+### Fixed
+
+- `database_uris` inserted the driver with a plain `str.replace`, so every
+  occurrence of the scheme word in a URI was rewritten rather than the leading
+  one. `sqlite:///data/sqlite/app.db` came back as
+  `sqlite+aiosqlite:///data/sqlite+aiosqlite/app.db`, and a MySQL database named
+  `mysql_prod`, a user named `postgresql` or a password containing the scheme
+  word got the same treatment. Only the scheme prefix is replaced now.
+- `SyncManager` stored `MAIL_USE_TLS` and then opened a plain `smtplib.SMTP`
+  connection, so `mail.send()` against a server configured for implicit TLS
+  talked plaintext with the credentials in it. It opens an `smtplib.SMTP_SSL`
+  connection now. The shipped defaults were also the wrong pair for both
+  clients — port 587 with `MAIL_USE_TLS` on and `MAIL_USE_STARTTLS` off — and
+  are now the submission port with STARTTLS. Setting both flags raises at
+  startup instead of being resolved differently by each client.
+- Both mail clients connected and logged in *before* the `try` that wraps SMTP
+  errors, so the `SMTPConnectError` and `SMTPAuthenticationError` handlers could
+  only ever see an exception raised by the caller's own body. A refused greeting
+  or a rejected password escaped as a raw `smtplib`/`aiosmtplib` error instead of
+  the documented `FrameworkException`. Connect, STARTTLS and login happen inside
+  the `try` now, and the sync client no longer raises `UnboundLocalError` from
+  its `finally` when the connection was never opened.
+- `wf create app` wrote `app_configs/<name>.ini` in the interpreter's locale
+  encoding and `wf run` and `wf migrate` read it back the same way, which is
+  symmetric on one machine and breaks the moment a config with a non-ASCII
+  value is written on Windows and read anywhere else. Configs are written as
+  UTF-8 now and read through `utils.core.read_config`, which falls back to the
+  locale encoding so configs written by an older release keep working.
+- `resolve_bearer` looked its principal up with `int(sub)`. A token whose `sub`
+  is a uuid or an email raised `ValueError` from inside the fallback branch of
+  the gate, which nothing caught, and the request came back as a `500` instead
+  of a `401`. A subject that is not a principal id is rejected as an
+  unusable token now.
+- A token whose `kid` is not in the cache passed `None` to the signing library
+  as the key, which raised a raw `TypeError` rather than an error callers can
+  catch. Decoding without a key raises `jwt.InvalidTokenError`.
+- Both the framework and the additive context processor built `url_for` from the
+  request in the current context and handed back `None` when there was none, so
+  rendering a template from a startup hook, a scheduled job or a mail routine
+  failed with `NoneType is not callable` rather than a missing name. Off-request
+  `url_for` resolves through the application's route table now, and
+  `external=True` prefixes the configured `BASE_URL`.
+- The domain escalation accepted a catalog's answer only when it differed from
+  the string it was given, so a deliberate translation that happens to equal its
+  source — an English catalog translating `Save` to `Save` — was read as a miss
+  and the next domain in the chain answered instead. `MergedTranslations` now
+  reports hit and miss separately through a `findtext` family, and the escalation
+  tests for a miss rather than comparing strings.
+- `events.create_signal` and `@events.event` created their broadcaster's
+  consumer loop eagerly with `asyncio.create_task`, so calling either before
+  the application's event loop was running — the ordinary case for a signal
+  declared at module level, right after `Fluid(...)` — raised `RuntimeError:
+  no running event loop`. An event registered outside a running loop is
+  queued instead and wired up from a startup hook once the loop exists, so
+  declaring signals at import time works the way the `1.0.0b2` known-issues
+  list said it couldn't. Registering a *new* event from outside a running
+  loop after the application has already started is the one case this
+  cannot paper over, since nothing will ever come along to drain it; that
+  now raises a `FrameworkException` explaining why, rather than the old
+  `RuntimeError` about a missing loop.
+
+### Changed
+
+- `MAIL_USE_TLS` now defaults to `False` and `MAIL_USE_STARTTLS` to `True`,
+  matching the `MAIL_PORT` default of 587. An application that set neither and
+  relied on the old pair was talking to a server that answered on 587 with
+  implicit TLS, which neither client could reach; if that describes yours, set
+  `MAIL_PORT = 465` and `MAIL_USE_TLS = True` explicitly.
+- `utils.core.read_config` is new: it reads an ini file as UTF-8, falls back to
+  the locale encoding, and returns an empty parser for a file that is not there.
+- `MergedTranslations` gained `findtext`, `nfindtext`, `pfindtext`,
+  `npfindtext` and their four `a`-prefixed pendants. They answer `None` when
+  neither the database nor the compiled catalog carries the message. The eight
+  `gettext` methods are unchanged and still answer with the source string on a
+  miss.
+
+### Tests
+
+187 tests, up from 160. The new ones cover the driver rewriting, both TLS paths
+and both error paths of the synchronous mail client, config encoding in both
+directions, bearer subjects that are not principal ids, decoding against an
+unknown key, off-request `url_for`, identity translations, and the deferred
+event registration — including that a second, redundant drain of the pending
+queue is a no-op and that registering a genuinely new event off-loop after
+startup raises rather than silently vanishing. One translation test compiles a
+real `.mo` and asserts the catalog probe matches all four key shapes gettext
+uses, since that is what the escalation fix rests on.
+
+### Known limitations
+
+Everything below was known in `1.0.0b2` and is still true. None of it is a
+stabilisation fix: each one needs a change to how a subsystem is built rather
+than a correction inside it, so they are scheduled past `1.0.0`.
+
+- `RATELIMIT_DEFAULT` is never enforced. slowapi evaluates application-wide
+  default limits only from its own middleware, and the framework installs the
+  exception handler without that middleware, so a route without a `fluid.limit`
+  decorator is never checked. Installing the middleware would start rate
+  limiting every route of every existing application on upgrade, which is not
+  something a stabilisation release gets to do. Put the limit you want on the
+  route and read `RATELIMIT_DEFAULT` as intent.
+- `additive.after_request` receives whatever the handler returned — a dict, a
+  model, a string — because it runs inside the router's endpoint wrapper, before
+  FastAPI serialises anything. `fluid.after_request` receives a real `Response`.
+  Making the two agree means moving additive request processing out of the
+  endpoint wrapper.
+- A `StreamingResponse` passes the request middleware untouched, because the
+  buffering that lets `after_request` rewrite a body is given up the moment the
+  app announces more body to come. A buffered response keeps the headers the app
+  produced, so a processor that changes the body has to return a new response
+  rather than mutating the one it was handed.
+- JWT key rotation writes the signing keys into whatever `CACHE_TYPE` points at,
+  and a rotation also runs as a startup hook, so with the in-process legacy cache
+  every restart mints a new key and forgets the old ones. Run the JWT extension
+  against Redis. A real fix is a key store that is not the response cache.
+- `wf migrate init` chooses the single- or multi-database template from
+  `SQLALCHEMY_BINDS` at init time, so binds attached at runtime through
+  `Model.set_bind` are not detected and need the template picked by hand.
+- Event broadcasts use a bounded per-listener buffer sized by
+  `EVENTS_EVENT_QUEUE_SIZE`. A consumer that falls behind loses its oldest
+  events; the drop is logged as a warning, but delivery is best-effort by design.
+- HMR across the main app and multiple additive frontends rides on the websocket
+  proxy in front of the shared dev server. That connection can drop on its own —
+  a Vite restart is the usual trigger — and the affected frontend then stops
+  picking up changes until the browser is refreshed.
+- `TransactionService._fetch` still uses a synchronous database session on the
+  `gettext` path, for keys explicitly marked uncached. `agettext` offers a
+  non-blocking alternative, but the callables installed into Jinja stay
+  synchronous on purpose.
+- Startup and shutdown hooks run from `Fluid.mix()`, not from the ASGI lifespan
+  protocol, so they do not run under an external ASGI server.
+- A config written by `wf create app` on a non-UTF-8 console before `1.0.0b3`
+  reads back correctly on the machine that wrote it, but a non-ASCII value in it
+  still cannot be recovered on a machine with a different locale encoding.
+  Rewrite affected configs once, or keep their values ASCII and move secrets
+  behind the `*_FILE` indirection.
+
 ## 1.0.0b2
 
 A stabilisation release. No new features — it closes the holes `1.0.0b1` left in

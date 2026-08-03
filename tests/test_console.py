@@ -344,3 +344,30 @@ def test_debug_mode_forces_debug_logging(tmp_path, monkeypatch):
 
     assert "DEV_AUTO_INSTALL" not in env_from_config(configs / "demo.ini", False)
     assert env_from_config(configs / "demo.ini", True)["DEV_AUTO_INSTALL"] == "1"
+
+
+def test_app_configs_are_read_as_utf8(tmp_path):
+    config = tmp_path / "demo.ini"
+    config.write_text(
+        "[DEFAULT]\nSECRET_KEY = s3cret\n\n[mail]\nMAIL_USERNAME = grün@example.org\n",
+        encoding="utf-8"
+    )
+
+    assert env_from_config(config, False)["MAIL_USERNAME"] == "grün@example.org"
+
+
+def test_a_legacy_config_in_the_console_encoding_still_reads(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "locale.getpreferredencoding", lambda *_: "cp1252"
+    )
+    config = tmp_path / "legacy.ini"
+    config.write_bytes(
+        "[DEFAULT]\nSECRET_KEY = s3cret\nMAIL_USERNAME = grün\n".encode("cp1252")
+    )
+
+    assert env_from_config(config, False)["MAIL_USERNAME"] == "grün"
+
+
+def test_a_missing_config_yields_an_empty_parser(tmp_path):
+    from webfluid.utils.core import read_config
+    assert read_config(tmp_path / "nope.ini").sections() == []

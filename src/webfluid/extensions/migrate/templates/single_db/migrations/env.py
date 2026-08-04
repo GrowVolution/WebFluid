@@ -58,6 +58,7 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        render_as_batch=url.startswith("sqlite"),
     )
 
     with context.begin_transaction():
@@ -78,6 +79,7 @@ def do_run_migrations(connection):
         target_metadata=target_metadata,
         compare_type=True,
         process_revision_directives=process_revision_directives,
+        render_as_batch=connection.dialect.name == "sqlite",
     )
 
     with context.begin_transaction():

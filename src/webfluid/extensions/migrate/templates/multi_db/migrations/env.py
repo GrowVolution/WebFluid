@@ -91,7 +91,8 @@ def run_migrations_offline():
             url=rec["url"],
             target_metadata=get_metadata(name),
             literal_binds=True,
-            compare_type=True
+            compare_type=True,
+            render_as_batch=rec["url"].startswith("sqlite"),
         )
 
         with context.begin_transaction():
@@ -114,6 +115,7 @@ def do_run_migrations(connection, name):
         downgrade_token="%s_downgrades" % name,
         compare_type=True,
         process_revision_directives=process_revision_directives,
+        render_as_batch=connection.dialect.name == "sqlite",
     )
 
     with context.begin_transaction():

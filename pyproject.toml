@@ -67,6 +67,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 webfluid = [
+    ".agents/**/*",
     "fluid/**/*",
     "extensions/babel/babel.cfg",
     "extensions/migrate/templates/**/*"

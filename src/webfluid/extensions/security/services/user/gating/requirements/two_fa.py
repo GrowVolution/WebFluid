@@ -18,6 +18,6 @@ def _resolver_fn(default_gate):
 
 
 class Gate:
-    def __init__(self, default_gate):
-        self.resolve = _resolver_fn(default_gate)
+    def __init__(self, email_verified_gate):
+        self.resolve = _resolver_fn(email_verified_gate)
         self.depends = Depends(self.resolve)

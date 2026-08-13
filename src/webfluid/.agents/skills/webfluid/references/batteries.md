@@ -262,19 +262,21 @@ async def c(user = svc.require_permissions(["posts:write"])): ...      # all
 async def d(user = svc.require_any_permission(["a", "b"])): ...        # at least one
 ```
 
-The chain: `current_user` → `require_user` (+ CSRF on unsafe methods) → `require_2fa` (only if the
-user *has* a second factor) → the role/permission/grant gates. Two consequences: **every** role or
-permission guard also enforces authentication, CSRF and 2FA; and `require_2fa` is a no-op for a user
-with no second factor at all.
+The chain: `current_user` → `require_user` (+ CSRF on unsafe methods) → an unconditional
+401 `EMAIL_NOT_VERIFIED` check → `require_2fa` (only if the user *has* a second factor) → the
+role/permission/grant gates. Three consequences: **every** guard past `require_user`, including
+`require_2fa` itself, also demands a verified email; **every** role or permission guard also
+enforces authentication, CSRF, verified email and 2FA; and `require_2fa` is a no-op for a user with
+no second factor at all. Bare `require_user` is the only guard that lets an unverified email through.
 
 The user handed to your route is **detached** — the dependency expunges it and closes the session
 before yielding, so an authenticated request does not hold a pool slot. Columns are present;
 relationships raise.
 
-Predicates for a user you already hold: `svc.has_2fa(user)` (sync), `await svc.is_admin(user)`,
-`has_roles`, `has_any_role`, `has_permissions`, `has_any_permission`, `check_requirement`. Every
-guard also has a `_fn` twin (`svc.require_admin_fn`) — the same resolver without the `Depends`
-wrapper.
+Predicates for a user you already hold: `svc.verified_email(user)` (sync), `svc.has_2fa(user)`
+(sync), `await svc.is_admin(user)`, `has_roles`, `has_any_role`, `has_permissions`,
+`has_any_permission`, `check_requirement`. Every guard also has a `_fn` twin
+(`svc.require_admin_fn`) — the same resolver without the `Depends` wrapper.
 
 ### CSRF and single-use tokens
 

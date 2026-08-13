@@ -227,11 +227,11 @@ carry the exhaustive detail.
 
 ## References
 
-| File                          | Covers                                                                                                   |
-|-------------------------------|----------------------------------------------------------------------------------------------------------|
-| `references/project-setup.md` | The `wf` CLI, project layout, app configs vs. config classes, deployment                                 |
-| `references/runtime.md`       | `mix()`, hooks, `FluidContext`, request flow, logging, rate limits, proxies                              |
+| File                          | Covers                                                                                                         |
+|-------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `references/project-setup.md` | The `wf` CLI, project layout, app configs vs. config classes, deployment                                       |
+| `references/runtime.md`       | `mix()`, hooks, `FluidContext`, request flow, logging, rate limits, proxies                                    |
 | `references/batteries.md`     | The eight `EXT_*` batteries — SQLAlchemy, Security, Babel, Events, Cache, Mail, JWT, Scheduling — plus Migrate |
-| `references/additives.md`     | Additives, base Additives, contracts, packaging, and writing a `FluidExtension`                          |
-| `references/frontend.md`      | `WF_*` switches, template resolution, `fluid_base.html`, themes, htmx and Vite                           |
-| `references/pitfalls.md`      | Known defects of the current release and the traps that produce silently wrong code                      |
+| `references/additives.md`     | Additives, base Additives, contracts, packaging, and writing a `FluidExtension`                                |
+| `references/frontend.md`      | `WF_*` switches, template resolution, `fluid_base.html`, themes, htmx and Vite                                 |
+| `references/pitfalls.md`      | Known defects of the current release and the traps that produce silently wrong code                            |

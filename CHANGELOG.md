@@ -17,6 +17,18 @@ already running. One more bug turned up next to the mail fix and is closed with
 it. What is left of that list is under *Known limitations*, with the reason each
 one is still there.
 
+### Added
+
+- `UserService` gates now enforce a verified email past `require_user`. A new
+  `EmailVerifiedGate` sits between the default gate and `require_2fa`, so
+  `require_2fa`, `require_admin`, every role and permission guard, and both
+  bearer grant gates raise `401 EMAIL_NOT_VERIFIED` for a user whose `email`
+  is unset or `email_verified` is `False`; bare `require_user` is the only
+  guard unaffected. An application that lets a user reach one of those routes
+  before verifying their address now needs a verification flow in front of
+  it. The predicate is exported as `requirements.verified_email` /
+  `UserService.verified_email`, next to `has_2fa` and `is_admin`.
+
 ### Fixed
 
 - `database_uris` inserted the driver with a plain `str.replace`, so every

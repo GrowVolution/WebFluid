@@ -6,7 +6,7 @@ from fastapi import Request
 from webfluid.extensions.security.models.user import User
 from webfluid.extensions.security.services.token import TokenService
 from webfluid.extensions.security.services.user.gating.requirements import (
-    DefaultGate, TwoFaGate, AdminGate, RolesGate, AnyRoleGate,
+    DefaultGate, EmailVerifiedGate, TwoFaGate, AdminGate, RolesGate, AnyRoleGate,
     PermissionsGate, AnyPermissionGate,
 )
 from webfluid.extensions.security.services.user.gating.bearer import (
@@ -17,6 +17,7 @@ from webfluid.extensions.security.services.user.gating.bearer import (
 class UserService:
     current_user: Any
     _default_gate: DefaultGate
+    _email_verified_gate: EmailVerifiedGate
     _2fa_gate: TwoFaGate
     _admin_gate: AdminGate
     _roles_gate: RolesGate
@@ -35,6 +36,8 @@ class UserService:
     ) -> AsyncGenerator[tuple[User | None, bool], None]: ...
     @staticmethod
     async def bearer_principal(request: Request, grant: str) -> AsyncGenerator[User | None, None]: ...
+    @staticmethod
+    def verified_email(user: User) -> bool: ...
     @staticmethod
     def has_2fa(user: User) -> bool: ...
     @staticmethod

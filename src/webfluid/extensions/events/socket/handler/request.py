@@ -1,3 +1,4 @@
+from webfluid.utils.logging import factory as log_factory
 
 
 async def request(queries, msg, res):
@@ -15,5 +16,8 @@ async def request(queries, msg, res):
 
     if "error" in res: return res
 
-    res["data"] = await queries.request(query, data.get("data"))
+    try: res["data"] = await queries.request(query, data.get("data"))
+    except Exception as e:
+        log_factory.exception(e)
+        res["error"] = f"Query '{query}' failed."
     return res

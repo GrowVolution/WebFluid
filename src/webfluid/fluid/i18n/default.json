@@ -248,8 +248,8 @@
     "Zwei-Faktor-Authentifizierung ist bereits eingerichtet"
   ],
   "EMAIL_NOT_VERIFIED": [
-    "E-Mail was not verified yet",
-    "E-Mail wurde noch nicht verifiziert"
+    "Email is not verified yet",
+    "E-Mail-Adresse ist noch nicht verifiziert"
   ],
   "INVALID_OTP": [
     "Invalid one-time code",

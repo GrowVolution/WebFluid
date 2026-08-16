@@ -273,7 +273,7 @@ The user handed to your route is **detached** — the dependency expunges it and
 before yielding, so an authenticated request does not hold a pool slot. Columns are present;
 relationships raise.
 
-Predicates for a user you already hold: `svc.verified_email(user)` (sync), `svc.has_2fa(user)`
+Predicates for a user you already hold: `svc.email_verified(user)` (sync), `svc.has_2fa(user)`
 (sync), `await svc.is_admin(user)`, `has_roles`, `has_any_role`, `has_permissions`,
 `has_any_permission`, `check_requirement`. Every guard also has a `_fn` twin
 (`svc.require_admin_fn`) — the same resolver without the `Depends` wrapper.
@@ -467,7 +467,8 @@ because nothing will ever drain it.
   and returns. There is nothing to await — if you need an answer, use a query.
 - `trigger` and `request` raise `ValueError` for an unknown name, so declare before you publish.
 - Handlers run inside a fresh `FluidContext` carrying `event` and `event_data`, and inheriting the
-  **request of the triggering context** when there is one.
+  **request of the triggering context** when there is one — the HTTP `Request` when the trigger came
+  from a route, the `WebSocket` when it came over `/ws/events`.
 - Queries: `singleton=True` (default) means exactly one handler and `request` returns its result;
   `singleton=False` gathers all handlers and returns a **list**.
 
@@ -481,13 +482,44 @@ the database plus a query for that.
 
 ### On the client
 
-Only **public** (`internal=False`) events cross to the browser:
+Only **public** (`internal=False`) events *and queries* cross to the browser:
 
 ```js
 const events = new window.wf.ext.events.EventManager()
 await events.subscribe("model:created")
 events.registerHandler("model:created", (data) => { ... })
+const count = await events.request("model:count")
 ```
+
+`events.js` opens **one** socket at module load and every `EventManager` shares it, so a page may
+construct as many managers as it likes — but must not open a second connection to `/ws/events`.
+`window.wf.ext.events.eventRequest(type, data)` is that same socket's raw request if you want the
+promise to reject rather than resolve `undefined` on failure. Reach for `window.wf.createWS(path)`
+only for a websocket route of your own.
+
+Requests made before the socket is open are queued and sent on connect, and each one rejects after
+`options.timeout` (15 s) — `EventManager` turns that rejection into a logged `undefined`. A query
+that raises answers `{"error": ...}` and the connection stays up.
+
+Driving a whole view off the bus instead of a REST route is a normal thing to do: one query per
+paint, on a connection that is already open, with no route, no schema and no serialiser in between.
+
+**Resolve the caller server-side.** The handler runs inside a `FluidContext` whose `request` is the
+`WebSocket`, so the session cookie, `Accept-Language` and the query string are all there. Never take
+a principal id from the payload of a public query:
+
+```python
+async def _current_uid():
+    ctx = FluidContext.try_current()
+    request = ctx.request if ctx is not None else None
+    if request is None: return None
+    async for user in security.user_service.current_user_fn(request):
+        return user.id if user else None
+```
+
+Everything else that reads the request works unchanged — the locale resolution behind `_()`, the
+timezone, `url_for` — so a handler may render a template and answer with HTML in the visitor's
+language.
 
 Introspection: `has_event`, `has_query`, `is_singleton`, `is_internal`, `broadcaster`, `handlers`.
 

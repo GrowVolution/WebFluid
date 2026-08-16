@@ -43,7 +43,7 @@ class EventManager(FluidExtension):
 
         socket_manager = None
         if fluid.config["EVENTS_CONFIGURE_SOCKET"]:
-            socket_manager = SocketManager(self._events, self._queries)
+            socket_manager = SocketManager(fluid, self._events, self._queries)
             fluid.websocket("/ws/events")(socket_manager.socket)
             fluid.add_source(
                 f'<script src="{FRAMEWORK_STATIC}/js/events.js" type="module"></script>',

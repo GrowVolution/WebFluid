@@ -26,6 +26,7 @@ ERROR_MESSAGES = {
     "PACKAGE_NOT_FOUND": "The package could not be found.",
     "UNKNOWN_PACKAGE": "The package could not be found.",
     "UNKNOWN_PACKAGE_TYPE": "Unknown package type.",
+    "UNKNOWN_BUNDLE": "The bundle could not be found.",
     "UNKNOWN_RELEASE": "The requested release could not be found.",
     "PACKAGE_ALREADY_INSTALLED": "A package with this id is already installed.",
     "PACKAGE_EXISTS": "A package with this id already exists.",
@@ -137,6 +138,9 @@ class Ocean:
         if types: params["type"] = ",".join(types)
         if license: params["license"] = license
         return self._request("GET", "/cli/search", params=params)["items"]
+
+    def bundle(self, bundle_id):
+        return self._request("GET", f"/cli/bundles/{bundle_id}")
 
     def resolve(self, ptype, package_id):
         return self._request("GET", f"/cli/packages/{ptype}/{package_id}")

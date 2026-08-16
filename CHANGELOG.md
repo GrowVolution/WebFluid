@@ -26,8 +26,33 @@ one is still there.
   is unset or `email_verified` is `False`; bare `require_user` is the only
   guard unaffected. An application that lets a user reach one of those routes
   before verifying their address now needs a verification flow in front of
-  it. The predicate is exported as `requirements.verified_email` /
-  `UserService.verified_email`, next to `has_2fa` and `is_admin`.
+  it. The predicate is exported as `requirements.email_verified` /
+  `UserService.email_verified`, next to `has_2fa` and `is_admin`.
+- The events websocket handler runs inside a `FluidContext` carrying the
+  connection, so a query answered over `/ws/events` sees the same request
+  surface an HTTP handler does. `FluidContext.current().request` is the
+  `WebSocket`, and because both it and `Request` are Starlette
+  `HTTPConnection`s, `security.user_service.current_user_fn`, the Babel locale
+  resolution and `url_for` work against it unchanged: a socket query resolves
+  the signed-in user from the session cookie and the browser locale from
+  `Accept-Language` itself instead of trusting what the client sent. A public
+  query no longer has to take a principal id as payload — which was the only
+  way to personalise a socket answer before, and one no server should accept.
+- `wf ocean install` learned three options. `--bundle/-b` takes a bundle id and
+  is exactly equivalent to naming every package in it: `-b 000123` resolves the
+  bundle through the Ocean and expands to the `-a`/`-e` list it stands for.
+  Leading zeros are optional. A package that appears twice — in two bundles, or
+  in a bundle and behind an explicit `-a` — is installed once and reported once
+  as a duplicate, and an explicit `id==version` pin wins over the bundle's plain
+  id. `--pre/-p` resolves the highest available prerelease of any channel rather
+  than a specific one, so a package that is at `1.1rc1` installs the candidate
+  while one still at `1.1b2` installs the beta. `--prefer-stable/-ps` takes the
+  latest stable release and only falls back to a prerelease when there is none;
+  it composes with an explicit channel (`-ps --beta` is "stable, else the latest
+  beta") and makes `--pre` redundant, which the command says in yellow.
+- `wf ocean search` prints the bundle id as the first column of the bundle
+  table, zero-padded to six digits, matching how bundles are addressed
+  everywhere else. `Ocean.bundle(bundle_id)` is the client call behind it.
 
 ### Fixed
 
@@ -89,6 +114,18 @@ one is still there.
   cannot paper over, since nothing will ever come along to drain it; that
   now raises a `FrameworkException` explaining why, rather than the old
   `RuntimeError` about a missing loop.
+- A query raised over the events websocket answered `{"data": null}` and left
+  the caller to guess what happened. It answers `{"error": "Query '<name>'
+  failed."}` now, with the exception logged. This matters more than it used to:
+  with the connection in context the handler re-raises rather than swallowing,
+  so without the containment a single failing query would have torn down the
+  socket for that visitor.
+- `WebSocketDisconnect` escaped the receive loop of **both** framework sockets,
+  so an ordinary disconnect — every closed tab, twice over — surfaced as an
+  unhandled exception in the ASGI application. `/ws/events` treats it as the end
+  of the connection and leaves through the same `finally` that releases the
+  socket id; `/ws/i18n` gained the same containment, with its loop moved into a
+  `Socket._handle` the endpoint wraps.
 
 ### Changed
 
@@ -104,10 +141,12 @@ one is still there.
   neither the database nor the compiled catalog carries the message. The eight
   `gettext` methods are unchanged and still answer with the source string on a
   miss.
+- `SocketManager` takes the application as its first argument. It is constructed
+  by the events extension, so this only concerns code that built one by hand.
 
 ### Tests
 
-187 tests, up from 160. The new ones cover the driver rewriting, both TLS paths
+190 tests, up from 160. The new ones cover the driver rewriting, both TLS paths
 and both error paths of the synchronous mail client, config encoding in both
 directions, bearer subjects that are not principal ids, decoding against an
 unknown key, off-request `url_for`, identity translations, and the deferred
@@ -115,7 +154,11 @@ event registration — including that a second, redundant drain of the pending
 queue is a no-op and that registering a genuinely new event off-loop after
 startup raises rather than silently vanishing. One translation test compiles a
 real `.mo` and asserts the catalog probe matches all four key shapes gettext
-uses, since that is what the escalation fix rests on.
+uses, since that is what the escalation fix rests on. Three more run a real
+uvicorn behind the events socket: a query answered over it sees the connection
+as its request (scope type and `Accept-Language` both arrive), a query that
+raises answers an error and leaves the socket usable for the next one, and an
+internal query stays unreachable from the browser.
 
 ### Known limitations
 

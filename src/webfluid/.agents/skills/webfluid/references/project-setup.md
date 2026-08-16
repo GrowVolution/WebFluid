@@ -306,8 +306,16 @@ Redis for the cache, and give the scheduler its own single-instance app config.
 wf ocean search auth --additives --oss-only
 wf ocean install -a portal -e stripe      # -a → additives/<id>, -e → extensions/<id> + pip -e
 wf ocean install -a portal==1.2.0         # pinned; --alpha/--beta/--rc switch the channel
+wf ocean install -b 000123 -a portal      # a bundle expands to the packages it contains
+wf ocean install -a portal -p             # --pre: the latest prerelease, whatever its channel
+wf ocean install -a portal -ps            # --prefer-stable: stable, else the latest prerelease
 wf ocean publish                          # from the package directory
 ```
+
+The bundle id is the first column of `wf ocean search`'s bundle table; leading zeros are optional.
+`-b` is exactly equivalent to naming every package the bundle contains, so bundles and single
+packages mix freely — a package requested twice is installed once, with a duplication warning, and
+an explicit `id==version` beats the bundle's unpinned entry.
 
 Anything already present is **skipped rather than overwritten**, so re-running is safe. Each
 installed Additive then runs its `install()` routine: resolve and pull required Additives

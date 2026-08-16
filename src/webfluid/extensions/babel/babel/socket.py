@@ -1,4 +1,4 @@
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 import json
 
 from webfluid.extensions.babel.utils import load_locale, parse_best_match
@@ -13,9 +13,7 @@ class Socket:
     def __init__(self, babel):
         self.babel = babel
 
-    async def endpoint(self, ws: WebSocket):
-        await ws.accept()
-
+    async def _handle(self, ws):
         from webfluid.extensions.babel.translations import Cache
         while True:
             try:
@@ -73,3 +71,8 @@ class Socket:
                     response["error"] = f"Unknown request: {request}"
 
                 await ws.send_text(json.dumps(response))
+
+    async def endpoint(self, ws: WebSocket):
+        await ws.accept()
+        try: await self._handle(ws)
+        except WebSocketDisconnect: pass

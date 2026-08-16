@@ -1,3 +1,4 @@
+from fastapi import WebSocketDisconnect
 import json
 
 from .subscribe import subscribe
@@ -75,6 +76,7 @@ class SocketHandler:
 
                     await _send(ws, response)
 
+        except WebSocketDisconnect: pass
         finally: self._manager.leave(sid)
 
     async def handle(self, ws):

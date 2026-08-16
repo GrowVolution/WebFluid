@@ -11,7 +11,7 @@ class UserService:
     resolve_bearer = staticmethod(bearer.resolve_bearer)
     bearer_principal = staticmethod(bearer.bearer_principal)
 
-    verified_email = staticmethod(requirements.verified_email)
+    email_verified = staticmethod(requirements.email_verified)
     has_2fa = staticmethod(requirements.has_2fa)
     is_admin = staticmethod(requirements.is_admin)
     has_roles = staticmethod(requirements.has_roles)

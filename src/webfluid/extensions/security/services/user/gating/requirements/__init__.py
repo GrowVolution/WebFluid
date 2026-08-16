@@ -1,5 +1,5 @@
 from .default import Gate as DefaultGate
-from .email_verified import Gate as EmailVerifiedGate, requirement_fulfilled as verified_email
+from .email_verified import Gate as EmailVerifiedGate, requirement_fulfilled as email_verified
 from .two_fa import Gate as TwoFaGate, requirement_fulfilled as has_2fa
 from .admin import Gate as AdminGate, requirement_fulfilled as is_admin
 from .roles import Gate as RolesGate, requirement_fulfilled as has_roles
@@ -9,7 +9,7 @@ from .any_permission import Gate as AnyPermissionGate, requirement_fulfilled as 
 
 __all__ = [
     "DefaultGate",
-    "EmailVerifiedGate", "verified_email",
+    "EmailVerifiedGate", "email_verified",
     "TwoFaGate", "has_2fa",
     "AdminGate", "is_admin",
     "RolesGate", "has_roles",

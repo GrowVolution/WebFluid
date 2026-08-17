@@ -4,6 +4,359 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
+## 1.0.0b3
+
+**This is the final `1.0.0b3`.** The second stabilisation release. It works
+through the known-issues list `1.0.0b2` published and closes the eight entries
+that could be closed without moving the shape of the framework — a plaintext
+SMTP session, a URI rewriter that rewrote too much, a bearer token that answered
+`500` where it meant `401`, a `url_for` that was `None` off request, a
+translation that was skipped whenever a domain translated a string to itself,
+and an event registry that only worked once the event loop was already running.
+
+A closing audit pass over the whole framework then found five security defects
+and a handful of stability ones, which are listed under *Security* below and
+are the reason this release is not, as originally planned, one with no breaking
+changes at all: **template autoescaping is now on**, and that is a behaviour
+change every application that renders HTML has to read. It is the only one.
+What is left of the `1.0.0b2` list is under *Known limitations*, with the reason
+each entry is still there.
+
+### Security
+
+Each of these was reachable in a default configuration. Read the first two even
+if you read nothing else.
+
+- **Templates did not escape their context.** The Jinja environment was built
+  without `autoescape`, so every `{{ value }}` in every template of every
+  application was interpolated verbatim — an XSS hole anywhere user input
+  reached a page. Autoescaping is on now, through
+  `select_autoescape(("html", "htm", "xml", "xhtml", "svg"))`, which also covers
+  every `render_string` source. That the framework already wrapped its own
+  injected HTML in `markupsafe.Markup` — page sources, theme links, `frontend()`,
+  `wf_tailwind` — is what made the switch safe to throw: those keep rendering as
+  markup. **A template of yours that deliberately interpolates an HTML string now
+  shows the tags**; wrap the value in `Markup` at the point you build it, or add
+  `| safe` at the point you render it, and never do either to something that came
+  from a request. An existing `| e` keeps working and does not double escape.
+  Templates with any other suffix — `.txt`, `.md`, `.json` — are not escaped, so
+  plain-text mail bodies are unaffected. Two framework-internal spots had to be
+  corrected to survive their own fix: `Sources.rendered` and the debug source
+  callable joined their `Markup` fragments with a plain `str` separator, which
+  returns a plain `str` and would have escaped the framework's own script tags.
+- **The Vite asset route served arbitrary files.** `asset_catch` is registered as
+  a catch-all `GET /{path:path}` whenever a Vite frontend exists — in production
+  as well as debug — and it resolved the requested file under the `vite_ns`
+  *cookie*, which the client controls and which was never validated. No traversal
+  was even required: sending an empty `vite_ns` rooted the lookup at
+  `project_root`, so `GET /app_configs/<app>.ini` returned the application's
+  config, `SECRET_KEY` included. A `..` in the cookie reached anything above it.
+  The namespace is now checked against the set of frontends actually registered,
+  and the resolved path must be a file under `project_root` — the containment
+  check is a separate helper, `assets.contained`, applied to the proxied path in
+  debug and to the served file in production.
+- **A token's `kid` could name any cache entry.** `Decoder` interpolated the
+  unverified `kid` header straight into `cache.get(f"jwt:{kid}")` and used
+  whatever came back as the HMAC secret. `kid: "current"` therefore resolved to
+  `jwt:current`, whose value is the *key id* — a uuid published in the header of
+  every token the application issues. Anyone holding one valid token could read
+  that id and sign their own tokens with it, for any `sub` and any grant. A `kid`
+  that is not the 32 lowercase hex characters a rotation produces is now rejected
+  before any lookup, which also closes the same trick against `jwt:revoked:<jti>`.
+- **Rate limits keyed on a client-supplied header.** The limiter used slowapi's
+  `get_ipaddr`, which prefers an `X_Forwarded_For` request header over the real
+  peer. Since nothing verified it, a client could send a different value on every
+  request and never hit a limit; behind a real proxy the same function put every
+  client in one bucket, because that header spelling is not the one proxies send.
+  The key is `get_remote_address` now, and `PROXY_FIX` with `PROXY_TRUSTED_HOSTS`
+  is the supported — and only — way a forwarded header changes `request.client`.
+- **OAuth replayed an attacker-chosen redirect.** `?redirect=` was stored in the
+  session by `_prepare_session` and handed to `RedirectResponse` unchanged, so a
+  crafted login link sent the user to any origin after a successful sign-in. Only
+  a same-site absolute path survives now; an absolute URL, a protocol-relative
+  `//host` and a `/\host` all collapse to `/`.
+
+### Added
+
+- `UserService` gates now enforce a verified email past `require_user`. A new
+  `EmailVerifiedGate` sits between the default gate and `require_2fa`, so
+  `require_2fa`, `require_admin`, every role and permission guard, and both
+  bearer grant gates raise `401 EMAIL_NOT_VERIFIED` for a user whose `email`
+  is unset or `email_verified` is `False`; bare `require_user` is the only
+  guard unaffected. An application that lets a user reach one of those routes
+  before verifying their address now needs a verification flow in front of
+  it. The predicate is exported as `requirements.email_verified` /
+  `UserService.email_verified`, next to `has_2fa` and `is_admin`.
+- The events websocket handler runs inside a `FluidContext` carrying the
+  connection, so a query answered over `/ws/events` sees the same request
+  surface an HTTP handler does. `FluidContext.current().request` is the
+  `WebSocket`, and because both it and `Request` are Starlette
+  `HTTPConnection`s, `security.user_service.current_user_fn`, the Babel locale
+  resolution and `url_for` work against it unchanged: a socket query resolves
+  the signed-in user from the session cookie and the browser locale from
+  `Accept-Language` itself instead of trusting what the client sent. A public
+  query no longer has to take a principal id as payload — which was the only
+  way to personalise a socket answer before, and one no server should accept.
+- `wf ocean install` learned three options. `--bundle/-b` takes a bundle id and
+  is exactly equivalent to naming every package in it: `-b 000123` resolves the
+  bundle through the Ocean and expands to the `-a`/`-e` list it stands for.
+  Leading zeros are optional. A package that appears twice — in two bundles, or
+  in a bundle and behind an explicit `-a` — is installed once and reported once
+  as a duplicate, and an explicit `id==version` pin wins over the bundle's plain
+  id. `--pre/-p` resolves the highest available prerelease of any channel rather
+  than a specific one, so a package that is at `1.1rc1` installs the candidate
+  while one still at `1.1b2` installs the beta. `--prefer-stable/-ps` takes the
+  latest stable release and only falls back to a prerelease when there is none;
+  it composes with an explicit channel (`-ps --beta` is "stable, else the latest
+  beta") and makes `--pre` redundant, which the command says in yellow.
+- `wf ocean search` prints the bundle id as the first column of the bundle
+  table, zero-padded to six digits, matching how bundles are addressed
+  everywhere else. `Ocean.bundle(bundle_id)` is the client call behind it.
+
+### Fixed
+
+- `database_uris` inserted the driver with a plain `str.replace`, so every
+  occurrence of the scheme word in a URI was rewritten rather than the leading
+  one. `sqlite:///data/sqlite/app.db` came back as
+  `sqlite+aiosqlite:///data/sqlite+aiosqlite/app.db`, and a MySQL database named
+  `mysql_prod`, a user named `postgresql` or a password containing the scheme
+  word got the same treatment. Only the scheme prefix is replaced now.
+- `SyncManager` stored `MAIL_USE_TLS` and then opened a plain `smtplib.SMTP`
+  connection, so `mail.send()` against a server configured for implicit TLS
+  talked plaintext with the credentials in it. It opens an `smtplib.SMTP_SSL`
+  connection now. The shipped defaults were also the wrong pair for both
+  clients — port 587 with `MAIL_USE_TLS` on and `MAIL_USE_STARTTLS` off — and
+  are now the submission port with STARTTLS. Setting both flags raises at
+  startup instead of being resolved differently by each client.
+- Both mail clients connected and logged in *before* the `try` that wraps SMTP
+  errors, so the `SMTPConnectError` and `SMTPAuthenticationError` handlers could
+  only ever see an exception raised by the caller's own body. A refused greeting
+  or a rejected password escaped as a raw `smtplib`/`aiosmtplib` error instead of
+  the documented `FrameworkException`. Connect, STARTTLS and login happen inside
+  the `try` now, and the sync client no longer raises `UnboundLocalError` from
+  its `finally` when the connection was never opened.
+- `wf create app` wrote `app_configs/<name>.ini` in the interpreter's locale
+  encoding and `wf run` and `wf migrate` read it back the same way, which is
+  symmetric on one machine and breaks the moment a config with a non-ASCII
+  value is written on Windows and read anywhere else. Configs are written as
+  UTF-8 now and read through `utils.core.read_config`, which falls back to the
+  locale encoding so configs written by an older release keep working.
+- `resolve_bearer` looked its principal up with `int(sub)`. A token whose `sub`
+  is a uuid or an email raised `ValueError` from inside the fallback branch of
+  the gate, which nothing caught, and the request came back as a `500` instead
+  of a `401`. A subject that is not a principal id is rejected as an
+  unusable token now.
+- A token whose `kid` is not in the cache passed `None` to the signing library
+  as the key, which raised a raw `TypeError` rather than an error callers can
+  catch. Decoding without a key raises `jwt.InvalidTokenError`.
+- Both the framework and the additive context processor built `url_for` from the
+  request in the current context and handed back `None` when there was none, so
+  rendering a template from a startup hook, a scheduled job or a mail routine
+  failed with `NoneType is not callable` rather than a missing name. Off-request
+  `url_for` resolves through the application's route table now, and
+  `external=True` prefixes the configured `BASE_URL`.
+- The domain escalation accepted a catalog's answer only when it differed from
+  the string it was given, so a deliberate translation that happens to equal its
+  source — an English catalog translating `Save` to `Save` — was read as a miss
+  and the next domain in the chain answered instead. `MergedTranslations` now
+  reports hit and miss separately through a `findtext` family, and the escalation
+  tests for a miss rather than comparing strings.
+- `events.create_signal` and `@events.event` created their broadcaster's
+  consumer loop eagerly with `asyncio.create_task`, so calling either before
+  the application's event loop was running — the ordinary case for a signal
+  declared at module level, right after `Fluid(...)` — raised `RuntimeError:
+  no running event loop`. An event registered outside a running loop is
+  queued instead and wired up from a startup hook once the loop exists, so
+  declaring signals at import time works the way the `1.0.0b2` known-issues
+  list said it couldn't. Registering a *new* event from outside a running
+  loop after the application has already started is the one case this
+  cannot paper over, since nothing will ever come along to drain it; that
+  now raises a `FrameworkException` explaining why, rather than the old
+  `RuntimeError` about a missing loop.
+- A query raised over the events websocket answered `{"data": null}` and left
+  the caller to guess what happened. It answers `{"error": "Query '<name>'
+  failed."}` now, with the exception logged. This matters more than it used to:
+  with the connection in context the handler re-raises rather than swallowing,
+  so without the containment a single failing query would have torn down the
+  socket for that visitor.
+- `WebSocketDisconnect` escaped the receive loop of **both** framework sockets,
+  so an ordinary disconnect — every closed tab, twice over — surfaced as an
+  unhandled exception in the ASGI application. `/ws/events` treats it as the end
+  of the connection and leaves through the same `finally` that releases the
+  socket id; `/ws/i18n` gained the same containment, with its loop moved into a
+  `Socket._handle` the endpoint wraps.
+- Neither socket survived a message that was not a JSON object. Both tested for
+  their three envelope keys with `key not in msg`, which raises `TypeError` for a
+  number, a boolean or `null`, and both read `msg["data"]` as a mapping without
+  checking; a binary frame raised `KeyError` inside Starlette's `receive_text`
+  before any of that. Every one of those tore the connection down for the
+  visitor who sent it. Each socket now decodes through a `_receive` that answers
+  a named error for a binary frame, invalid JSON, a non-object message, a missing
+  key and — on `/ws/i18n` — a non-object `data`, and each wraps dispatch so a
+  handler that raises answers an error and leaves the socket usable. `/ws/i18n`
+  also stopped requiring `args` and `variables` to be present on a `translate`.
+- `SocketManager.leave` released the socket but not its subscriptions, so every
+  disconnect left a dead sid behind in `_subscriptions` and the registry grew for
+  the life of the process — one entry per reconnect, and every browser refresh is
+  a reconnect. It drops the sid from every event now and removes an event whose
+  last subscriber is gone.
+- `unsubscribe` checked whether *anyone* was subscribed to the event rather than
+  the caller, so a client that never subscribed was answered `{"data": true}` as
+  long as someone else had. It checks the caller's own subscription, matching
+  what `listen` already did.
+- `mail.send()` with `fake_async=True` — the default — ran the send in a bare
+  `Thread`, so a refused connection, a rejected password or a subject containing
+  a newline was raised into a thread nobody joined and the mail vanished with no
+  entry in the log. The thread body is a `_send_detached` that reports through
+  the framework logger, and the thread is a daemon so a failing send cannot hold
+  the process open at shutdown.
+- A CSRF token that carried a validly signed payload of the wrong shape — a
+  string, a list, a number — reached `.get("csrf")` and answered `500`. Both
+  halves are shape-checked and answer `403 INVALID_CSRF`. `validate_token` also
+  caught `BadSignature` where it meant `BadData`, so a well-signed but
+  undecodable payload escaped as a raw `itsdangerous` error instead of a `403`.
+- Database engines were created lazily and then never disposed, so every pool
+  stayed open until the process died. `SQLAlchemy.dispose()` is registered as a
+  shutdown hook and closes the sync and async engine of every bind; `Bind.dispose`
+  is idempotent and lets a disposed bind be used again.
+- The websocket proxy cancelled its idle pump task without awaiting it and never
+  retrieved the exception from the one that finished, which surfaced as
+  `Task exception was never retrieved` on an upstream that dropped.
+
+### Changed
+
+- `MAIL_USE_TLS` now defaults to `False` and `MAIL_USE_STARTTLS` to `True`,
+  matching the `MAIL_PORT` default of 587. An application that set neither and
+  relied on the old pair was talking to a server that answered on 587 with
+  implicit TLS, which neither client could reach; if that describes yours, set
+  `MAIL_PORT = 465` and `MAIL_USE_TLS = True` explicitly.
+- `utils.core.read_config` is new: it reads an ini file as UTF-8, falls back to
+  the locale encoding, and returns an empty parser for a file that is not there.
+- `MergedTranslations` gained `findtext`, `nfindtext`, `pfindtext`,
+  `npfindtext` and their four `a`-prefixed pendants. They answer `None` when
+  neither the database nor the compiled catalog carries the message. The eight
+  `gettext` methods are unchanged and still answer with the source string on a
+  miss.
+- `SocketManager` takes the application as its first argument. It is constructed
+  by the events extension, so this only concerns code that built one by hand.
+- `Sources.rendered` is a `Markup` rather than a `str`, and is `Markup("")`
+  before the freeze instead of `""`.
+- `Vite._instances`, a counter, is replaced by `Vite._namespaces`, the set of
+  registered frontend namespaces. `asset_catch` takes it as a second argument.
+
+### Performance
+
+Template rendering costs about 12 % more with autoescaping on — 123 µs → 138 µs,
+averaged over three alternating runs of `benchmarks/bench.py` against the same
+commit with and without the change. Its page interpolates the same value twenty
+times across as many included templates, so that is close to the worst case for
+an interpolation-dense page; it stays well inside the 300 µs budget, and the
+request benchmark is unchanged at ~43 µs. That is the whole price of the escaping
+fix, and it is worth paying.
+
+Against it, `SocketManager` no longer accumulates a dead subscription entry per
+disconnect, which was an unbounded leak on any long-running server with an events
+socket, and database pools are now closed at shutdown rather than held to process
+exit.
+
+### Tests
+
+244 tests, up from 160.
+
+The closing audit added 54 of them. `tests/test_hardening.py` is new and pins the
+five security fixes: that a known frontend namespace still serves its own asset
+while an empty, unregistered or traversing `vite_ns` and a traversing path are
+all refused; that a `kid` outside the rotation's shape — `current`,
+`revoked:<jti>`, a wrong length, wrong case — is rejected while a real one passes
+and a token without one still falls back; that the rate limit key ignores both
+spellings of the forwarded header and reads `request.client`; that every offsite
+redirect shape collapses to `/` while local paths survive; and that a CSRF token
+of the wrong payload shape answers `403` rather than `500`. `test_rendering.py`
+covers escaping in both directions — that a payload is escaped through `render`
+and `render_string`, that `Markup` and `| safe` still emit markup, and that the
+framework's own rendered sources survive. `test_websocket.py` runs six malformed
+message shapes and a binary frame against a real uvicorn, asserts the socket is
+still usable afterwards, and covers the subscription cleanup on disconnect and
+the `unsubscribe` ownership check. `test_mailman.py` asserts a detached send
+reports its failure through the logger and raises into no thread; two more cover
+engine disposal.
+
+The `1.0.0b2` → `1.0.0b3` work covers the driver rewriting, both TLS paths
+and both error paths of the synchronous mail client, config encoding in both
+directions, bearer subjects that are not principal ids, decoding against an
+unknown key, off-request `url_for`, identity translations, and the deferred
+event registration — including that a second, redundant drain of the pending
+queue is a no-op and that registering a genuinely new event off-loop after
+startup raises rather than silently vanishing. One translation test compiles a
+real `.mo` and asserts the catalog probe matches all four key shapes gettext
+uses, since that is what the escalation fix rests on. Three more run a real
+uvicorn behind the events socket: a query answered over it sees the connection
+as its request (scope type and `Accept-Language` both arrive), a query that
+raises answers an error and leaves the socket usable for the next one, and an
+internal query stays unreachable from the browser.
+
+### Known limitations
+
+This list is complete for the final `1.0.0b3`. Everything below was known in
+`1.0.0b2` and is still true, apart from the last entry, which the closing audit
+added. None of it is a stabilisation fix: each one needs a change to how a
+subsystem is built rather than a correction inside it, so they are scheduled past
+`1.0.0`.
+
+- `RATELIMIT_DEFAULT` is never enforced. slowapi evaluates application-wide
+  default limits only from its own middleware, and the framework installs the
+  exception handler without that middleware, so a route without a `fluid.limit`
+  decorator is never checked. Installing the middleware would start rate
+  limiting every route of every existing application on upgrade, which is not
+  something a stabilisation release gets to do. Put the limit you want on the
+  route and read `RATELIMIT_DEFAULT` as intent.
+- `additive.after_request` receives whatever the handler returned — a dict, a
+  model, a string — because it runs inside the router's endpoint wrapper, before
+  FastAPI serialises anything. `fluid.after_request` receives a real `Response`.
+  Making the two agree means moving additive request processing out of the
+  endpoint wrapper.
+- A `StreamingResponse` passes the request middleware untouched, because the
+  buffering that lets `after_request` rewrite a body is given up the moment the
+  app announces more body to come. A buffered response keeps the headers the app
+  produced, so a processor that changes the body has to return a new response
+  rather than mutating the one it was handed.
+- JWT key rotation writes the signing keys into whatever `CACHE_TYPE` points at,
+  and a rotation also runs as a startup hook, so with the in-process legacy cache
+  every restart mints a new key and forgets the old ones. Run the JWT extension
+  against Redis. A real fix is a key store that is not the response cache.
+- `wf migrate init` chooses the single- or multi-database template from
+  `SQLALCHEMY_BINDS` at init time, so binds attached at runtime through
+  `Model.set_bind` are not detected and need the template picked by hand.
+- Event broadcasts use a bounded per-listener buffer sized by
+  `EVENTS_EVENT_QUEUE_SIZE`. A consumer that falls behind loses its oldest
+  events; the drop is logged as a warning, but delivery is best-effort by design.
+- HMR across the main app and multiple additive frontends rides on the websocket
+  proxy in front of the shared dev server. That connection can drop on its own —
+  a Vite restart is the usual trigger — and the affected frontend then stops
+  picking up changes until the browser is refreshed.
+- `TransactionService._fetch` still uses a synchronous database session on the
+  `gettext` path, for keys explicitly marked uncached. `agettext` offers a
+  non-blocking alternative, but the callables installed into Jinja stay
+  synchronous on purpose.
+- Startup and shutdown hooks run from `Fluid.mix()`, not from the ASGI lifespan
+  protocol, so they do not run under an external ASGI server.
+- A config written by `wf create app` on a non-UTF-8 console before `1.0.0b3`
+  reads back correctly on the machine that wrote it, but a non-ASCII value in it
+  still cannot be recovered on a machine with a different locale encoding.
+  Rewrite affected configs once, or keep their values ASCII and move secrets
+  behind the `*_FILE` indirection.
+- `?lang=` and the `lang` cookie accept any locale Babel can parse, not only the
+  ones in `BABEL_SUPPORTED_LOCALES` — only the `Accept-Language` path is
+  restricted to them. A request naming a locale you do not ship gets the
+  untranslated source strings, and `Domain` keeps one loaded catalog per locale
+  it has been asked for, for the life of the process. The set of locales Babel
+  knows is finite, so this is bounded rather than a leak, but a client can still
+  make an application hold a few hundred empty catalogs it will never use.
+  Restricting the two client-controlled selectors to the supported list is the
+  right fix and would change behaviour for any application that relies on
+  `?lang=` for a locale it never declared, so it is not one for a stabilisation
+  release.
+
 ## 1.0.0b2
 
 A stabilisation release. No new features — it closes the holes `1.0.0b1` left in

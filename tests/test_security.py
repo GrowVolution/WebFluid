@@ -137,3 +137,58 @@ def test_password_policy_reports_every_violation():
 def test_password_policy_accepts_a_valid_password():
     policy = PasswordPolicy(8, { "lower": 1, "upper": 1, "digits": 1, "special": 1 })
     assert policy.validate("Sicher123!") == "Sicher123!"
+
+
+async def test_a_non_numeric_bearer_subject_is_not_a_server_error(monkeypatch):
+    from types import SimpleNamespace
+    import webfluid.core.ext as ext
+    from webfluid.extensions.security.services.user.gating.bearer import resolve
+
+    async def adecode(_): return { "sub": "a-uuid", "permissions": ["read"] }
+
+    monkeypatch.setattr(resolve, "EXT_JWT", True)
+    monkeypatch.setattr(
+        ext, "jwt", SimpleNamespace(adecode=adecode), raising=False
+    )
+    request = SimpleNamespace(headers={ "Authorization": "Bearer token" })
+
+    assert [r async for r in resolve.resolve_bearer(request, "read")] == [(None, False)]
+
+
+async def test_a_numeric_bearer_subject_still_resolves(monkeypatch, seeded):
+    from types import SimpleNamespace
+    import webfluid.core.ext as ext
+    from webfluid.extensions.security.services.user.gating.bearer import resolve
+
+    maker, _ = seeded
+    async def adecode(_): return { "sub": "1", "permissions": ["read"] }
+
+    monkeypatch.setattr(resolve, "EXT_JWT", True)
+    monkeypatch.setattr(
+        ext, "jwt", SimpleNamespace(adecode=adecode), raising=False
+    )
+    monkeypatch.setattr(db, "async_executor", lambda **_: AsyncExecutor(maker()))
+    request = SimpleNamespace(headers={ "Authorization": "Bearer token" })
+
+    resolved = [r async for r in resolve.resolve_bearer(request, "read")]
+
+    assert len(resolved) == 1
+    assert (resolved[0][0].id, resolved[0][1]) == (1, True)
+
+
+def test_an_unknown_kid_is_an_invalid_token(monkeypatch):
+    from types import SimpleNamespace
+    import jwt as pyjwt
+    import webfluid.core.ext as ext
+    from webfluid.extensions.jwt.decode import Decoder
+
+    token = pyjwt.encode({ "sub": "1" }, "x" * 32, headers={ "kid": "gone" })
+    monkeypatch.setattr(
+        ext, "cache", SimpleNamespace(get=lambda _: None), raising=False
+    )
+
+    decoder = Decoder(SimpleNamespace(
+        algorithm="HS256", issuer="tests", audience=lambda name: name
+    ))
+
+    with pytest.raises(pyjwt.InvalidTokenError): decoder.decode(token)

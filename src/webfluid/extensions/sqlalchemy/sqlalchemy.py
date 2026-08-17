@@ -34,6 +34,10 @@ class SQLAlchemy(FluidExtension):
             )
 
         SQLAlchemy._instance = self
+        fluid.shutdown_hook(self.dispose)
+
+    async def dispose(self):
+        for bind in self._binds.values(): await bind.dispose()
 
     def _ensure_initialized(self):
         if not self._binds:

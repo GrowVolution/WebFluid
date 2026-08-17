@@ -8,7 +8,15 @@ from webfluid.core.constants import DEBUG, FRAMEWORK_STATIC
 _static = FRAMEWORK_STATIC.lstrip("/")
 
 
-def asset_catch(project_root):
+def contained(root, *parts):
+    try: resolved = root.joinpath(*parts).resolve()
+    except (OSError, ValueError): return None
+
+    if not resolved.is_relative_to(root): return None
+    return resolved if resolved.is_file() else None
+
+
+def asset_catch(project_root, namespaces):
     async def wrapped(request: Request, path: str):
         if path.startswith(("api", _static)) or "/frontend" in path:
             return Response(status_code=404)
@@ -22,12 +30,12 @@ def asset_catch(project_root):
             final_path = path
         else:
             vite_ns = request.cookies.get("vite_ns")
-            if vite_ns is None: return Response(status_code=404)
+            if vite_ns not in namespaces: return Response(status_code=404)
 
-            if (project_root / vite_ns / path).exists():
+            if contained(project_root, vite_ns, path):
                 final_path = f"{vite_ns}/{path}"
 
-            elif (project_root / vite_ns / "public" / path).exists():
+            elif contained(project_root, vite_ns, "public", path):
                 final_path = f"{vite_ns}/public/{path}"
 
             else: return Response(status_code=404)
@@ -42,7 +50,9 @@ def asset_catch(project_root):
 
             return await proxy(request, final_path)
 
-        file = project_root / final_path
+        file = contained(project_root, final_path)
+        if file is None: return Response(status_code=404)
+
         return FileResponse(
             file,
             filename=file.name,

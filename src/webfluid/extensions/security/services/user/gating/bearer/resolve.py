@@ -21,13 +21,19 @@ async def resolve_bearer(request, grant):
     sub = payload.get("sub")
     if sub is None: yield None, False; return
 
+    try: principal_id = int(sub)
+    except (TypeError, ValueError):
+        from webfluid.utils.logging import factory as log_factory
+        log_factory.debug(f"[Security] Rejected bearer token: non numeric subject '{sub}'.")
+        yield None, False; return
+
     grants = payload.get("permissions")
     if not isinstance(grants, list) or grant not in grants:
         yield None, True; return
 
     db = SQLAlchemy.get_instance()
     async with db.async_executor(model=User) as e:
-        result = await e.exec(select(User).where(User.id == int(sub)))
+        result = await e.exec(select(User).where(User.id == principal_id))
         yield result.first(), True
 
 

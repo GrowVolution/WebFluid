@@ -174,3 +174,33 @@ async def test_request_context_is_truthy_without_data(app, client):
 
     assert seen["length"] == 0
     assert seen["request"] is not None
+
+
+def test_url_for_falls_back_to_the_route_table_off_request(app):
+    from webfluid.core.processing.context.url_for import url_for
+
+    resolve = url_for(app)
+
+    assert resolve("json_route") == "/json"
+    assert resolve("json_route", external=True) == \
+        f"{app.config['BASE_URL'].rstrip('/')}/json"
+
+
+@pytest.mark.asyncio
+async def test_url_for_uses_the_request_when_there_is_one(app, client):
+    from webfluid.core.processing.context.url_for import url_for
+
+    seen = {}
+
+    @app.get("/urls")
+    async def urls():
+        resolve = url_for(app)
+        seen["path"] = resolve("json_route")
+        seen["external"] = resolve("json_route", external=True)
+        return { "ok": True }
+
+    async with client(app) as c:
+        await c.get("/urls")
+
+    assert seen["path"] == "/json"
+    assert seen["external"] == "http://testserver/json"

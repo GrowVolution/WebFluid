@@ -20,6 +20,12 @@ ADMIN = "admin"
 class Catalog:
     def __init__(self, messages=None):
         self.messages = messages or {}
+        self._catalog = {}
+
+        for key, value in self.messages.items():
+            if isinstance(key, tuple): key = f"{key[0]}\x04{key[1]}"
+            self._catalog[key] = value
+            self._catalog[(key, 0)] = value
 
     def gettext(self, message):
         return self.messages.get(message, message)
@@ -413,3 +419,71 @@ async def test_apgettext_falls_back_to_agettext(translator):
     uncached("welcome")
 
     assert await translator.apgettext("nowhere", "welcome") == "Willkommen"
+
+
+@pytest.fixture
+def identity_translator(bound, monkeypatch):
+    domains = [
+        Domain(MergedTranslations(Catalog({ "Save": "Save" }), LOCALE, DOMAIN)),
+        Domain(MergedTranslations(
+            Catalog({ "Save": "Speichern", "Open": "Oeffnen" }), LOCALE, DOMAIN
+        ))
+    ]
+    monkeypatch.setattr(
+        Translator, "_fallback_escalation", property(lambda self: domains)
+    )
+
+    return Translator(None, True)
+
+
+async def test_a_translation_equal_to_its_source_wins_its_domain(identity_translator):
+    uncached("Save")
+
+    assert identity_translator.gettext("Save") == "Save"
+    assert await identity_translator.agettext("Save") == "Save"
+
+
+async def test_a_real_miss_still_escalates(identity_translator):
+    uncached("Open")
+
+    assert identity_translator.gettext("Open") == "Oeffnen"
+    assert await identity_translator.agettext("Open") == "Oeffnen"
+
+
+@pytest.fixture
+def compiled(tmp_path):
+    from babel.messages.catalog import Catalog as MessageCatalog
+    from babel.messages.mofile import write_mo
+    from babel.support import Translations as BabelTranslations
+
+    messages = tmp_path / LOCALE / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+
+    catalog = MessageCatalog(locale=LOCALE)
+    catalog.add("Save", "Save")
+    catalog.add("bank", "Ufer", context="river")
+    catalog.add(("apple", "apples"), ("Apfel", "Aepfel"))
+    with open(messages / f"{DOMAIN}.mo", "wb") as f: write_mo(f, catalog)
+
+    return BabelTranslations.load(tmp_path, [LOCALE], domain=DOMAIN)
+
+
+def test_the_catalog_probe_matches_every_key_shape(bound, compiled):
+    t = MergedTranslations(compiled, LOCALE, DOMAIN)
+    uncached("Save", "bank", "apple", "nothing")
+
+    assert t.findtext("Save") == "Save"
+    assert t.pfindtext("river", "bank") == "Ufer"
+    assert t.nfindtext("apple", "apples", 2) == "Aepfel"
+
+    assert t.findtext("nothing") is None
+    assert t.pfindtext("river", "nothing") is None
+    assert t.nfindtext("nothing", "nothings", 2) is None
+
+
+def test_gettext_still_answers_with_the_source_on_a_miss(bound, compiled):
+    t = MergedTranslations(compiled, LOCALE, DOMAIN)
+    uncached("nothing")
+
+    assert t.gettext("nothing") == "nothing"
+    assert t.ngettext("nothing", "nothings", 2) == "nothings"

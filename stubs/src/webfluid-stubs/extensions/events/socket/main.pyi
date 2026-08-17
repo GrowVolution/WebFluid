@@ -1,14 +1,17 @@
 from fastapi import WebSocket
+from typing import Any
 
+from webfluid import Fluid
 from webfluid.extensions.events.events import Events
 from webfluid.extensions.events.queries import Queries
 from webfluid.extensions.events.socket.handler import SocketHandler
 
 class SocketManager:
+    _fluid: Fluid
     _handler: SocketHandler
     _websockets: dict[str, WebSocket]
     _subscriptions: dict[str, dict[str, list[int | str]]]
-    def __init__(self, events: Events, queries: Queries) -> None: ...
+    def __init__(self, fluid: Fluid, events: Events, queries: Queries) -> None: ...
     async def socket(self, ws: WebSocket) -> None: ...
     def join(self, ws: WebSocket) -> str: ...
     def get_ws(self, sid: str) -> WebSocket | None: ...

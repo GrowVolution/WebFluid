@@ -29,6 +29,11 @@ def render_table(headers, rows, max_widths=None):
     return "\n".join([line(headers), divider] + [line(row) for row in rows])
 
 
+def bundle_id(value):
+    try: return f"{int(value):06d}"
+    except (TypeError, ValueError): return str(value)
+
+
 def package_state(item):
     if item.get("oss"): return "OSS"
     if item.get("owned"): return "owned"

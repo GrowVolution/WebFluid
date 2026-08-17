@@ -16,8 +16,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = t.gettext(string)
-            if msg != string:
+            msg = t.findtext(string)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return format_message(string, **variables)
@@ -28,8 +28,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = t.ngettext(singular, plural, num)
-            if msg not in (singular, plural):
+            msg = t.nfindtext(singular, plural, num)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return format_message(singular if num == 1 else plural, **variables)
@@ -38,8 +38,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = t.pgettext(context, string)
-            if msg != string:
+            msg = t.pfindtext(context, string)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return self.gettext(string, **variables)
@@ -50,8 +50,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = t.npgettext(context, singular, plural, num)
-            if msg not in (singular, plural):
+            msg = t.npfindtext(context, singular, plural, num)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return self.ngettext(singular, plural, num, **variables)
@@ -60,8 +60,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = await t.agettext(string)
-            if msg != string:
+            msg = await t.afindtext(string)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return format_message(string, **variables)
@@ -72,8 +72,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = await t.angettext(singular, plural, num)
-            if msg not in (singular, plural):
+            msg = await t.anfindtext(singular, plural, num)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return format_message(singular if num == 1 else plural, **variables)
@@ -82,8 +82,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = await t.apgettext(context, string)
-            if msg != string:
+            msg = await t.apfindtext(context, string)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return await self.agettext(string, **variables)
@@ -94,8 +94,8 @@ class Translator:
         for domain in self._fallback_escalation:
             t = domain.get_translations()
 
-            msg = await t.anpgettext(context, singular, plural, num)
-            if msg not in (singular, plural):
+            msg = await t.anpfindtext(context, singular, plural, num)
+            if msg is not None:
                 return format_message(msg, **variables)
 
         return await self.angettext(singular, plural, num, **variables)

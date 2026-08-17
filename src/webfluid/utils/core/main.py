@@ -1,6 +1,8 @@
 from pathlib import Path
 from importlib import import_module
-import os, random, string, re, sys, importlib
+from configparser import ConfigParser
+import os, random, string, re, sys, \
+    importlib, locale, asyncio
 
 
 def enabled(key):
@@ -54,6 +56,20 @@ def parse_config(key, value):
     return key, value
 
 
+def read_config(path):
+    parser = ConfigParser()
+    parser.optionxform = str
+
+    path = Path(path)
+    try: text = path.read_text(encoding="utf-8")
+    except FileNotFoundError: return parser
+    except UnicodeDecodeError:
+        text = path.read_text(encoding=locale.getpreferredencoding(False))
+
+    parser.read_string(text, str(path))
+    return parser
+
+
 def check_priority(priority):
     if priority not in range(1, 11):
         raise ValueError("Priority must be between 1 and 10.")
@@ -70,3 +86,11 @@ def try_import(name):
     try: return import_module(name)
     except ModuleNotFoundError as e:
         if e.name != name and not name.startswith(f"{e.name}."): raise
+
+
+def in_running_loop():
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False

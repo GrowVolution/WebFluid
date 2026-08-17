@@ -1,5 +1,4 @@
 from pathlib import Path
-from configparser import ConfigParser
 from datetime import datetime, UTC
 import subprocess, shutil, typer, os, sys
 
@@ -8,16 +7,14 @@ from webfluid.core.identity import FRAMEWORK_NAME, ENV_PREFIX
 from webfluid.core.config.main import Config
 from webfluid.core.config.init import init_configs
 from webfluid.core.config.build import build_config
-from webfluid.utils.core import parse_config
+from webfluid.utils.core import parse_config, read_config
 
 _templates = Path(__file__).parent / "templates"
 class _Dummy: project_root = None
 
 
 def _manipulated_env(app):
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(Path.cwd() / "app_configs" / f"{app}.ini")
+    cfg = read_config(Path.cwd() / "app_configs" / f"{app}.ini")
     env = os.environ.copy()
     pairs = [parse_config(k, v) for k, v in cfg.defaults().items()]
     for k, v in pairs: env[k] = v

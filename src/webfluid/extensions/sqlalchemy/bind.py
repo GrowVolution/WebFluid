@@ -36,6 +36,15 @@ class Bind:
     @property
     def async_engine(self): return self._async_bind()[0]
 
+    async def dispose(self):
+        if self._sync is not None:
+            self._sync[0].dispose()
+            self._sync = None
+
+        if self._async is not None:
+            await self._async[0].dispose()
+            self._async = None
+
     @contextmanager
     def session(self):
         with self._sync_bind()[1]() as session:

@@ -4,6 +4,7 @@ import smtplib
 
 from .context import ClientContext
 from .message import make_message
+from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
 
 
@@ -31,6 +32,11 @@ class SyncManager:
             with self.client() as smtp:
                 smtp.send_message(msg)
 
+    def _send_detached(self, msg):
+        try: self._send_sync(msg)
+        except Exception as e:
+            log_factory.exception(e, "[Mailman] Detached send failed.")
+
     def send(self, to, subject, body, attachments=None,
              from_email=None, cc=None, bcc=None, fake_async=True):
 
@@ -38,22 +44,28 @@ class SyncManager:
             self.default_sender, to, subject, body,
             attachments, from_email, cc, bcc
         )
-        if fake_async: Thread(target=self._send_sync, args=(msg,)).start()
+        if fake_async: Thread(
+            target=self._send_detached,
+            args=(msg,), daemon=True
+        ).start()
         else: self._send_sync(msg)
 
     @contextmanager
     def client(self):
-        smtp = smtplib.SMTP(
-            host=self.host,
-            port=self.port,
-            timeout=self.timeout
-        )
-
-        if self.start_tls: smtp.starttls()
-        if self.user and self.password:
-            smtp.login(self.user, self.password)
+        client = smtplib.SMTP_SSL if self.use_tls else smtplib.SMTP
+        smtp = None
 
         try:
+            smtp = client(
+                host=self.host,
+                port=self.port,
+                timeout=self.timeout
+            )
+
+            if self.start_tls: smtp.starttls()
+            if self.user and self.password:
+                smtp.login(self.user, self.password)
+
             with ClientContext(smtp, False): yield smtp
         except (
                 smtplib.SMTPConnectError,
@@ -63,5 +75,6 @@ class SyncManager:
         except smtplib.SMTPException as e:
             raise FrameworkException(f"Unexpected SMTP error: {type(e).__name__}: {e}")
         finally:
-            try: smtp.quit()
-            except: pass
+            if smtp is not None:
+                try: smtp.quit()
+                except: pass

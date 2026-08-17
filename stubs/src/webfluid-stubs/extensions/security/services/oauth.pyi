@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 
 _script: str
 
+def _local_path(target: Any) -> str: ...
+
 
 class OAuthService:
     client: Any

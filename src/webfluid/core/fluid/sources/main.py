@@ -13,7 +13,7 @@ class Sources(Freezable):
         super().__init__()
         self._sources = {}
         self._seen = set()
-        self.rendered = ""
+        self.rendered = Markup("")
 
     def add(self, src, priority=1):
         self.guard()
@@ -39,7 +39,7 @@ class Sources(Freezable):
         del self._sources
         del self._seen
 
-        self.rendered = "\n\t".join(sources)
+        self.rendered = Markup("\n\t").join(sources)
         return super().freeze(sources)
 
     @property

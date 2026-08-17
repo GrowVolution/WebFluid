@@ -8,7 +8,7 @@ opinionated project layout, a set of optional built-in extensions (database,
 i18n, sessions, caching, mail, and more), a bundled frontend toolchain, and a
 package registry called **Ocean** for sharing reusable features between projects.
 
-The framework is currently in beta (`1.0.0b2`) and targets Python 3.14+.
+The framework is currently in beta (`1.0.0b3`) and targets Python 3.14+.
 
 ---
 
@@ -162,6 +162,12 @@ adds three smaller ones, all in the Babel helpers: `format_date`'s second
 parameter is spelled `fmt` rather than `ftm`, `to_utc` converts to UTC instead
 of only dropping the offset, and `parse_best_match` reports no match for a
 missing `Accept-Language` header instead of picking the first supported locale.
+
+`1.0.0b3` changes one runtime default, for security: Jinja **autoescape is on**
+for `.html`, `.htm`, `.xml`, `.xhtml` and `.svg` templates and for every
+`render_string` source. Templates that deliberately interpolate HTML need
+`markupsafe.Markup` or a `| safe` filter; everything the framework itself injects
+is already `Markup`. See the release notes for the full list.
 
 ---
 

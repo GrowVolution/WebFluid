@@ -11,6 +11,7 @@ class UserService:
     resolve_bearer = staticmethod(bearer.resolve_bearer)
     bearer_principal = staticmethod(bearer.bearer_principal)
 
+    email_verified = staticmethod(requirements.email_verified)
     has_2fa = staticmethod(requirements.has_2fa)
     is_admin = staticmethod(requirements.is_admin)
     has_roles = staticmethod(requirements.has_roles)
@@ -21,7 +22,8 @@ class UserService:
 
     def __init__(self, token_service):
         self._default_gate = requirements.DefaultGate(token_service)
-        self._2fa_gate = requirements.TwoFaGate(self._default_gate)
+        self._email_verified_gate = requirements.EmailVerifiedGate(self._default_gate)
+        self._2fa_gate = requirements.TwoFaGate(self._email_verified_gate)
         self._admin_gate = requirements.AdminGate(self._2fa_gate)
         self._roles_gate = requirements.RolesGate(self._2fa_gate)
         self._any_role_gate = requirements.AnyRoleGate(self._2fa_gate)

@@ -1,6 +1,7 @@
 from sqlalchemy import MetaData, Table
 
 
+def _with_driver(uri: str, scheme: str, driver: str) -> str: ...
 def database_uris(uri: str) -> tuple[str, str]: ...
 def update_metadata(
     table: Table,

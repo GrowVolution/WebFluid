@@ -1,6 +1,6 @@
 [project]
 name = "webfluid"
-version = "1.0.0b2"
+version = "1.0.0b3"
 description = "A cli first fullstack framework for fast and easy web development."
 authors = [
     { name = "Pierre", email = "pierre@growv-mail.org" }
@@ -67,6 +67,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 webfluid = [
+    ".agents/**/*",
     "fluid/**/*",
     "extensions/babel/babel.cfg",
     "extensions/migrate/templates/**/*"
@@ -79,7 +80,7 @@ test = [
     "pytest-cov",
     "pytest-mock"
 ]
-typing = ["webfluid-stubs==1.0.0b2"]
+typing = ["webfluid-stubs==1.0.0b3"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

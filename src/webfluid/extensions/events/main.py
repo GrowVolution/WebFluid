@@ -43,7 +43,7 @@ class EventManager(FluidExtension):
 
         socket_manager = None
         if fluid.config["EVENTS_CONFIGURE_SOCKET"]:
-            socket_manager = SocketManager(self._events, self._queries)
+            socket_manager = SocketManager(fluid, self._events, self._queries)
             fluid.websocket("/ws/events")(socket_manager.socket)
             fluid.add_source(
                 f'<script src="{FRAMEWORK_STATIC}/js/events.js" type="module"></script>',
@@ -52,3 +52,4 @@ class EventManager(FluidExtension):
 
         loop_manager = LoopManager(self._events, socket_manager)
         self._events.create_loop = loop_manager.create_loop
+        fluid.startup_hook(self._events.create_pending_loops)

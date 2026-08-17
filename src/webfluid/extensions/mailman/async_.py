@@ -46,11 +46,11 @@ class AsyncManager:
             timeout=self.timeout
         )
 
-        await smtp.connect()
-        if self.user and self.password:
-            await smtp.login(self.user, self.password)
-
         try:
+            await smtp.connect()
+            if self.user and self.password:
+                await smtp.login(self.user, self.password)
+
             with ClientContext(smtp, True): yield smtp
         except (
                 aiosmtplib.SMTPConnectError,

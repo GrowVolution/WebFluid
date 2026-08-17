@@ -1,6 +1,9 @@
 from webfluid.extensions.security.services.user.gating.requirements.default import (
     Gate as DefaultGate,
 )
+from webfluid.extensions.security.services.user.gating.requirements.email_verified import (
+    Gate as EmailVerifiedGate, requirement_fulfilled as email_verified,
+)
 from webfluid.extensions.security.services.user.gating.requirements.two_fa import (
     Gate as TwoFaGate, requirement_fulfilled as has_2fa,
 )
@@ -22,6 +25,7 @@ from webfluid.extensions.security.services.user.gating.requirements.any_permissi
 
 __all__ = [
     "DefaultGate",
+    "EmailVerifiedGate", "email_verified",
     "TwoFaGate", "has_2fa",
     "AdminGate", "is_admin",
     "RolesGate", "has_roles",

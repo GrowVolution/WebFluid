@@ -25,6 +25,10 @@ class Mail(FluidExtension):
             raise FrameworkException("Missing MAIL_PASSWORD for MAIL_USERNAME.")
         if password and not user:
             raise FrameworkException("Missing MAIL_USERNAME for MAIL_PASSWORD.")
+        if config["MAIL_USE_TLS"] and config["MAIL_USE_STARTTLS"]:
+            raise FrameworkException(
+                "MAIL_USE_TLS and MAIL_USE_STARTTLS are mutually exclusive."
+            )
 
         settings = (
             config["MAIL_SERVER"], config["MAIL_PORT"],

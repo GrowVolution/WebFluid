@@ -1,10 +1,23 @@
 from fastapi import WebSocket
+from typing import Any
 
 from webfluid.extensions.babel.babel.main import Babel
+
+_KEYS: tuple[str, ...]
+
+async def _send(ws: WebSocket, response: dict[str, Any]) -> None: ...
+async def _receive(
+    ws: WebSocket
+) -> tuple[dict[str, Any] | None, str | None]: ...
 
 
 class Socket:
     _api_whitelist: set[str]
     babel: Babel
     def __init__(self, babel: Babel) -> None: ...
+    def _locale(self, ws: WebSocket, data: dict[str, Any]) -> str: ...
+    async def _dispatch(
+        self, ws: WebSocket, msg: dict[str, Any]
+    ) -> dict[str, Any]: ...
+    async def _handle(self, ws: WebSocket) -> None: ...
     async def endpoint(self, ws: WebSocket) -> None: ...

@@ -2,7 +2,9 @@ import typer
 
 from webfluid.utils.ocean import Ocean, humanize_error
 from webfluid.exceptions import OceanError
-from webfluid.cli.ocean.output import render_table, truncate, package_state
+from webfluid.cli.ocean.output import (
+    render_table, truncate, package_state, bundle_id
+)
 
 
 def _types(additives, extensions, bundles):
@@ -56,14 +58,15 @@ def _bundles_table(items):
             for entry in item.get("items", [])
         )
         rows.append([
-            item["id"],
+            bundle_id(item["id"]),
+            item.get("name") or "",
             truncate(contents, 60),
             package_state(item)
         ])
     typer.echo(render_table(
-        ["bundle", "contents", "price"],
+        ["id", "bundle", "contents", "price"],
         rows,
-        max_widths=[24, 60, 10]
+        max_widths=[10, 24, 60, 10]
     ))
 
 

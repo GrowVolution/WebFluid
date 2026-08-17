@@ -1,5 +1,6 @@
 from webfluid.core.context.fluid import FluidContext
 from webfluid.core.constants import PROCESSING
+from webfluid.core.processing.context.url_for import offline_url
 
 
 def configure(additive):
@@ -7,10 +8,15 @@ def configure(additive):
 
     def url_for(endpoint, **path_params):
         ctx = FluidContext.try_current()
-        if ctx is None or ctx.request is None: return None
+        if ctx is None: return None
 
         external = path_params.pop("external", False)
-        url = ctx.request.url_for(additive.unique_name(endpoint), **path_params)
+        endpoint = additive.unique_name(endpoint)
+
+        if ctx.request is None:
+            return offline_url(ctx.fluid, endpoint, external, path_params)
+
+        url = ctx.request.url_for(endpoint, **path_params)
         if external: return str(url)
         return url.path
 

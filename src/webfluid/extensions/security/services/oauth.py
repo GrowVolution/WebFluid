@@ -14,6 +14,12 @@ _script = """<script>
 </script>"""
 
 
+def _local_path(target):
+    if not isinstance(target, str) or not target.startswith("/"): return "/"
+    if target[1:2] in ("/", "\\"): return "/"
+    return target
+
+
 class OAuthService:
     def __init__(self, clients):
         self._client = OAuth()
@@ -69,8 +75,9 @@ class OAuthService:
             raise HTTPException(status_code=400, detail="INVALID_DEVICE")
 
         if device == "mobile":
-            redirect_path = request.query_params.get("redirect", "/")
-            request.session["redirect_path"] = redirect_path
+            request.session["redirect_path"] = _local_path(
+                request.query_params.get("redirect", "/")
+            )
 
         request.session["device"] = device
 
@@ -84,7 +91,7 @@ class OAuthService:
 
         else:
             response = RedirectResponse(
-                request.session.pop("redirect_path", "/")
+                _local_path(request.session.pop("redirect_path", "/"))
             )
 
         if csrf is not None:

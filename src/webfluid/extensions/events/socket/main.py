@@ -3,16 +3,20 @@ from uuid import uuid4
 
 from .handler import SocketHandler
 
+from webfluid.core.context import FluidContext
+
 
 class SocketManager:
-    def __init__(self, events, queries):
+    def __init__(self, fluid, events, queries):
+        self._fluid = fluid
         self._handler = SocketHandler(self, events, queries)
         self._websockets = {}
         self._subscriptions = {}
 
     async def socket(self, ws: WebSocket):
         await ws.accept()
-        await self._handler.handle(ws)
+        async with FluidContext(self._fluid, ws):
+            await self._handler.handle(ws)
 
     def join(self, ws):
         sid = uuid4().hex
@@ -24,6 +28,10 @@ class SocketManager:
 
     def leave(self, sid):
         self._websockets.pop(sid, None)
+        for event in tuple(self._subscriptions):
+            listeners = self._subscriptions[event]
+            listeners.pop(sid, None)
+            if not listeners: del self._subscriptions[event]
 
     def has_subscriptions(self, event, sid=None):
         has = event in self._subscriptions

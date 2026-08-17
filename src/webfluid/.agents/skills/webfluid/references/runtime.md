@@ -243,6 +243,10 @@ The decorated function **must** take a `request: Request` parameter — slowapi 
 A hit limit answers 429 with the usual headers. With `RATELIMIT_ENABLED = False`, `fluid.limit`
 becomes a no-op decorator, so the same code runs unlimited without edits.
 
+The limiter keys on `request.client` and never reads a forwarded header directly, so a client cannot
+mint itself a fresh bucket by inventing one. Behind a reverse proxy that means every request keys on
+the *proxy's* address until you turn `PROXY_FIX` on — set it, and the per-client keys come back.
+
 > `RATELIMIT_DEFAULT` never applies — see `pitfalls.md`. Put the limit on every route that needs one.
 
 ## Proxies
@@ -257,7 +261,8 @@ With `PROXY_FIX` on, uvicorn's `ProxyHeadersMiddleware` is added in the `_prepar
 
 Set `PROXY_TRUSTED_HOSTS` to the actual proxy, not `"*"`, unless nothing but your proxy can reach
 the app: a trusted `"*"` means any client can claim any IP through `X-Forwarded-For`, which defeats
-the rate limiter and every IP-based decision.
+the rate limiter and every IP-based decision. This middleware is the *only* thing that lets a
+forwarded header change `request.client` — nothing downstream reads one on its own.
 
 General-purpose helpers: `get_proxy`, `get_websocket_proxy`, `add_proxy`, `close_proxy_client`. The
 HTTP one drops the upstream's hop-by-hop and encoding headers and recomputes `Content-Length`, while

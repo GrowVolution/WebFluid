@@ -28,6 +28,10 @@ class SocketManager:
 
     def leave(self, sid):
         self._websockets.pop(sid, None)
+        for event in tuple(self._subscriptions):
+            listeners = self._subscriptions[event]
+            listeners.pop(sid, None)
+            if not listeners: del self._subscriptions[event]
 
     def has_subscriptions(self, event, sid=None):
         has = event in self._subscriptions

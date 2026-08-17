@@ -1,6 +1,17 @@
-import jwt
+import jwt, re
 
 from .keys import current_key, acurrent_key
+
+_KID = re.compile(r"\A[0-9a-f]{32}\Z")
+
+
+def _kid(token):
+    kid = jwt.get_unverified_header(token).get("kid")
+    if kid is None: return None
+
+    if not isinstance(kid, str) or not _KID.match(kid):
+        raise jwt.InvalidTokenError("Malformed key id.")
+    return kid
 
 
 class Decoder:
@@ -19,13 +30,10 @@ class Decoder:
             verify=True
         )
 
-    def _kid(self, token):
-        return jwt.get_unverified_header(token).get("kid")
-
     def decode(self, token, audience="default"):
         from webfluid.core.ext import cache
 
-        kid = self._kid(token) or current_key(cache)
+        kid = _kid(token) or current_key(cache)
         payload = self._payload(token, audience, cache.get(f"jwt:{kid}"))
 
         if "jti" in payload and cache.get(f"jwt:revoked:{payload['jti']}"):
@@ -36,7 +44,7 @@ class Decoder:
     async def adecode(self, token, audience="default"):
         from webfluid.core.ext import cache
 
-        kid = self._kid(token) or await acurrent_key(cache)
+        kid = _kid(token) or await acurrent_key(cache)
         payload = self._payload(token, audience, await cache.aget(f"jwt:{kid}"))
 
         if "jti" in payload and await cache.aget(f"jwt:revoked:{payload['jti']}"):

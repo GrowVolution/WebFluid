@@ -90,6 +90,8 @@ def get_websocket_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=Non
                 )
 
                 for task in pending: task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                for task in done: task.exception()
 
         if proxy_plugin:
             return await proxy_plugin(websocket, path, handler)

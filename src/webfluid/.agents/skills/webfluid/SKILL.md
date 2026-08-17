@@ -17,7 +17,7 @@ that owns the process.**
 | Python    | 3.14+ (hard requirement)                                                                 |
 | App class | `webfluid.Fluid`                                                                         |
 | Run       | `wf run <app>` — **never** `uvicorn main:app`                                            |
-| Templates | Jinja2, **async**, autoescape **off**                                                    |
+| Templates | Jinja2, **async**, autoescape **on** (html/xml suffixes + `render_string`)               |
 | ORM       | SQLAlchemy 2.x, sync **and** async sessions                                              |
 | Batteries | `from webfluid.core.ext import scheduler, db, babel, security, events, cache, mail, jwt` |
 | Live docs | <https://docs.webfluid.dev/llms.txt>                                                     |
@@ -71,8 +71,9 @@ python -c "from webfluid import version; print(version())"
    static prefixes are frozen in the `_prepare` startup hook. Afterwards they raise `RuntimeError`.
 9. **Async first.** Every I/O API has an `a*` twin — `asend`, `agettext`, `aget`, `aencode`,
    `adecode`, `async_executor`, `ahash`/`averify`. Inside `async def`, use it.
-10. **Autoescape is off.** Values are inserted verbatim. Escape untrusted values yourself
-    (`{{ value | e }}`) or wrap known-safe HTML in `markupsafe.Markup`.
+10. **Autoescape is on** for `.html`, `.htm`, `.xml`, `.xhtml`, `.svg` and every `render_string`
+    source. To emit HTML on purpose, wrap it in `markupsafe.Markup` or use `| safe`; never reach for
+    either on a value that came from a request.
 11. **Write no comments or docstrings** when editing an existing WebFluid codebase, unless the
     project already has them. The generated style is deliberately bare.
 12. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is

@@ -3,13 +3,22 @@
 ## Template resolution
 
 ```python
-Environment(enable_async=True, auto_reload=DEBUG, cache_size=-1)
+Environment(
+    enable_async=True, auto_reload=DEBUG,
+    autoescape=select_autoescape(("html", "htm", "xml", "xhtml", "svg")),
+    cache_size=-1
+)
 ```
 
-**Autoescape is off.** Values are inserted verbatim. Escape untrusted values yourself
-(`{{ value | e }}`), or wrap known-safe HTML in `markupsafe.Markup`. The framework relies on this —
-sources, theme links and `frontend()` output are all `Markup`, and turning autoescape on would break
-them.
+**Autoescape is on** for those five suffixes and for every `render_string` source. `{{ value }}`
+escapes; to emit HTML deliberately, wrap it in `markupsafe.Markup` or pass it through `| safe`. A
+template with any other suffix — `.txt`, `.md`, `.json` — is not escaped, so plain-text mail bodies
+render as written.
+
+Everything the framework injects is already `Markup`: page sources, `rendered_sources`, theme links,
+`frontend()` and `wf_tailwind`. A `str` you build yourself is not — if you assemble HTML in Python
+and hand it to a template, wrap it, because joining `Markup` pieces with a plain `str` separator
+gives a plain `str` back and it will be escaped.
 
 ```python
 await fluid.render(template_name, **ctx)     # looked up against the loader stack

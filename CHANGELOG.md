@@ -6,16 +6,75 @@ else is internal and may change in any release.
 
 ## 1.0.0b3
 
-The second stabilisation release, and the first with no breaking changes at all.
-It works through the known-issues list `1.0.0b2` published and closes the eight
-entries that could be closed without moving the shape of the framework — a
-plaintext SMTP session, a URI rewriter that rewrote too much, a bearer token
-that answered `500` where it meant `401`, a `url_for` that was `None` off
-request, a translation that was skipped whenever a domain translated a string
-to itself, and an event registry that only worked once the event loop was
-already running. One more bug turned up next to the mail fix and is closed with
-it. What is left of that list is under *Known limitations*, with the reason each
-one is still there.
+**This is the final `1.0.0b3`.** The second stabilisation release. It works
+through the known-issues list `1.0.0b2` published and closes the eight entries
+that could be closed without moving the shape of the framework — a plaintext
+SMTP session, a URI rewriter that rewrote too much, a bearer token that answered
+`500` where it meant `401`, a `url_for` that was `None` off request, a
+translation that was skipped whenever a domain translated a string to itself,
+and an event registry that only worked once the event loop was already running.
+
+A closing audit pass over the whole framework then found five security defects
+and a handful of stability ones, which are listed under *Security* below and
+are the reason this release is not, as originally planned, one with no breaking
+changes at all: **template autoescaping is now on**, and that is a behaviour
+change every application that renders HTML has to read. It is the only one.
+What is left of the `1.0.0b2` list is under *Known limitations*, with the reason
+each entry is still there.
+
+### Security
+
+Each of these was reachable in a default configuration. Read the first two even
+if you read nothing else.
+
+- **Templates did not escape their context.** The Jinja environment was built
+  without `autoescape`, so every `{{ value }}` in every template of every
+  application was interpolated verbatim — an XSS hole anywhere user input
+  reached a page. Autoescaping is on now, through
+  `select_autoescape(("html", "htm", "xml", "xhtml", "svg"))`, which also covers
+  every `render_string` source. That the framework already wrapped its own
+  injected HTML in `markupsafe.Markup` — page sources, theme links, `frontend()`,
+  `wf_tailwind` — is what made the switch safe to throw: those keep rendering as
+  markup. **A template of yours that deliberately interpolates an HTML string now
+  shows the tags**; wrap the value in `Markup` at the point you build it, or add
+  `| safe` at the point you render it, and never do either to something that came
+  from a request. An existing `| e` keeps working and does not double escape.
+  Templates with any other suffix — `.txt`, `.md`, `.json` — are not escaped, so
+  plain-text mail bodies are unaffected. Two framework-internal spots had to be
+  corrected to survive their own fix: `Sources.rendered` and the debug source
+  callable joined their `Markup` fragments with a plain `str` separator, which
+  returns a plain `str` and would have escaped the framework's own script tags.
+- **The Vite asset route served arbitrary files.** `asset_catch` is registered as
+  a catch-all `GET /{path:path}` whenever a Vite frontend exists — in production
+  as well as debug — and it resolved the requested file under the `vite_ns`
+  *cookie*, which the client controls and which was never validated. No traversal
+  was even required: sending an empty `vite_ns` rooted the lookup at
+  `project_root`, so `GET /app_configs/<app>.ini` returned the application's
+  config, `SECRET_KEY` included. A `..` in the cookie reached anything above it.
+  The namespace is now checked against the set of frontends actually registered,
+  and the resolved path must be a file under `project_root` — the containment
+  check is a separate helper, `assets.contained`, applied to the proxied path in
+  debug and to the served file in production.
+- **A token's `kid` could name any cache entry.** `Decoder` interpolated the
+  unverified `kid` header straight into `cache.get(f"jwt:{kid}")` and used
+  whatever came back as the HMAC secret. `kid: "current"` therefore resolved to
+  `jwt:current`, whose value is the *key id* — a uuid published in the header of
+  every token the application issues. Anyone holding one valid token could read
+  that id and sign their own tokens with it, for any `sub` and any grant. A `kid`
+  that is not the 32 lowercase hex characters a rotation produces is now rejected
+  before any lookup, which also closes the same trick against `jwt:revoked:<jti>`.
+- **Rate limits keyed on a client-supplied header.** The limiter used slowapi's
+  `get_ipaddr`, which prefers an `X_Forwarded_For` request header over the real
+  peer. Since nothing verified it, a client could send a different value on every
+  request and never hit a limit; behind a real proxy the same function put every
+  client in one bucket, because that header spelling is not the one proxies send.
+  The key is `get_remote_address` now, and `PROXY_FIX` with `PROXY_TRUSTED_HOSTS`
+  is the supported — and only — way a forwarded header changes `request.client`.
+- **OAuth replayed an attacker-chosen redirect.** `?redirect=` was stored in the
+  session by `_prepare_session` and handed to `RedirectResponse` unchanged, so a
+  crafted login link sent the user to any origin after a successful sign-in. Only
+  a same-site absolute path survives now; an absolute URL, a protocol-relative
+  `//host` and a `/\host` all collapse to `/`.
 
 ### Added
 
@@ -126,6 +185,43 @@ one is still there.
   of the connection and leaves through the same `finally` that releases the
   socket id; `/ws/i18n` gained the same containment, with its loop moved into a
   `Socket._handle` the endpoint wraps.
+- Neither socket survived a message that was not a JSON object. Both tested for
+  their three envelope keys with `key not in msg`, which raises `TypeError` for a
+  number, a boolean or `null`, and both read `msg["data"]` as a mapping without
+  checking; a binary frame raised `KeyError` inside Starlette's `receive_text`
+  before any of that. Every one of those tore the connection down for the
+  visitor who sent it. Each socket now decodes through a `_receive` that answers
+  a named error for a binary frame, invalid JSON, a non-object message, a missing
+  key and — on `/ws/i18n` — a non-object `data`, and each wraps dispatch so a
+  handler that raises answers an error and leaves the socket usable. `/ws/i18n`
+  also stopped requiring `args` and `variables` to be present on a `translate`.
+- `SocketManager.leave` released the socket but not its subscriptions, so every
+  disconnect left a dead sid behind in `_subscriptions` and the registry grew for
+  the life of the process — one entry per reconnect, and every browser refresh is
+  a reconnect. It drops the sid from every event now and removes an event whose
+  last subscriber is gone.
+- `unsubscribe` checked whether *anyone* was subscribed to the event rather than
+  the caller, so a client that never subscribed was answered `{"data": true}` as
+  long as someone else had. It checks the caller's own subscription, matching
+  what `listen` already did.
+- `mail.send()` with `fake_async=True` — the default — ran the send in a bare
+  `Thread`, so a refused connection, a rejected password or a subject containing
+  a newline was raised into a thread nobody joined and the mail vanished with no
+  entry in the log. The thread body is a `_send_detached` that reports through
+  the framework logger, and the thread is a daemon so a failing send cannot hold
+  the process open at shutdown.
+- A CSRF token that carried a validly signed payload of the wrong shape — a
+  string, a list, a number — reached `.get("csrf")` and answered `500`. Both
+  halves are shape-checked and answer `403 INVALID_CSRF`. `validate_token` also
+  caught `BadSignature` where it meant `BadData`, so a well-signed but
+  undecodable payload escaped as a raw `itsdangerous` error instead of a `403`.
+- Database engines were created lazily and then never disposed, so every pool
+  stayed open until the process died. `SQLAlchemy.dispose()` is registered as a
+  shutdown hook and closes the sync and async engine of every bind; `Bind.dispose`
+  is idempotent and lets a disposed bind be used again.
+- The websocket proxy cancelled its idle pump task without awaiting it and never
+  retrieved the exception from the one that finished, which surfaced as
+  `Task exception was never retrieved` on an upstream that dropped.
 
 ### Changed
 
@@ -143,10 +239,49 @@ one is still there.
   miss.
 - `SocketManager` takes the application as its first argument. It is constructed
   by the events extension, so this only concerns code that built one by hand.
+- `Sources.rendered` is a `Markup` rather than a `str`, and is `Markup("")`
+  before the freeze instead of `""`.
+- `Vite._instances`, a counter, is replaced by `Vite._namespaces`, the set of
+  registered frontend namespaces. `asset_catch` takes it as a second argument.
+
+### Performance
+
+Template rendering costs about 12 % more with autoescaping on — 123 µs → 138 µs,
+averaged over three alternating runs of `benchmarks/bench.py` against the same
+commit with and without the change. Its page interpolates the same value twenty
+times across as many included templates, so that is close to the worst case for
+an interpolation-dense page; it stays well inside the 300 µs budget, and the
+request benchmark is unchanged at ~43 µs. That is the whole price of the escaping
+fix, and it is worth paying.
+
+Against it, `SocketManager` no longer accumulates a dead subscription entry per
+disconnect, which was an unbounded leak on any long-running server with an events
+socket, and database pools are now closed at shutdown rather than held to process
+exit.
 
 ### Tests
 
-190 tests, up from 160. The new ones cover the driver rewriting, both TLS paths
+244 tests, up from 160.
+
+The closing audit added 54 of them. `tests/test_hardening.py` is new and pins the
+five security fixes: that a known frontend namespace still serves its own asset
+while an empty, unregistered or traversing `vite_ns` and a traversing path are
+all refused; that a `kid` outside the rotation's shape — `current`,
+`revoked:<jti>`, a wrong length, wrong case — is rejected while a real one passes
+and a token without one still falls back; that the rate limit key ignores both
+spellings of the forwarded header and reads `request.client`; that every offsite
+redirect shape collapses to `/` while local paths survive; and that a CSRF token
+of the wrong payload shape answers `403` rather than `500`. `test_rendering.py`
+covers escaping in both directions — that a payload is escaped through `render`
+and `render_string`, that `Markup` and `| safe` still emit markup, and that the
+framework's own rendered sources survive. `test_websocket.py` runs six malformed
+message shapes and a binary frame against a real uvicorn, asserts the socket is
+still usable afterwards, and covers the subscription cleanup on disconnect and
+the `unsubscribe` ownership check. `test_mailman.py` asserts a detached send
+reports its failure through the logger and raises into no thread; two more cover
+engine disposal.
+
+The `1.0.0b2` → `1.0.0b3` work covers the driver rewriting, both TLS paths
 and both error paths of the synchronous mail client, config encoding in both
 directions, bearer subjects that are not principal ids, decoding against an
 unknown key, off-request `url_for`, identity translations, and the deferred
@@ -162,9 +297,11 @@ internal query stays unreachable from the browser.
 
 ### Known limitations
 
-Everything below was known in `1.0.0b2` and is still true. None of it is a
-stabilisation fix: each one needs a change to how a subsystem is built rather
-than a correction inside it, so they are scheduled past `1.0.0`.
+This list is complete for the final `1.0.0b3`. Everything below was known in
+`1.0.0b2` and is still true, apart from the last entry, which the closing audit
+added. None of it is a stabilisation fix: each one needs a change to how a
+subsystem is built rather than a correction inside it, so they are scheduled past
+`1.0.0`.
 
 - `RATELIMIT_DEFAULT` is never enforced. slowapi evaluates application-wide
   default limits only from its own middleware, and the framework installs the
@@ -208,6 +345,17 @@ than a correction inside it, so they are scheduled past `1.0.0`.
   still cannot be recovered on a machine with a different locale encoding.
   Rewrite affected configs once, or keep their values ASCII and move secrets
   behind the `*_FILE` indirection.
+- `?lang=` and the `lang` cookie accept any locale Babel can parse, not only the
+  ones in `BABEL_SUPPORTED_LOCALES` — only the `Accept-Language` path is
+  restricted to them. A request naming a locale you do not ship gets the
+  untranslated source strings, and `Domain` keeps one loaded catalog per locale
+  it has been asked for, for the life of the process. The set of locales Babel
+  knows is finite, so this is bounded rather than a leak, but a client can still
+  make an application hold a few hundred empty catalogs it will never use.
+  Restricting the two client-controlled selectors to the supported list is the
+  right fix and would change behaviour for any application that relies on
+  `?lang=` for a locale it never declared, so it is not one for a stabilisation
+  release.
 
 ## 1.0.0b2
 

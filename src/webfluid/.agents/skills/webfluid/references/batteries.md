@@ -633,6 +633,10 @@ Key lifecycle: a startup hook and an `IntervalTrigger` every `JWT_ROTARY_INTERVA
 decoding reads the token's `kid` and looks up that specific secret, so an older token keeps verifying
 while its secret is alive.
 
+The `kid` arrives unverified, so it is checked against the shape a rotation produces — 32 lowercase
+hex characters — before it reaches the cache. Anything else raises `jwt.InvalidTokenError` rather
+than being looked up. Do not hand-write `kid`s or reuse the `jwt:` prefix for your own cache keys.
+
 > **Run JWT against Redis.** With `CACHE_TYPE = legacy` the store is in-process, so every restart
 > mints a new key and forgets the old ones — every previously issued token stops decoding.
 

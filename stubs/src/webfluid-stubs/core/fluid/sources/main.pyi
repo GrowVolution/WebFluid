@@ -4,7 +4,7 @@ from webfluid.core.freeze import Freezable
 
 class Sources(Freezable):
     label: str
-    rendered: str
+    rendered: Markup
     _sources: dict[int, list[Markup]]
     _seen: set[str]
     def __init__(self) -> None: ...

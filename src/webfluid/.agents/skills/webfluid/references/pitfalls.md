@@ -75,7 +75,22 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 
 ## Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here
 
-If you are reading `/latest/` and it still describes `1.0.0b2`, these entries no longer apply:
+`1.0.0b3` is final. Everything in this section is the shipped behaviour; the *Live defects* list
+above is complete for it.
+
+### Security fixes — assume the old behaviour is what an attacker still tries
+
+| Was                                                                                | `1.0.0b3`                                                                                           |
+|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| Template values were interpolated verbatim                                         | Autoescape is on for html/xml suffixes and `render_string`                                          |
+| The `vite_ns` cookie was joined onto `project_root` unchecked                      | Only registered frontend namespaces are accepted, and the resolved file must stay under the root    |
+| A token's `kid` was interpolated into the cache key as-is                          | A `kid` that is not 32 lowercase hex characters is rejected before any lookup                       |
+| The rate limiter keyed on a client-supplied forwarded header                       | Keys on `request.client`; use `PROXY_FIX` + `PROXY_TRUSTED_HOSTS` behind a proxy                    |
+| `?redirect=` was replayed after OAuth as given                                     | Only same-site absolute paths survive; anything else becomes `/`                                    |
+| A malformed websocket frame tore down the connection                               | Answered as an error; the socket stays usable                                                       |
+| A disconnect left its subscriptions in `SocketManager`                             | `leave()` drops them, so the registry cannot grow across reconnects                                 |
+
+### Correctness fixes
 
 | The b2 docs say                                                                    | `1.0.0b3`                                                                                           |
 |------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
@@ -88,6 +103,9 @@ If you are reading `/latest/` and it still describes `1.0.0b2`, these entries no
 | `url_for` is `None` outside a request                                              | Resolves through the application's route table; `external=True` prefixes `BASE_URL`                 |
 | A translation equal to its source is read as a miss                                | Hit and miss are reported separately; identity translations work                                    |
 | `events.create_signal` at import time raises `RuntimeError: no running event loop` | Queued and wired up from a startup hook                                                             |
+| A detached `mail.send()` loses its exception in the worker thread                  | The thread logs the failure through the framework logger                                            |
+| A CSRF token whose payload is not a dict answers 500                               | Answers 403 `INVALID_CSRF`                                                                          |
+| Database engines are never disposed                                                | `SQLAlchemy.dispose()` runs as a shutdown hook and closes every pool                                |
 
 Two of those rules survive their fix and are still worth following: **put the user's primary key in
 `sub`** (a non-numeric subject is now a 401 rather than a 500, but still never authenticates), and
@@ -118,8 +136,10 @@ These are correct behaviour that reliably produces wrong code when assumed away.
 
 ### Templates and rendering
 
-- **Autoescape is off.** Values are inserted verbatim. Escape untrusted values (`{{ value | e }}`) or
-  wrap known-safe HTML in `markupsafe.Markup`.
+- **Autoescape is on** since `1.0.0b3` — `.html`, `.htm`, `.xml`, `.xhtml`, `.svg` and every
+  `render_string` source. HTML you *want* rendered must be `markupsafe.Markup` or carry `| safe`; a
+  template that used to interpolate a trusted HTML `str` now shows the tags. `| e` still works and
+  does not double escape. Templates with any other suffix stay unescaped.
 - **`render()` has no `is_string` flag.** Passing one is not an error — it silently becomes a
   template variable while your source string is looked up as a file name, and you get a
   `TemplateNotFound` naming the whole template. Use `render_string`.

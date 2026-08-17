@@ -1,7 +1,7 @@
 from fastapi import Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from itsdangerous import URLSafeTimedSerializer
-from itsdangerous.exc import BadSignature, SignatureExpired
+from itsdangerous.exc import BadData, SignatureExpired
 from webfluid.core.ext import scheduler, db
 from webfluid.core.constants import DEBUG
 from webfluid.utils.logging import factory as log_factory
@@ -57,7 +57,7 @@ class TokenService:
         except SignatureExpired:
             raise HTTPException(status_code=403, detail="TOKEN_EXPIRED")
 
-        except BadSignature:
+        except BadData:
             raise HTTPException(status_code=403, detail="INVALID_TOKEN")
 
     def csrf_response(self, request):
@@ -91,9 +91,15 @@ class TokenService:
 
         cookie_data = await self.validate_token(csrf_cookie)
         header_data = await self.validate_token(csrf_header)
+
+        if not (isinstance(cookie_data, dict) and isinstance(header_data, dict)):
+            raise HTTPException(status_code=403, detail="INVALID_CSRF")
+
         cookie_val = cookie_data.get("csrf", "")
         header_val = header_data.get("csrf", "")
 
+        if not (isinstance(cookie_val, str) and isinstance(header_val, str)):
+            raise HTTPException(status_code=403, detail="INVALID_CSRF")
 
         if not (cookie_val and header_val):
             raise HTTPException(status_code=403, detail="INVALID_CSRF")

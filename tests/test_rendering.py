@@ -1,7 +1,10 @@
 from jinja2 import TemplateNotFound
+from markupsafe import Markup
 import pytest
 
 from webfluid.core.constants import DEBUG
+
+PAYLOAD = "<script>alert(1)</script>"
 
 
 @pytest.mark.asyncio
@@ -47,6 +50,55 @@ def test_sources_are_joined_once(make_fluid):
     rendered = fluid.rendered_sources
     assert rendered.count("<script") == 2
     assert rendered.index("base.js") < rendered.index("/a.js")
+
+
+@pytest.mark.asyncio
+async def test_templates_escape_their_context(make_fluid):
+    fluid = make_fluid()
+    await fluid._prepare()
+
+    rendered = await fluid.render("page.html", greeting=PAYLOAD)
+    assert PAYLOAD not in rendered
+    assert "&lt;script&gt;" in rendered
+
+
+@pytest.mark.asyncio
+async def test_render_string_escapes_its_context(make_fluid):
+    fluid = make_fluid()
+    await fluid._prepare()
+
+    assert await fluid.render_string("{{ value }}", value=PAYLOAD) \
+        == "&lt;script&gt;alert(1)&lt;/script&gt;"
+
+
+@pytest.mark.asyncio
+async def test_markup_is_rendered_verbatim(make_fluid):
+    fluid = make_fluid()
+    await fluid._prepare()
+
+    assert await fluid.render_string(
+        "{{ value }}", value=Markup('<b class="x">hi</b>')
+    ) == '<b class="x">hi</b>'
+
+
+@pytest.mark.asyncio
+async def test_the_safe_filter_still_opts_out(make_fluid):
+    fluid = make_fluid()
+    await fluid._prepare()
+
+    assert await fluid.render_string(
+        "{{ value | safe }}", value="<b>hi</b>"
+    ) == "<b>hi</b>"
+
+
+@pytest.mark.asyncio
+async def test_sources_survive_escaping(make_fluid):
+    fluid = make_fluid()
+    await fluid._prepare()
+
+    rendered = await fluid.render_string("{{ src }}", src=fluid.rendered_sources)
+    assert "&lt;" not in rendered
+    assert "<script" in rendered
 
 
 def test_sources_reject_late_additions(make_fluid):

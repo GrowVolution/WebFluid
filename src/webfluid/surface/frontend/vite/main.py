@@ -9,11 +9,11 @@ from webfluid.surface.wf_tailwind import generate_asset
 
 class Vite:
     _static_files = {}
-    _instances = 0
+    _namespaces = set()
 
     def __init__(self, root_path, relative_path, config):
         self.root = root_path
-        self.rel= relative_path
+        self.rel = relative_path
         self.dist = root_path / "dist"
         self.src = root_path / "src"
 
@@ -21,7 +21,7 @@ class Vite:
         self.typescript = config.get("typescript", False)
         self.register_index = config.get("register_index", True)
 
-        Vite._instances += 1
+        Vite._namespaces.add(relative_path)
 
     async def index(self):
         if DEBUG: index_file = self.root / "index.html"
@@ -73,9 +73,9 @@ class Vite:
             fluid.startup_hook(startup_hook(fluid))
 
         def register_asset_catch():
-            if not cls._instances: return
+            if not cls._namespaces: return
             fluid.get("/{path:path}", name="vite_asset_catch")(
-                asset_catch(fluid.project_root)
+                asset_catch(fluid.project_root, frozenset(cls._namespaces))
             )
 
         fluid.startup_hook(register_asset_catch)

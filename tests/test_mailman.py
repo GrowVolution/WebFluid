@@ -87,3 +87,46 @@ def test_a_failing_connect_is_reported_as_a_framework_error(smtp, monkeypatch):
 
     with pytest.raises(FrameworkException):
         with SyncManager(*SETTINGS).client(): pass
+
+
+def test_a_detached_send_reports_its_failure(smtp, monkeypatch):
+    logged = []
+    monkeypatch.setattr(
+        "webfluid.extensions.mailman.sync.log_factory.exception",
+        lambda exc, message=None: logged.append((type(exc), message))
+    )
+
+    def connect(self, host=None, port=None, timeout=None):
+        raise smtplib.SMTPConnectError(421, b"no greeting")
+
+    monkeypatch.setattr(Implicit, "__init__", connect)
+
+    manager = SyncManager(*SETTINGS)
+    manager._send_detached(object())
+
+    assert logged and logged[0][0] is FrameworkException
+
+
+def test_a_detached_send_does_not_raise_into_its_thread(smtp, monkeypatch):
+    import threading
+
+    def connect(self, host=None, port=None, timeout=None):
+        raise smtplib.SMTPConnectError(421, b"no greeting")
+
+    monkeypatch.setattr(Implicit, "__init__", connect)
+    monkeypatch.setattr(
+        "webfluid.extensions.mailman.sync.log_factory.exception",
+        lambda exc, message=None: None
+    )
+
+    failures = []
+    monkeypatch.setattr(
+        threading, "excepthook", lambda args: failures.append(args)
+    )
+
+    before = set(threading.enumerate())
+    SyncManager(*SETTINGS).send("to@example.org", "subject", { "plain": "body" })
+
+    for thread in set(threading.enumerate()) - before: thread.join(timeout=5)
+
+    assert failures == []

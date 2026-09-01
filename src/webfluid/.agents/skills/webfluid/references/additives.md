@@ -1,5 +1,26 @@
 # Additives and extensions — the modularity story
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `24-38` **Which one**
+- `39-364` **Additives**
+  - `65-97` The manifest
+  - `98-136` The additive object
+  - `137-159` Handlers and rendering
+  - `160-195` Local lifecycle hooks
+  - `196-215` Enabling
+  - `216-231` The four rules
+  - `232-279` Contracts: events and queries
+    - `268-279` Contract design rules
+  - `280-322` Base Additives
+  - `323-351` `install()` and `configure()`
+  - `352-364` Packaging checklist
+- `365-442` **Extensions (`FluidExtension`)**
+  - `418-442` What `expand_fluid` may do
+<!-- /index -->
+
 ## Which one
 
 | You want to ship…                                      | Use          |
@@ -131,8 +152,10 @@ with the Additive's id, and delegates to `FluidContext.current().fluid.render(..
 `additive.render("index.html")` resolves `additives/portal/templates/index.html`. It needs a
 `FluidContext` — rendering from a scheduled job means building one yourself.
 
-The Additive's Jinja context always carries `id` and a scoped `url_for` that runs the endpoint name
-through `unique_name()` first, so reverse-URL lookups never collide.
+The Additive's Jinja context always carries `id` and a scoped `url_for`: it runs the endpoint name
+through `unique_name()` first, so reverse-URL lookups never collide, and falls back to the plain
+name when nothing matches the scoped one. Write `url_for("index")` for your own route and
+`url_for("static")` for a host-app one — the same call covers both, on and off request.
 
 ## Local lifecycle hooks
 

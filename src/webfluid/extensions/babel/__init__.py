@@ -14,7 +14,7 @@ __all__ = [
 
 def __getattr__(name):
     if name == "Babel":
-        from .babel import Babel
+        from .main import Babel
         return Babel
 
     if name == "Domain":

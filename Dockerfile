@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 
 WORKDIR /app
-ARG WEBFLUID_VERSION=1.0.0b3
+ARG WEBFLUID_VERSION=1.0.0rc1
 
 RUN apt update && apt install -y --no-install-recommends git \
         && rm -rf /var/lib/apt/lists/*

@@ -1,17 +1,41 @@
 # Runtime: lifecycle, context, request flow, logging
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `27-43` **`mix()` — what owns the process**
+- `44-116` **Hooks**
+  - `67-83` What the framework registers itself
+  - `84-93` Where startup work belongs
+  - `94-116` Graceful shutdown
+- `117-184` **`FluidContext`**
+  - `140-150` The scratchpad
+  - `151-168` `cached_or` — memoise per request
+  - `169-184` Other contexts
+- `185-237` **Request hooks**
+  - `216-237` The cost of `after_request`
+- `238-252` **Reverse URLs**
+- `253-266` **Themes**
+- `267-290` **Rate limiting**
+- `291-309` **Proxies**
+- `310-339` **Logging**
+- `340-365` **Useful helpers**
+- `366-380` **Exceptions**
+<!-- /index -->
+
 ## `mix()` — what owns the process
 
 ```text
 1. log_factory.start_session()      handlers and level from LOG_LEVEL
 2. startup phase                    every hook, registration order, each in safe_execute
-3. serve                            uvicorn on SERVER_HOST:SERVER_PORT, own signal handlers off
-4. wait                             on the shutdown flag OR the server task, whichever finishes
-5. shutdown phase                   in a finally, so it runs on every path, REVERSE order
+3. serve                            uvicorn on SERVER_HOST:SERVER_PORT
+4. shutdown phase                   in a finally around 2 and 3, so it runs on every path,
+                                    REVERSE order
 ```
 
-Because the wait covers the server task too, a server that dies on its own (a bound port) is
-re-raised where you can read it and the shutdown hooks still run.
+Because the `finally` wraps the startup phase as well as the server, a server that dies on its own
+(a bound port) is re-raised where you can read it and the shutdown hooks still run.
 
 > **This sequence lives in `mix()`, not in the ASGI lifespan protocol.** `uvicorn main:fluid` or
 > `gunicorn` runs no startup or shutdown hooks: no tables, no scheduler, no Additives, no frozen
@@ -69,16 +93,26 @@ scheduler or an event.
 
 ### Graceful shutdown
 
-The runtime installs `SIGINT` / `SIGTERM` handlers (plus `SIGBREAK` on Windows) from a startup hook.
-A signal sets the shutdown flag rather than killing the process:
+`uvicorn` owns the signal handlers for the whole of `serve()` — `SIGINT` and `SIGTERM`, plus
+`SIGBREAK` on Windows. A signal asks the server to exit rather than killing the process:
 
 ```text
-signal -> flag -> uvicorn should_exit -> in-flight request finishes
+signal -> uvicorn should_exit -> in-flight request finishes
        -> shutdown hooks (reverse) -> "Server stopped."
 ```
 
+The runtime installs a do-nothing handler for those same signals before `serve()`. It is not what
+stops the server: `uvicorn` restores the handlers it found and then **re-raises** the signal, and
+on Windows a re-raised `SIGBREAK` hitting the default handler kills the process between `serve()`
+returning and the shutdown phase running. The handler exists to absorb that.
+
 Under `wf run` the CLI process forwards the signal to the child and gives it 10 seconds before
 killing it. That grace period is the budget for the whole shutdown phase — keep hooks short.
+
+Node processes the framework starts — the Vite dev server, a frontend build — do **not** depend on
+that path. On Windows they are put in a job object the kernel tears down when the app process dies;
+on POSIX they get their own session and are killed by process group. An IDE stop button, a closed
+console window or a crash therefore cannot leave a dev server holding port 5173.
 
 ## `FluidContext`
 
@@ -242,6 +276,11 @@ async def expensive(request: Request):
 The decorated function **must** take a `request: Request` parameter — slowapi reads the key from it.
 A hit limit answers 429 with the usual headers. With `RATELIMIT_ENABLED = False`, `fluid.limit`
 becomes a no-op decorator, so the same code runs unlimited without edits.
+
+The counters live in `RATELIMIT_STORAGE_URI`, which defaults to `redis://…/1` built from `REDIS_URI`
+when that key is set and to `memory://` when it is not — so an app without Redis rate-limits in
+process, per worker, and loses its counters on restart. Set `REDIS_URI` (or the storage URI
+directly) as soon as more than one process serves the same routes.
 
 The limiter keys on `request.client` and never reads a forwarded header directly, so a client cannot
 mint itself a fresh bucket by inventing one. Behind a reverse proxy that means every request keys on

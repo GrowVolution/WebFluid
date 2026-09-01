@@ -8,7 +8,8 @@ opinionated project layout, a set of optional built-in extensions (database,
 i18n, sessions, caching, mail, and more), a bundled frontend toolchain, and a
 package registry called **Ocean** for sharing reusable features between projects.
 
-The framework is currently in beta (`1.0.0b3`) and targets Python 3.14+.
+The framework is at its first release candidate (`1.0.0rc1`) and targets
+Python 3.14+.
 
 ---
 
@@ -149,6 +150,21 @@ pip install "webfluid[typing]"
 
 ---
 
+## Working with a coding agent
+
+The package ships an agent skill at `webfluid/.agents/skills/webfluid/`: a
+`SKILL.md` and six references covering the CLI and project layout, the runtime
+and request lifecycle, every extension, the additive and extension contracts,
+the frontend surface, and the current release's known defects. Pointing a coding
+agent at that directory is what makes it generate WebFluid code rather than
+plain FastAPI code with the framework's names on it.
+
+Every one of those files opens with an index of its sections and their line
+ranges, so an agent reads the part a task needs instead of the whole file. The
+same material is published for agents at <https://docs.webfluid.dev/llms.txt>.
+
+---
+
 ## API stability
 
 Everything listed in a package's `__all__` follows semantic versioning from
@@ -168,6 +184,13 @@ for `.html`, `.htm`, `.xml`, `.xhtml` and `.svg` templates and for every
 `render_string` source. Templates that deliberately interpolate HTML need
 `markupsafe.Markup` or a `| safe` filter; everything the framework itself injects
 is already `Markup`. See the release notes for the full list.
+
+`1.0.0rc1` adds none. Each extension's implementation module was renamed to
+`main.py` inside its own package, which is internal: the exported names are
+reached exactly as before. Only code importing an unexported module path such as
+`webfluid.extensions.sqlalchemy.sqlalchemy` is affected, and that path was never
+covered by the guarantee above — import `SQLAlchemy` from
+`webfluid.extensions.sqlalchemy` instead.
 
 ---
 

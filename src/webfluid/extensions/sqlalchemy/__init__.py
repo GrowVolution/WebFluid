@@ -9,7 +9,7 @@ __all__ = [
 
 def __getattr__(name):
     if name == "SQLAlchemy":
-        from .sqlalchemy import SQLAlchemy
+        from .main import SQLAlchemy
         return SQLAlchemy
 
     if name == "Model":

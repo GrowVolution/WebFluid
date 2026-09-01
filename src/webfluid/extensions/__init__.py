@@ -15,31 +15,31 @@ def __getattr__(name):
         return FluidExtension
 
     if name == "SQLAlchemy":
-        from .sqlalchemy import SQLAlchemy
+        from .sqlalchemy.main import SQLAlchemy
         return SQLAlchemy
 
     if name == "Babel":
-        from .babel.babel import Babel
+        from .babel.main import Babel
         return Babel
 
     if name == "Security":
-        from .security.security import Security
+        from .security.main import Security
         return Security
 
     if name == "EventManager":
-        from .events import EventManager
+        from .events.main import EventManager
         return EventManager
 
     if name == "Mail":
-        from .mailman import Mail
+        from .mailman.main import Mail
         return Mail
 
     if name == "Cache":
-        from .cache.cache import Cache
+        from .cache.main import Cache
         return Cache
 
     if name == "JWTManager":
-        from .jwt import JWTManager
+        from .jwt.main import JWTManager
         return JWTManager
 
     if name in {"babel", "cache", "sqlalchemy", "security"}:

@@ -8,7 +8,7 @@ def __getattr__(name):
         return BaseCache
 
     if name == "Cache":
-        from .cache import Cache
+        from .main import Cache
         return Cache
 
     raise AttributeError(name)

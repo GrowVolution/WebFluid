@@ -1,3 +1,3 @@
-from webfluid.extensions.migrate.migrate import Migrate as Migrate
+from webfluid.extensions.migrate.main import Migrate as Migrate
 
 __all__ = ["Migrate"]

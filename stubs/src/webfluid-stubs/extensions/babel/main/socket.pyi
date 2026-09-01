@@ -1,7 +1,7 @@
 from fastapi import WebSocket
 from typing import Any
 
-from webfluid.extensions.babel.babel.main import Babel
+from webfluid.extensions.babel.main.main import Babel
 
 _KEYS: tuple[str, ...]
 

@@ -10,6 +10,10 @@ class CliContext(BaseContext):
     _ctx: ContextVar[CliContext]
     bar: Any
     def __init__(self, bar: Any) -> None: ...
+    @classmethod
+    def current(cls) -> CliContext: ...
+    @classmethod
+    def try_current(cls) -> CliContext | None: ...
 
 @contextmanager
 def progress_bar(

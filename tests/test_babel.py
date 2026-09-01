@@ -4,13 +4,13 @@ import json, os, pytest
 os.environ.setdefault("EXT_SQLALCHEMY", "1")
 
 from webfluid.core.ext import db
-from webfluid.extensions.babel.babel.translation.main import Translator
-from webfluid.extensions.babel.babel.translation.translations import Translations
+from webfluid.extensions.babel.main.translation.main import Translator
+from webfluid.extensions.babel.main.translation.translations import Translations
 from webfluid.extensions.babel.translations import (
     Cache, I18nKey, I18nMessage, MergedTranslations, TransactionService
 )
 from webfluid.extensions.sqlalchemy.bind import Bind
-from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
+from webfluid.extensions.sqlalchemy.main import SQLAlchemy
 
 LOCALE = "de"
 DOMAIN = "messages"

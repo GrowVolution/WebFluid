@@ -28,7 +28,7 @@ def update_metadata(table, target_md=None, target_bind=None, target_model=None):
     if target_md: md = target_md
 
     elif target_bind:
-        from .sqlalchemy import SQLAlchemy
+        from .main import SQLAlchemy
         db = SQLAlchemy.get_instance()
         bind = db.get_bind(target_bind)
         md = bind.metadata

@@ -113,7 +113,7 @@ def project(
         typer.secho("Extracting Babel fallback catalogs...",
                     bold=True)
 
-        from webfluid.extensions.babel.babel import CLIExtension
+        from webfluid.extensions.babel.main import CLIExtension
         CLIExtension.extract_fallback(project_root)
         CLIExtension.compile_fallback(project_root)
 

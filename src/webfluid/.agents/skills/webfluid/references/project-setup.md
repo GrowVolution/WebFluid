@@ -1,5 +1,27 @@
 # Project setup, configuration and the CLI
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `25-59` **The command tree**
+- `60-94` **The project layout**
+- `95-112` **What `Fluid(import_name)` does, in constructor order**
+- `113-225` **`app_configs/<name>.ini`**
+  - `164-178` `EXT_*` — batteries
+  - `179-194` `WF_*` — surface features
+  - `195-200` `[additives]`
+  - `201-212` Secrets from files
+  - `213-218` `[dev]`
+  - `219-225` Environment the CLI injects
+- `226-314` **Config classes**
+  - `259-304` What belongs where
+  - `305-314` Reading config
+- `315-335` **One project, many apps**
+- `336-365` **`wf run` and deployment**
+- `366-394` **Ocean**
+<!-- /index -->
+
 ## The command tree
 
 ```text
@@ -42,11 +64,11 @@ myapp/
 ├── main.py                  # prepare_fluid(), includes the routers
 ├── package.json             # npm workspace (Vite frontends only)
 ├── vite.config.js           # orchestrator, written by the CLI — do not hand-write
-├── app_configs/app.ini      # one .ini per app — gitignored
+├── app_configs/app.ini      # one .ini per app: secrets + switches — gitignored
 ├── additives/               # feature modules — gitignored
 └── fluid/
-    ├── config.py            # @register_config Config(MyConfig)
-    ├── _my_config.py        # local overrides — gitignored
+    ├── config.py            # @register_config Config(MyConfig) — committed, non-secret
+    ├── _my_config.py        # a maintainer's local overrides — gitignored
     ├── api/{__init__,health}.py, api/v1/__init__.py
     ├── app/{__init__,index}.py
     ├── frontend/            # Vite workspace (type vite only)
@@ -89,6 +111,11 @@ or a hook, but not before `Fluid(...)` returns; `ProxyHeadersMiddleware`, static
 Jinja loader stack are finalised in the `_prepare` **startup hook**, not the constructor.
 
 ## `app_configs/<name>.ini`
+
+**This file is the project's secret store.** It is gitignored, it is never published, and its whole
+contents become the application's environment. Settings that are not secret and not per-deployment
+belong in `fluid/config.py` instead — the split is spelled out under *What belongs where* below, and
+getting it backwards is the most common configuration mistake made in a WebFluid project.
 
 `wf run <name>` parses the file with `configparser` (`optionxform = str`, keys keep their case),
 flattens **every section** into one environment mapping and spawns `python main.py` with it. Section
@@ -220,24 +247,60 @@ The merge collects every **upper-case** attribute across the whole MRO in revers
 3. `register_config(priority)` takes 1–10 (default 1); higher wins, same-priority classes apply in
    registration order.
 
-The `MyConfig` pattern is the framework's convention for public repositories: shared settings in
-`config.py` (committed), local or private ones in `fluid/_my_config.py` (gitignored). A clone
-without the file still starts. Adopt it in every project.
+The `MyConfig` pattern is the framework's convention for public repositories: the settings everyone
+shares in `config.py` (committed), a maintainer's own overrides in `fluid/_my_config.py`
+(gitignored). A clone without the file still starts. Adopt it in every project — but note that
+`_my_config.py` is for values that are *private*, not *secret*; secrets go in the `.ini`, as the
+next section spells out.
 
 **An Additive ships its own defaults the same way**, from `additives/<id>/config.py`, at priority 1
 so the host app's priority-10 class can override them.
 
 ### What belongs where
 
-| `.ini`                                                    | `fluid/config.py`                                                      |
-|-----------------------------------------------------------|------------------------------------------------------------------------|
-| Secrets (`SECRET_KEY`, `SECURITY_SECRET`, mail passwords) | Non-secret runtime settings (`APP_CONFIG`, `APP_FRONTEND`, `BASE_URL`) |
-| Connection URIs (`DATABASE_URI`, `REDIS_URI`)             | Structured values: dicts, lists, tuples                                |
-| `EXT_*` / `WF_*` switches, `[additives]` toggles          | Anything a reader of the repository should see                         |
-| Per-deployment overrides                                  | Defaults every deployment shares                                       |
+Two places hold settings and they are not interchangeable. The `.ini` is **gitignored and loaded
+into the process environment**; `fluid/config.py` is **committed and read by everyone who clones the
+repository**. That difference is the entire rule.
 
-The `.ini` is a flat string→string map. It cannot express a dict, a list or a boolean, so
-`APP_FRONTEND`, `JWT_AUDIENCES`, `SQLALCHEMY_BINDS` and friends **must** live in a config class.
+**`app_configs/<app>.ini` — secret, or potentially secret.**
+
+| Put here                     | Examples                                                                         |
+|------------------------------|-----------------------------------------------------------------------------------|
+| Credentials                  | `SECRET_KEY`, `SECURITY_SECRET`, `MAIL_PASSWORD`, OAuth client secrets, API keys  |
+| Anything that *can* hold one | `DATABASE_URI`, `REDIS_URI`, `RATELIMIT_STORAGE_URI`, any other connection URI    |
+| Per-deployment values        | Hosts, ports, bucket names, the `[dev]` overrides                                 |
+| What this app *is*           | `EXT_*`, `WF_*`, `[additives]`                                                    |
+
+"Potentially secret" is the part that gets missed. `DATABASE_URI = sqlite:///app.db` carries no
+credential today, but the same key in production is `postgresql://app:hunter2@db.internal/app` — a
+URI is a credential-shaped value, so it belongs in the `.ini` from the first commit rather than
+being moved on the day it starts to matter. The same reasoning covers any host only reachable from
+inside your network: a name worth keeping out of a public repository is worth putting in the `.ini`.
+
+**`fluid/config.py` — non-secret, and everything the repository should show.**
+
+| Put here                       | Examples                                                                                       |
+|--------------------------------|-------------------------------------------------------------------------------------------------|
+| Application shape              | `APP_CONFIG`, `APP_FRONTEND`, `BASE_URL`, `GLOBAL_THEME`                                        |
+| Policy every deployment shares | Cookie flags, `RATELIMIT_DEFAULT`, `SECURITY_PASSWORD_REQUIREMENTS`, `BABEL_SUPPORTED_LOCALES`  |
+| Your own keys                  | `MYAPP_*`, `<ADDITIVE_ID>_*`                                                                    |
+| Every structured value         | `SQLALCHEMY_BINDS`, `SQLALCHEMY_ENGINE_OPTIONS`, `JWT_AUDIENCES`, any dict, list or tuple       |
+
+The last row is not a preference. The `.ini` is a flat string→string map, so a dict, a list, a tuple
+or a real boolean has nowhere else to go — `APP_FRONTEND = {"type": "vite"}` in an `.ini` reaches
+the application as a string and fails somewhere far from where you wrote it.
+
+**`fluid/_my_config.py` — private, but not secret.** Gitignored, imported by `config.py` behind a
+`try`, and the right home for a maintainer's own `BASE_URL`, a personal SMTP host or an experiment
+they are not ready to commit. It is a normal Python module inside the package: it is copied into a
+wheel or a container image like any other file, so it keeps things out of the *repository*, not out
+of the *artefact*. Real secrets still go in the `.ini`.
+
+When a value could plausibly go either way, put it in the `.ini`. A non-secret there costs one
+duplicated line per app config; a secret in `config.py` is in the git history for good.
+
+For a secret that should not sit in a readable file at all, use the `*_FILE` indirection described
+above — the key names a path, and the CLI substitutes the file's contents.
 
 ### Reading config
 

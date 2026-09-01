@@ -1,9 +1,23 @@
 ---
 name: webfluid
-description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains main.py with prepare_fluid(), an app_configs/ directory, a fluid/ package, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command.
+description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains main.py with prepare_fluid(), an app_configs/ directory, a fluid/ package, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
 ---
 
 # Working with WebFluid
+
+<!-- index -->
+This file is short enough to read whole; the ranges are for coming back to one section. Every
+`references/*.md` opens with an index of the same shape — read those first 30 lines, then only the
+ranges the task needs.
+
+- `39-59` **Orient before you write**
+- `60-105` **The rules that keep generated code correct**
+- `106-190` **The shapes to generate**
+- `191-208` **Task → route**
+- `209-218` **Verify your work**
+- `219-251` **Pull deeper detail live**
+- `252-265` **References**
+<!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
 subclass, so every FastAPI idiom still applies; on top of it the framework owns configuration,
@@ -29,8 +43,8 @@ Read these four things first — it costs one tool call each and settles what yo
 
 | Read                        | Tells you                                                                          |
 |-----------------------------|------------------------------------------------------------------------------------|
-| `app_configs/*.ini`         | Which `EXT_*` batteries, `WF_*` surface features and `[additives]` are on, per app |
-| `fluid/config.py`           | The app's config class: `APP_CONFIG`, `APP_FRONTEND`, binds, custom keys           |
+| `app_configs/*.ini`         | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
+| `fluid/config.py`           | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
 | `main.py`                   | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
 | `additives/*/manifest.json` | Which feature modules exist, their ids, and what they require                      |
 
@@ -48,9 +62,9 @@ python -c "from webfluid import version; print(version())"
 1. **Nothing is on by default.** Batteries need `EXT_*` in the app config, surface features need
    `WF_*`, Additives need their id in `[additives]` **and** `WF_ADDITIVES = 1`. Code using `db`
    without `EXT_SQLALCHEMY = 1` fails at runtime, not at import.
-2. **Reach batteries through the shared registry, never construct them.**
-   `from webfluid.core.ext import db, babel, security, events, cache, mail, jwt, scheduler` —
-   process-wide singletons, created lazily on first attribute access.
+2. **Reach batteries through the shared registry, never construct them.** `from webfluid.core.ext
+   import db, babel, security, events, cache, mail, jwt, scheduler` — process-wide singletons,
+   created lazily on first attribute access.
 3. **Use the app factory.** Name it `prepare_fluid()` in `main.py`. `wf migrate` looks for exactly
    that name, and a module-level `Fluid(__name__)` is constructed by every tool that imports your
    modules — including ones with no app config in the environment, where the constructor raises on
@@ -64,19 +78,28 @@ python -c "from webfluid import version; print(version())"
 6. **`fluid.config` always contains every framework key.** Index it (`fluid.config["X"]`). Use
    `.get("X", default)` only for keys *you* invented — restating a framework default creates a
    second source of truth.
-7. **Every hook has an arity contract, checked at registration time.** Startup, shutdown,
+7. **Secrets belong in the `.ini`; everything else belongs in `fluid/config.py`.** The `.ini` is
+   gitignored and flattened into the process environment, so it is the only place a credential may
+   go — and that covers values that merely *can* carry one, connection URIs above all
+   (`DATABASE_URI`, `REDIS_URI`). `fluid/config.py` is committed: it is where a reader of the
+   repository sees what the app actually is, and it is the only place a dict, a list or a real
+   boolean can live, because the `.ini` is a flat string map. `fluid/_my_config.py` is gitignored
+   and takes a maintainer's private-but-not-secret overrides. Putting a secret in `config.py`
+   commits it forever; putting `APP_FRONTEND` in the `.ini` cannot work at all.
+8. **Every hook has an arity contract, checked at registration time.** Startup, shutdown,
    `before_request` and `context_processor` take **0** required arguments; `after_request` takes
-   **1**; event and query handlers take **1**. A mismatch raises `TypeError` where you registered it.
-8. **Register during app assembly, never from a request.** Hooks, template loaders, page sources and
+   **1**; event and query handlers take **1**. A mismatch raises `TypeError` where you registered
+   it.
+9. **Register during app assembly, never from a request.** Hooks, template loaders, page sources and
    static prefixes are frozen in the `_prepare` startup hook. Afterwards they raise `RuntimeError`.
-9. **Async first.** Every I/O API has an `a*` twin — `asend`, `agettext`, `aget`, `aencode`,
-   `adecode`, `async_executor`, `ahash`/`averify`. Inside `async def`, use it.
-10. **Autoescape is on** for `.html`, `.htm`, `.xml`, `.xhtml`, `.svg` and every `render_string`
+10. **Async first.** Every I/O API has an `a*` twin — `asend`, `agettext`, `aget`, `aencode`,
+    `adecode`, `async_executor`, `ahash`/`averify`. Inside `async def`, use it.
+11. **Autoescape is on** for `.html`, `.htm`, `.xml`, `.xhtml`, `.svg` and every `render_string`
     source. To emit HTML on purpose, wrap it in `markupsafe.Markup` or use `| safe`; never reach for
     either on a value that came from a request.
-11. **Write no comments or docstrings** when editing an existing WebFluid codebase, unless the
+12. **Write no comments or docstrings** when editing an existing WebFluid codebase, unless the
     project already has them. The generated style is deliberately bare.
-12. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is
+13. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is
     internal and may move between releases. Do not import from undocumented module paths such as
     `webfluid.core.fluid.main`.
 
@@ -171,7 +194,7 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
 |------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|
 | Scaffold a project           | `wf create project <name>` (add `--skip-frontend` when there is no TTY)                    | `references/project-setup.md` |
 | Add an app config            | `wf create app <name>` is interactive — without a TTY, write the `.ini` by hand            | `references/project-setup.md` |
-| Add a setting                | Secret or per-deployment → `.ini`. Structured or shared → `fluid/config.py`                | `references/project-setup.md` |
+| Add a setting                | Secret, or could hold one → `.ini`. Everything else → `fluid/config.py`                     | `references/project-setup.md` |
 | Add a page or route          | Handler module + router `__init__.py`; template extends `fluid_base.html`                  | `references/frontend.md`      |
 | Add a model                  | `fluid/models/`, then `wf migrate revision <app> -a -m "..."` → `wf migrate upgrade <app>` | `references/batteries.md`     |
 | Add auth / protect a route   | `security.user_service` guards as `Depends` defaults                                       | `references/batteries.md`     |
@@ -227,6 +250,10 @@ battery, or the exact enable sequence — the references below carry the working
 carry the exhaustive detail.
 
 ## References
+
+Each reference opens with a line-range index of its own sections. Read those first 30 lines, then
+open only the ranges the task needs — these files run to several hundred lines each and loading one
+whole to answer one question is wasted context.
 
 | File                          | Covers                                                                                                         |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------|

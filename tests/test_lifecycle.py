@@ -102,7 +102,7 @@ async def test_a_failing_server_shuts_down_instead_of_hanging():
 
 
 @pytest.mark.asyncio
-async def test_a_signalled_server_stops_the_running_uvicorn():
+async def test_a_signalled_server_runs_the_shutdown_phase():
     from webfluid.core.fluid.server import Server
 
     lifecycle = Recorder()
@@ -110,11 +110,45 @@ async def test_a_signalled_server_stops_the_running_uvicorn():
 
     async def serve():
         server._server = SimpleNamespace(should_exit=False)
-        server._shutdown_flag.set()
-        while not server._server.should_exit: await asyncio.sleep(0)
+        server._server.should_exit = True
 
     server._run_server = serve
     await asyncio.wait_for(server._start(), timeout=5)
 
     assert lifecycle.calls == ["startup", "shutdown"]
-    assert server._server.should_exit
+
+
+def test_the_server_absorbs_the_signals_uvicorn_re_raises():
+    import signal
+    from webfluid.core.fluid.server import Server, _SIGNALS
+
+    server = Server(SimpleNamespace(startup_hook=lambda fn: fn), Recorder())
+    original = {sig: signal.getsignal(sig) for sig in _SIGNALS}
+
+    try:
+        server._absorb_signals()
+        for sig in _SIGNALS:
+            handler = signal.getsignal(sig)
+            assert handler not in (
+                signal.SIG_DFL, signal.SIG_IGN, signal.default_int_handler
+            )
+            assert handler(sig, None) is None
+    finally:
+        for sig, handler in original.items(): signal.signal(sig, handler)
+
+
+@pytest.mark.asyncio
+async def test_a_failing_startup_phase_still_shuts_down():
+    from webfluid.core.fluid.server import Server
+
+    lifecycle = Recorder()
+    server = Server(SimpleNamespace(startup_hook=lambda fn: fn), lifecycle)
+
+    async def crash(): raise RuntimeError("startup phase died")
+    lifecycle.run_startup = crash
+    server._run_server = lambda: pytest.fail("server must not start")
+
+    with pytest.raises(RuntimeError):
+        await asyncio.wait_for(server._start(), timeout=5)
+
+    assert lifecycle.calls == ["shutdown"]

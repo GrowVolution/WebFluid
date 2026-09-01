@@ -1,4 +1,4 @@
-from webfluid.extensions.babel.babel import Babel as Babel
+from webfluid.extensions.babel.main import Babel as Babel
 from webfluid.extensions.babel.domain import Domain as Domain
 from webfluid.extensions.babel.translations import (
     MergedTranslations as Translations,

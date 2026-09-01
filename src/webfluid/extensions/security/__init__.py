@@ -8,7 +8,7 @@ __all__ = [
 
 def __getattr__(name):
     if name == "Security":
-        from .security import Security
+        from .main import Security
         return Security
 
     if name in {"services", "models", "utils"}:

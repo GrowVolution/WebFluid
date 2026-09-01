@@ -33,7 +33,7 @@ class DefaultConfig:
     STATIC_MAX_AGE = 0 if DEBUG else 31536000
 
     RATELIMIT_ENABLED = True
-    RATELIMIT_STORAGE_URI = f"{_redis}/1"
+    RATELIMIT_STORAGE_URI = f"{_redis}/1" if "REDIS_URI" in os.environ else "memory://"
     RATELIMIT_DEFAULT = ["500/day", "100/hour"]
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI", "sqlite:///app.db")

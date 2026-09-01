@@ -14,7 +14,7 @@ from webfluid.extensions.security.services.hashing import HashService
 from webfluid.extensions.security.services.user.gating.requirements import admin
 from webfluid.extensions.security.utils import PasswordPolicy
 from webfluid.extensions.sqlalchemy.executor import AsyncExecutor
-from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
+from webfluid.extensions.sqlalchemy.main import SQLAlchemy
 
 MEMBERS = 200
 

@@ -1,5 +1,30 @@
 # Pitfalls: live defects and the traps that produce silently wrong code
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `43-100` **Live defects (as of `1.0.0rc1`)**
+  - `45-62` Runtime and lifecycle
+  - `63-69` Data
+  - `70-75` Auth and tokens
+  - `76-85` Events
+  - `86-91` i18n
+  - `92-100` Tooling
+- `101-108` **Fixed in `1.0.0rc1`**
+- `109-148` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
+  - `114-125` Security fixes — assume the old behaviour is what an attacker still tries
+  - `126-148` Correctness fixes
+- `149-256` **Traps that are not bugs**
+  - `153-169` Configuration
+  - `170-188` Templates and rendering
+  - `189-207` Database
+  - `208-220` Events and cache
+  - `221-228` Mail
+  - `229-243` Additives
+  - `244-256` Process model
+<!-- /index -->
+
 Treat the first section as part of the API. Generating code that trips one of these produces a
 program that looks right and behaves wrong.
 
@@ -15,7 +40,7 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 
 ---
 
-## Live defects (as of `1.0.0b3`)
+## Live defects (as of `1.0.0rc1`)
 
 ### Runtime and lifecycle
 
@@ -73,10 +98,18 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
   that wrote them, but a non-ASCII value in one cannot be recovered elsewhere. Rewrite the affected
   configs once, or keep values ASCII and move secrets behind the `*_FILE` indirection.
 
+## Fixed in `1.0.0rc1`
+
+| The `1.0.0b3` docs say                                                | `1.0.0rc1`                                                                       |
+|-----------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| An Additive's `url_for` only ever reverses that Additive's own routes | The scoped name is tried first and the plain name is the fallback, on and off request |
+| `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                               |
+| Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX |
+
 ## Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here
 
-`1.0.0b3` is final. Everything in this section is the shipped behaviour; the *Live defects* list
-above is complete for it.
+Everything in this section is the shipped behaviour; the *Live defects* list above is complete for
+`1.0.0rc1`.
 
 ### Security fixes — assume the old behaviour is what an attacker still tries
 

@@ -1,19 +1,19 @@
 from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_ABBR
 
 htmx = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"
-alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
+alpine = "https://cdn.jsdelivr.net/npm/alpinejs@3.17.1/dist/cdn.min.js"
 vite = "https://github.com/vitejs/vite.git"
 
 node_standalone = {
-    "linux": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-{architecture}.tar.xz",
-    "windows": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-{architecture}.zip",
-    "darwin": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-{architecture}.tar.gz"
+    "linux": "https://nodejs.org/dist/v26.8.1/node-v26.8.1-linux-{architecture}.tar.xz",
+    "windows": "https://nodejs.org/dist/v26.8.1/node-v26.8.1-win-{architecture}.zip",
+    "darwin": "https://nodejs.org/dist/v26.8.1/node-v26.8.1-darwin-{architecture}.tar.gz"
 }
 
 tailwind_cli = {
-    "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-linux-{architecture}",
-    "windows": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-windows-x64.exe",
-    "darwin": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-macos-{architecture}"
+    "linux": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-{architecture}",
+    "windows": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-windows-x64.exe",
+    "darwin": "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-macos-{architecture}"
 }
 
 package_json = """{{

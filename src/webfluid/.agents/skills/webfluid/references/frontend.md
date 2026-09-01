@@ -1,5 +1,25 @@
 # The surface: templates, themes and the client
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `23-115` **Template resolution**
+  - `55-78` The loader stack
+  - `79-102` Overriding framework templates
+  - `103-115` Adding a loader
+- `116-133` **The shared context (`WF_PROCESSING`)**
+- `134-175` **`fluid_base.html`**
+  - `164-175` Rules for generated templates
+- `176-206` **Tailwind and themes**
+- `207-221` **Page sources**
+- `222-241` **Static files**
+- `242-313` **`APP_FRONTEND`**
+  - `266-274` htmx
+  - `275-313` Vite
+- `314-326` **The bundled toolchain**
+<!-- /index -->
+
 ## Template resolution
 
 ```python
@@ -276,7 +296,7 @@ additive.app.get("/console")(additive.frontend.vite)
 
 |            | `wf run app -d`                                                     | `wf run app`                                                                           |
 |------------|---------------------------------------------------------------------|----------------------------------------------------------------------------------------|
-| Vite       | Dev server on port 5173                                             | Not started                                                                            |
+| Vite       | Dev server on port 5173, tied to the app process                    | Not started                                                                            |
 | Serving    | Proxied under `/vite-dev`, HMR live                                 | `dist/` mounted under `/frontend`                                                      |
 | index.html | From `frontend/index.html`, srcs rewritten, `@vite/client` injected | From `frontend/dist/index.html`                                                        |
 | Build      | —                                                                   | `npm run check/build --workspaces`, gated by `WF_CHECK_FRONTEND` / `WF_BUILD_FRONTEND` |

@@ -74,6 +74,73 @@ def node_cmd(cmd, cwd=os.getcwd(), **kwargs):
     if not EXECUTION: typer.echo(result.stdout or result.stderr)
 
 
+_job = None
+
+
+def _build_job():
+    import ctypes
+    from ctypes import wintypes
+
+    class _IoCounters(ctypes.Structure):
+        _fields_ = [(field, ctypes.c_ulonglong) for field in (
+            "ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+            "ReadTransferCount", "WriteTransferCount", "OtherTransferCount"
+        )]
+
+    class _BasicLimits(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", wintypes.LARGE_INTEGER),
+            ("PerJobUserTimeLimit", wintypes.LARGE_INTEGER),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD)
+        ]
+
+    class _ExtendedLimits(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", _BasicLimits),
+            ("IoInfo", _IoCounters),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t)
+        ]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = wintypes.HANDLE
+    k32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+    k32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD
+    ]
+    k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+
+    handle = k32.CreateJobObjectW(None, None)
+    if not handle: return None
+
+    limits = _ExtendedLimits()
+    limits.BasicLimitInformation.LimitFlags = 0x2000
+    if not k32.SetInformationJobObject(
+            handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)
+    ): return None
+
+    return k32, handle
+
+
+def _bind_lifetime(proc):
+    global _job
+    if _job is None:
+        try: _job = _build_job() or False
+        except OSError: _job = False
+
+    if not _job: return
+    try: _job[0].AssignProcessToJobObject(_job[1], int(proc._handle))
+    except OSError: pass
+
+
 def node_proc(cmd, cwd=os.getcwd(), **kwargs):
     flags = 0
     if os.name == "nt":
@@ -87,10 +154,13 @@ def node_proc(cmd, cwd=os.getcwd(), **kwargs):
         "stdin": subprocess.DEVNULL,
         "creationflags": flags
     }
-    return subprocess.Popen(
+    proc = subprocess.Popen(
         [_node_cmd(cmd[0]), *cmd[1:]],
         **(kwargs | default_kwargs)
     )
+
+    if os.name == "nt": _bind_lifetime(proc)
+    return proc
 
 
 def load_node():

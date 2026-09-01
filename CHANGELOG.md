@@ -4,6 +4,147 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
+## 1.0.0rc1
+
+The first release candidate. `1.0.0b3` closed the last of the known defects that
+could be closed inside a stabilisation release; this one changes nothing about
+the shape of the framework and exists to let the `1.0.0` surface sit still for a
+while before it is frozen. Three behaviour fixes, one internal rename, and a
+pass over the typing and the documentation that ships in the package.
+
+There are no breaking changes.
+
+### Fixed
+
+- An Additive's `url_for` could only ever reverse that Additive's own routes.
+  The scoped context processor ran every endpoint name through
+  `additive.unique_name()` before the lookup, which is what keeps two Additives
+  from colliding on `index` — but it left an Additive template with no way to
+  name a route belonging to the host application or to another Additive, and
+  `url_for("static")` in an Additive layout raised `NoMatchFound` out of the
+  render. The scoped name is still tried first, and the plain name is now the
+  fallback, on both the request path and the off-request one. Names stay
+  collision-proof, because a scoped route that exists always wins.
+- `RATELIMIT_STORAGE_URI` defaulted to `redis://localhost:6379/1` whether or not
+  the deployment had Redis, because it was built unconditionally from
+  `REDIS_URI`'s own default. An application with `RATELIMIT_ENABLED` on and no
+  Redis anywhere was pointing its limiter at a database it could not reach. The
+  key now falls back to `memory://` and only names Redis when `REDIS_URI` is
+  actually set. In-process counters are per worker and are lost on restart,
+  which is the right default for a single process and the wrong one for
+  several, so an application scaled across containers should set `REDIS_URI` —
+  as the deployment notes already say for the cache and the event bus.
+- The Vite dev server survived the application in debug mode whenever the
+  application did not get to shut down gracefully. Killing it was a shutdown
+  hook and nothing else, so the hook ran on a signal and never ran on anything
+  else: an IDE's stop button, a closed console window, a crash, or `wf run`'s
+  own ten-second timeout expiring — all of which end the process with no signal
+  the runtime can catch. Windows has no equivalent of a process session to
+  collect the orphan, and `CREATE_NEW_PROCESS_GROUP` — which is what keeps
+  `Ctrl+C` in the console from reaching Node at all — removes the last
+  connection between the two processes. The leftover `node.exe` then held port
+  5173 and the next `wf run -d` started against a dev server serving the
+  previous checkout. Every process started through `node_proc` is now assigned
+  to a job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so the kernel
+  terminates it when the application process disappears for any reason
+  whatsoever; the shutdown hook is still the normal path and is now idempotent,
+  with an `atexit` registration behind it for the paths that unwind but do not
+  reach the lifecycle. POSIX behaviour is unchanged — `start_new_session` plus a
+  process-group kill already covered everything but `SIGKILL`.
+
+### Changed
+
+- Every extension's implementation module is now called `main.py`:
+  `sqlalchemy/sqlalchemy.py`, `cache/cache.py`, `security/security.py` and
+  `migrate/migrate.py` are `main.py` in their own package, and `babel/babel/` is
+  `babel/main/`. This is the layout the rest of the framework already used and
+  the stuttering paths were the last places that did not. Nothing exported
+  changes: `db`, `cache`, `security`, `Migrate`, `Babel` and friends are reached
+  exactly as before, through `webfluid.core.ext` or the package's own
+  `__getattr__`. Code that imported the implementation module directly — `from
+  webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy` — breaks, and
+  that import was never part of the supported surface: only names in a package's
+  `__all__` follow semver. Import `SQLAlchemy` from
+  `webfluid.extensions.sqlalchemy` instead.
+- `Server` no longer drives its own shutdown. It registered `SIGINT`, `SIGTERM`
+  and `SIGBREAK` from a startup hook, set an `asyncio.Event` from them and raced
+  that event against the server task — but `uvicorn` replaces all three handlers
+  in `capture_signals()` for the whole of `serve()`, so the event was never set
+  and every shutdown had already gone through `uvicorn`'s own `should_exit`. The
+  flag, the two-task wait and a `self._server.install_signal_handlers = False`
+  naming a method `uvicorn` dropped in 0.29 are gone.
+
+  The handlers themselves stay, as `_absorb_signals`, because they were doing a
+  second job that is easy to miss: `capture_signals()` restores what it found
+  and then **re-raises** the signal it caught, so that the handler the
+  application had installed still gets to run. On Windows that re-raised
+  `SIGBREAK` reaching the default handler ends the process on the spot — after
+  `serve()` has returned but before the shutdown phase, which is exactly the
+  window the hooks live in. A handler that does nothing is all that is needed to
+  absorb it, and it is now installed in `_run_server` next to the server it
+  belongs to rather than from a startup hook.
+
+  The startup phase also moves inside the `try` whose `finally` runs the
+  shutdown phase, so a startup that fails outside a hook's own error handling
+  still closes what earlier hooks opened.
+
+### Typing
+
+- `current()` and `try_current()` are narrowed to the concrete class on every
+  context in the stub tree — `FluidContext`, `DomainContext`, `SelectorContext`,
+  `ClientContext`, `Executor`, `AsyncExecutor`, `CliContext` and `_LogContext`.
+  They inherited `BaseContext`'s signatures before, so a checker read
+  `FluidContext.current()` as a `BaseContext` and rejected `.fluid`, `.request`
+  and every `__getitem__` on it — the documented way to reach the request from a
+  handler did not type-check. `try_current()` narrows to `<Class> | None`, which
+  is the shape the off-request guard in a scheduled job or a mail routine needs.
+- `LogFactory.exception` accepts a `BaseException` rather than an `Exception`.
+  The runtime always did; the stub refused `KeyboardInterrupt`, `SystemExit` and
+  `asyncio.CancelledError`, which is most of what a shutdown path actually
+  catches.
+- `Server` sheds `_loop`, `_shutdown_flag` and `_handle_shutdown` in step with
+  the runtime and renames `_add_shutdown_handlers` to `_absorb_signals`;
+  `webfluid.core.fluid.server` gains `_SIGNALS`, and `wf_node` gains
+  `_build_job` and `_bind_lifetime`.
+
+### Documentation
+
+- The coding-agent skill under `.agents/skills/webfluid/` now opens each file —
+  `SKILL.md` and all six references — with a generated index of its sections and
+  their line ranges, so an agent can read the thirty lines of index and then
+  only the two hundred lines it needs instead of pulling a seven-hundred-line
+  reference into context to answer one question. `scripts/agent_docs_index.py`
+  regenerates every index in place and is idempotent; run it after editing any
+  of those files.
+- The split between `app_configs/<app>.ini` and `fluid/config.py` is now stated
+  outright in both the skill and its project-setup reference, because "secret"
+  was being read too narrowly. The `.ini` is gitignored and becomes the process
+  environment, so it holds credentials *and* everything that can carry one —
+  connection URIs above all, since a `DATABASE_URI` that is SQLite today is
+  `postgresql://user:password@host/db` in production. `fluid/config.py` is
+  committed and holds what the repository should show, and is the only place a
+  dict, a list or a real boolean can live at all. `fluid/_my_config.py` stays
+  what it was: gitignored local overrides, private but not a secret store, since
+  it ships inside any wheel or image built from the package.
+- The skill's *Graceful shutdown* section credited the runtime's signal handlers
+  with stopping the server, and the `mix()` sequence still listed a wait on a
+  shutdown flag. Both now say what actually happens, including why a handler
+  that does nothing is load-bearing on Windows. The frontend and pitfalls
+  references state that a Node process the framework starts does not outlive it.
+
+### Tests
+
+246, two more than `1.0.0b3`. The server test that asserted the removed shutdown
+flag is now one for a server that returns and one for a startup phase that
+raises, and a third pins the signal handlers down as absorbers so they cannot be
+removed as dead code again.
+
+### Known limitations
+
+Unchanged from `1.0.0b3` — the list in that section is still complete and every
+entry is still there for the reason given. None of them is a candidate for a
+release candidate; they are scheduled past `1.0.0`.
+
 ## 1.0.0b3
 
 **This is the final `1.0.0b3`.** The second stabilisation release. It works

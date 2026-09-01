@@ -2,9 +2,9 @@ from typing import Any
 
 from webfluid.extensions.babel.domain import Domain
 from webfluid.extensions.babel.speaklater import LazyString
-from webfluid.extensions.babel.babel.translation.domains import Domains
-from webfluid.extensions.babel.babel.translation.selection import Selector
-from webfluid.extensions.babel.babel.translation.translations import Translations
+from webfluid.extensions.babel.main.translation.domains import Domains
+from webfluid.extensions.babel.main.translation.selection import Selector
+from webfluid.extensions.babel.main.translation.translations import Translations
 
 
 class Translator:

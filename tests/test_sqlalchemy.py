@@ -8,7 +8,7 @@ from webfluid.exceptions import FrameworkException
 from webfluid.extensions.babel.translations import I18nKey
 from webfluid.extensions.sqlalchemy.bind import Bind
 from webfluid.extensions.sqlalchemy.executor import AsyncExecutor, Executor
-from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
+from webfluid.extensions.sqlalchemy.main import SQLAlchemy
 from webfluid.extensions.sqlalchemy.utils import database_uris
 
 

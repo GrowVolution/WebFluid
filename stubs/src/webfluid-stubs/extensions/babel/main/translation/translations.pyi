@@ -1,8 +1,8 @@
 from collections.abc import Callable, Coroutine
 from typing import Any
 
-from webfluid.extensions.babel.babel.main import Babel
-from webfluid.extensions.babel.babel.translation.domains import Domains
+from webfluid.extensions.babel.main.main import Babel
+from webfluid.extensions.babel.main.translation.domains import Domains
 
 _Forms = dict[str, dict[str, str]]
 _Translations = Callable[[], dict[str, dict[str, _Forms]]]

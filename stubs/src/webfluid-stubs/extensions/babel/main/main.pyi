@@ -8,8 +8,8 @@ from webfluid import Fluid
 from webfluid.extensions.base import FluidExtension
 from webfluid.extensions.babel.domain import Domain
 from webfluid.extensions.babel.speaklater import LazyString
-from webfluid.extensions.babel.babel.socket import Socket
-from webfluid.extensions.babel.babel.translation import Translator
+from webfluid.extensions.babel.main.socket import Socket
+from webfluid.extensions.babel.main.translation import Translator
 
 
 class Babel(FluidExtension):

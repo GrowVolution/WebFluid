@@ -1,6 +1,6 @@
 import pytest
 
-from webfluid.extensions.cache.cache import Cache
+from webfluid.extensions.cache.main import Cache
 from webfluid.extensions.cache.legacy import LegacyCache
 from webfluid.exceptions import FrameworkException
 

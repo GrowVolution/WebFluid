@@ -1,4 +1,4 @@
-import os, subprocess, signal
+import os, subprocess, signal, atexit
 
 from webfluid.surface.wf_node import node_proc
 
@@ -9,26 +9,29 @@ dev_prefix = "/vite-dev"
 
 
 def stop():
-    if proc is None or proc.poll() is not None:
-        return
+    global proc
+    if proc is None: return
+
+    current, proc = proc, None
+    if current.poll() is not None: return
 
     if os.name == "nt":
         subprocess.run(
-            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            ["taskkill", "/PID", str(current.pid), "/T", "/F"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        proc.wait()
+        current.wait()
     else:
-        os.killpg(proc.pid, signal.SIGINT)
+        os.killpg(current.pid, signal.SIGINT)
 
-        try: proc.wait(0.5)
+        try: current.wait(0.5)
         except subprocess.TimeoutExpired:
             pass
 
-        if proc.poll() is None:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
+        if current.poll() is None:
+            os.killpg(current.pid, signal.SIGKILL)
+            current.wait()
 
 
 def startup_hook(fluid):
@@ -44,6 +47,7 @@ def startup_hook(fluid):
             stderr=subprocess.DEVNULL,
             start_new_session=True
         )
+        atexit.register(stop)
 
     add_proxy(
         fluid, dev_server,

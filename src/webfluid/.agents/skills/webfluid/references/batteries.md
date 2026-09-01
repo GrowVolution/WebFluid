@@ -1,5 +1,38 @@
 # The batteries
 
+<!-- index -->
+Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
+tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
+
+- `49-180` **SQLAlchemy — `EXT_SQLALCHEMY`**
+  - `51-64` URIs carry no driver
+  - `65-92` Models
+  - `93-131` Executors
+  - `132-141` What survives the block
+  - `142-160` Binds
+  - `161-180` Creating tables
+- `181-222` **Migrate — CLI only, no `EXT_` switch**
+- `223-349` **Security — `EXT_SECURITY` (requires `EXT_SQLALCHEMY`)**
+  - `241-249` Relationship loading
+  - `250-281` Registration and authentication
+  - `282-313` Route guards
+  - `314-328` CSRF and single-use tokens
+  - `329-349` Bearer grants — one route, browser and machine
+- `350-444` **Babel — `EXT_BABEL` (requires `EXT_SQLALCHEMY`)**
+  - `368-397` The runtime store
+  - `398-411` Domains
+  - `412-431` Locale and timezone
+  - `432-444` Formatting
+- `445-565` **Events — `EXT_EVENTS`**
+  - `512-519` Delivery semantics
+  - `520-565` On the client
+- `566-610` **Cache — `EXT_CACHE`**
+- `611-657` **Mail — `EXT_MAIL`**
+  - `636-657` Batching
+- `658-697` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `698-723` **Scheduling — `EXT_SCHEDULING`**
+<!-- /index -->
+
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
 attribute access and caches it in module globals. That is why every module gets the *same* object
 with no wiring — and why you must never construct one yourself.
@@ -467,8 +500,12 @@ because nothing will ever drain it.
   and returns. There is nothing to await — if you need an answer, use a query.
 - `trigger` and `request` raise `ValueError` for an unknown name, so declare before you publish.
 - Handlers run inside a fresh `FluidContext` carrying `event` and `event_data`, and inheriting the
-  **request of the triggering context** when there is one — the HTTP `Request` when the trigger came
-  from a route, the `WebSocket` when it came over `/ws/events`.
+  request of **the context they are invoked in** — which differs by kind. A **query** handler is
+  invoked inline by `events.request`, so it sees the caller's request: the HTTP `Request` from a
+  route, the `WebSocket` over `/ws/events`. An **event** handler is invoked by the channel's
+  consumer task, which was created when the event was registered, so `ctx.request` is normally
+  `None` — `trigger()` only appends to a buffer and returns. Never write an event handler that
+  depends on the triggering request; put what it needs in the payload.
 - Queries: `singleton=True` (default) means exactly one handler and `request` returns its result;
   `singleton=False` gathers all handlers and returns a **list**.
 
@@ -504,9 +541,10 @@ that raises answers `{"error": ...}` and the connection stays up.
 Driving a whole view off the bus instead of a REST route is a normal thing to do: one query per
 paint, on a connection that is already open, with no route, no schema and no serialiser in between.
 
-**Resolve the caller server-side.** The handler runs inside a `FluidContext` whose `request` is the
-`WebSocket`, so the session cookie, `Accept-Language` and the query string are all there. Never take
-a principal id from the payload of a public query:
+**Resolve the caller server-side.** A *query* handler runs inside a `FluidContext` whose `request`
+is the `WebSocket`, so the session cookie, `Accept-Language` and the query string are all there.
+(A public *event* the browser triggers does not carry the connection — that handler runs in the
+channel's consumer task, as above.) Never take a principal id from the payload of a public query:
 
 ```python
 async def _current_uid():

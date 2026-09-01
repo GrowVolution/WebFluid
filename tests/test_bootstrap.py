@@ -8,7 +8,7 @@ from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_NAME
 from webfluid.extensions.babel.translations import (
     Cache, I18nKey, I18nMessage, TransactionService
 )
-from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy
+from webfluid.extensions.sqlalchemy.main import SQLAlchemy
 
 LOCALE = "en"
 
@@ -16,7 +16,7 @@ _FLAGS = (
     ("webfluid.core.fluid.extensions", "EXT_SQLALCHEMY"),
     ("webfluid.core.fluid.extensions", "EXT_BABEL"),
     ("webfluid.core.fluid.extensions", "EXECUTION"),
-    ("webfluid.extensions.babel.babel.main", "EXT_SQLALCHEMY")
+    ("webfluid.extensions.babel.main.main", "EXT_SQLALCHEMY")
 )
 
 

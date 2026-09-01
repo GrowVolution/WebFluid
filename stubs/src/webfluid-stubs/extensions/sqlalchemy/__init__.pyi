@@ -1,4 +1,4 @@
-from webfluid.extensions.sqlalchemy.sqlalchemy import SQLAlchemy as SQLAlchemy
+from webfluid.extensions.sqlalchemy.main import SQLAlchemy as SQLAlchemy
 from webfluid.extensions.sqlalchemy.model import Model as Model
 from webfluid.extensions.sqlalchemy.bind import Bind as Bind
 from webfluid.extensions.sqlalchemy.executor import (

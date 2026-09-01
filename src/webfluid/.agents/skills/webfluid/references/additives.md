@@ -4,21 +4,22 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `24-38` **Which one**
-- `39-364` **Additives**
-  - `65-97` The manifest
-  - `98-136` The additive object
-  - `137-159` Handlers and rendering
-  - `160-195` Local lifecycle hooks
-  - `196-215` Enabling
-  - `216-231` The four rules
-  - `232-279` Contracts: events and queries
-    - `268-279` Contract design rules
-  - `280-322` Base Additives
-  - `323-351` `install()` and `configure()`
-  - `352-364` Packaging checklist
-- `365-442` **Extensions (`FluidExtension`)**
-  - `418-442` What `expand_fluid` may do
+- `25-39` **Which one**
+- `40-403` **Additives**
+  - `66-134` The manifest
+    - `99-134` `requires.packages` — only what nothing else already brings
+  - `135-173` The additive object
+  - `174-196` Handlers and rendering
+  - `197-232` Local lifecycle hooks
+  - `233-252` Enabling
+  - `253-268` The four rules
+  - `269-316` Contracts: events and queries
+    - `305-316` Contract design rules
+  - `317-359` Base Additives
+  - `360-388` `install()` and `configure()`
+  - `389-403` Packaging checklist
+- `404-481` **Extensions (`FluidExtension`)**
+  - `457-481` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -76,7 +77,7 @@ Three hard requirements enforced by the constructor:
   "requires": {
     "wf": ">=1.0.0b2",
     "additives": { "core": ">=1.0.0" },
-    "packages": ["httpx"]
+    "packages": ["stripe"]
   }
 }
 ```
@@ -94,6 +95,42 @@ config-file switch, and the prefix `unique_name()` applies to contracts.
 
 `requires.wf` and `requires.additives` are checked **at enable**; `packages` at `install()`. A
 missing or mismatching Additive raises `AdditiveException`. A missing `wf` key only logs a warning.
+
+### `requires.packages` — only what nothing else already brings
+
+`packages` is not a dependency declaration that a resolver reconciles. `install_packages` runs
+`pip install --upgrade <name>` once per entry, unconditionally, for the Additive and for its base,
+after every Additive further down the chain has already installed its own. A name that something
+else already provides is therefore not merely redundant — it is an unpinned upgrade of a package
+that is already in the environment and working.
+
+Before adding a line, check the three places a package can already come from:
+
+1. **The framework's own dependencies.** WebFluid installs `fastapi`, `jinja2`, `babel`,
+   `sqlalchemy`, `alembic`, `psycopg`, `pymysql`, `aiomysql`, `aiosqlite`, `redis`, `uvicorn`,
+   `httpx`, `requests`, `websockets`, `asgiref`, `slowapi`, `limits`, `packaging`,
+   `python-multipart`, `apscheduler`, `aiosmtplib`, `gitpython`, `frozendict`, `selectolax`,
+   `pytz`, `argon2_cffi`, `itsdangerous`, `authlib`, `pyjwt`, `typer`, `tqdm` and `questionary`.
+   Read the installed distribution rather than trusting that list to stay current:
+
+   ```bash
+   python -c "from importlib.metadata import requires; print(requires('webfluid'))"
+   ```
+
+   Several are version-pinned by the framework — `redis>=7.3.0`, `slowapi>=0.1.9`, `limits>=5.8.0`,
+   `packaging>=26.0`. Listing one and letting `--upgrade` move it is how an Additive breaks the host
+   application it was installed into.
+2. **An Additive you require.** `requires.additives` is resolved and installed *first*, so anything
+   in that Additive's own `packages` is already present. Do not repeat it — if you need it, you
+   already depend on the Additive that brings it.
+3. **Your base.** A `default` Additive extending a `base` inherits the base's packages, installed
+   immediately before its own.
+
+What belongs in `packages` is what only *this* Additive needs and nothing above it in the chain
+provides: a payment SDK, a PDF renderer, a vendor client. If you genuinely need a different version
+of something the framework ships, that is not a `packages` entry — say so in the Additive's
+description and let the host decide, because `--upgrade` would otherwise change it silently at
+install time.
 
 ## The additive object
 
@@ -356,6 +393,8 @@ is configured before its child.
 - [ ] Every contract name goes through `unique_name()`
 - [ ] Every config key prefixed with the id
 - [ ] `required_extensions` lists what the code actually uses
+- [ ] `requires.packages` holds nothing the framework, a required Additive or your base already
+      installs
 - [ ] `.gitignore` present — it decides what ships
 - [ ] `extract/` holds only what the host should own
 - [ ] A license

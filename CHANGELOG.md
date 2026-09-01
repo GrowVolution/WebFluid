@@ -131,6 +131,14 @@ There are no breaking changes.
   shutdown flag. Both now say what actually happens, including why a handler
   that does nothing is load-bearing on Windows. The frontend and pitfalls
   references state that a Node process the framework starts does not outlive it.
+- The additives reference now says what belongs in a manifest's
+  `requires.packages`. `install_packages` runs `pip install --upgrade` once per
+  entry, unconditionally, and after everything further down the dependency chain
+  has installed its own, so an Additive that lists a package the framework, a
+  required Additive or its base already brings does not merely repeat it — it
+  moves that package's version out from under the host application at install
+  time. List only what nothing above you in the chain provides; the packaging
+  checklist and the additive pitfalls carry the same rule.
 
 ### Tests
 

@@ -15,14 +15,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `109-148` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
   - `114-125` Security fixes — assume the old behaviour is what an attacker still tries
   - `126-148` Correctness fixes
-- `149-256` **Traps that are not bugs**
+- `149-260` **Traps that are not bugs**
   - `153-169` Configuration
   - `170-188` Templates and rendering
   - `189-207` Database
   - `208-220` Events and cache
   - `221-228` Mail
-  - `229-243` Additives
-  - `244-256` Process model
+  - `229-247` Additives
+  - `248-260` Process model
 <!-- /index -->
 
 Treat the first section as part of the API. Generating code that trips one of these produces a
@@ -236,6 +236,10 @@ These are correct behaviour that reliably produces wrong code when assumed away.
 - **A base may be extended by exactly one Additive at a time.** If two enabled Additives extend the
   same base, enabling the second fails. Need a shared service? Write an extension.
 - **Installing does not enable.** Add the id to `[additives]` and set `WF_ADDITIVES = 1`.
+- **`requires.packages` is `pip install --upgrade`, not a resolver.** Every entry runs
+  unconditionally at install. Listing something the framework, a required Additive or your base
+  already brings — `httpx`, `redis`, `sqlalchemy`, `pyjwt` — silently upgrades it out from under the
+  host application. List only what nothing above you in the chain provides.
 - **`events.request` raises `ValueError` for an unknown name.** An optional dependency needs
   `events.has_query(name)` or a `try`/`except`.
 - **Never pass an ORM instance across a contract.** It is detached, its relationships raise, and the

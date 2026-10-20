@@ -204,3 +204,19 @@ async def test_url_for_uses_the_request_when_there_is_one(app, client):
 
     assert seen["path"] == "/json"
     assert seen["external"] == "http://testserver/json"
+
+
+async def test_an_error_page_keeps_the_headers_of_the_response_it_replaces():
+    from starlette.responses import Response
+    from webfluid.core.processing.lifecycle.after import _error_page
+
+    original = Response("nope", status_code=401, headers={ "WWW-Authenticate": "Bearer", "Retry-After": "5" })
+    original.set_cookie("session", "keep")
+    page = _error_page(original, "<h1>401</h1>")
+
+    headers = [(name.decode(), value.decode()) for name, value in page.raw_headers]
+    assert page.status_code == 401 and page.body == b"<h1>401</h1>"
+    assert ("www-authenticate", "Bearer") in headers and ("retry-after", "5") in headers
+    assert any(name == "set-cookie" and value.startswith("session=keep") for name, value in headers)
+    assert [value for name, value in headers if name == "content-length"] == [str(len(page.body))]
+    assert [value for name, value in headers if name == "content-type"] == ["text/html; charset=utf-8"]

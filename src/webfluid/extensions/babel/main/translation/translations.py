@@ -34,13 +34,13 @@ class Translations:
         if self._update_blocked:
             raise FrameworkException("Translation updates are not allowed after startup.")
 
-        from webfluid.extensions.babel.translations import TransactionService
-        self._update_tasks.append(
-            TransactionService.update(domain, translations)
-        )
+        self._update_tasks.append((domain, translations))
 
     async def _update_translations(self):
+        from webfluid.extensions.babel.translations import TransactionService
+
         self._update_blocked = True
         if not self._update_tasks: return
-        for task in self._update_tasks: await task
+        for domain, translations in self._update_tasks:
+            await TransactionService.update(domain, translations)
         self._update_tasks = []

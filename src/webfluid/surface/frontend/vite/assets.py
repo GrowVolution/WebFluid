@@ -16,6 +16,16 @@ def contained(root, *parts):
     return resolved if resolved.is_file() else None
 
 
+def _asset_path(project_root, namespace, path):
+    candidates = (
+        ((namespace, path), (namespace, "public", path)) if DEBUG
+        else ((namespace, "dist", path),)
+    )
+    for parts in candidates:
+        if contained(project_root, *parts): return "/".join(parts)
+    return None
+
+
 def asset_catch(project_root, namespaces):
     async def wrapped(request: Request, path: str):
         if path.startswith(("api", _static)) or "/frontend" in path:
@@ -32,13 +42,8 @@ def asset_catch(project_root, namespaces):
             vite_ns = request.cookies.get("vite_ns")
             if vite_ns not in namespaces: return Response(status_code=404)
 
-            if contained(project_root, vite_ns, path):
-                final_path = f"{vite_ns}/{path}"
-
-            elif contained(project_root, vite_ns, "public", path):
-                final_path = f"{vite_ns}/public/{path}"
-
-            else: return Response(status_code=404)
+            final_path = _asset_path(project_root, vite_ns, path)
+            if final_path is None: return Response(status_code=404)
 
         if DEBUG:
             from webfluid.utils.core import get_proxy

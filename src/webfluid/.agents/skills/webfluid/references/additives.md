@@ -5,21 +5,21 @@ Read this file in parts. Each range is `first-last` as the file stands now — o
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
 - `25-39` **Which one**
-- `40-403` **Additives**
+- `40-406` **Additives**
   - `66-134` The manifest
     - `99-134` `requires.packages` — only what nothing else already brings
-  - `135-173` The additive object
-  - `174-196` Handlers and rendering
-  - `197-232` Local lifecycle hooks
-  - `233-252` Enabling
-  - `253-268` The four rules
-  - `269-316` Contracts: events and queries
-    - `305-316` Contract design rules
-  - `317-359` Base Additives
-  - `360-388` `install()` and `configure()`
-  - `389-403` Packaging checklist
-- `404-481` **Extensions (`FluidExtension`)**
-  - `457-481` What `expand_fluid` may do
+  - `135-174` The additive object
+  - `175-197` Handlers and rendering
+  - `198-233` Local lifecycle hooks
+  - `234-253` Enabling
+  - `254-269` The four rules
+  - `270-317` Contracts: events and queries
+    - `306-317` Contract design rules
+  - `318-362` Base Additives
+  - `363-391` `install()` and `configure()`
+  - `392-406` Packaging checklist
+- `407-490` **Extensions (`FluidExtension`)**
+  - `466-490` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -146,8 +146,9 @@ def before_enable(fluid):
     from .app import index
     additive.app.get("/")(index)
 
-    from .api import v1
-    additive.api.include_router(v1)
+    from .api import setup_v1, health
+    additive.api.get("/health")(health)
+    setup_v1(additive)
 
     from .events import contracts  # noqa: importing registers them
 ```
@@ -356,6 +357,8 @@ collide; reverse URLs line up through the child's id.
 
 Discovery: `installed_additives(root)`, `installed_bases(root)`, `import_base(id)` from
 `webfluid.utils.additives`. Results are cached per package path; pass `cache=False` for a fresh scan.
+`root` must be the `additives` package directory: when it does not exist yet, both answer `[]`; a file of
+that name, or a directory with another name, raises `ValueError`.
 
 ## `install()` and `configure()`
 
@@ -453,6 +456,12 @@ default)` is correct — prefix them `MYEXT_*`.
 `Delegated("_sync.send")` is a descriptor that raises a clear `FrameworkException` when
 `expand_fluid` has not run yet, instead of `AttributeError: NoneType`. Use it for sub-objects you
 build lazily in `expand_fluid`.
+
+The error comes from `raise_unexpanded()`, a classmethod of `FluidExtension`: it raises
+`FrameworkException(cls._unexpanded.format(instance=cls.__name__))`. Call it yourself to guard a method
+that needs the expanded state (`if self._fluid is None: MyExtension.raise_unexpanded()`), and override the
+class attribute `_unexpanded` — default `"{instance}.expand_fluid() has never been called."` — to change
+the message for every delegated attribute at once.
 
 ### What `expand_fluid` may do
 

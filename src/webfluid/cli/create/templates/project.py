@@ -115,21 +115,24 @@ class Config(MyConfig):
 """
 
 
-main_py = f"""from {FRAMEWORK_PACKAGE} import Fluid
+app_init_py = f"""from {FRAMEWORK_PACKAGE} import Fluid
 
 
-def prepare_fluid() -> Fluid:
+def prepare_{FRAMEWORK_ID}() -> Fluid:
     app = Fluid(__name__)
 
     from {FRAMEWORK_ID}.api import api_router
     app.include_router(api_router)
-    {{index}}
+{{index}}
     return app
+"""
 
+
+main_py = f"""from {FRAMEWORK_ID} import prepare_{FRAMEWORK_ID}
 
 if __name__ == "__main__":
-    fluid = prepare_fluid()
-    fluid.mix()
+    _{FRAMEWORK_ID} = prepare_{FRAMEWORK_ID}()
+    _{FRAMEWORK_ID}.mix()
 """
 
 

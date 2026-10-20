@@ -40,6 +40,24 @@ def project(
 
     app_dir = project_root / FRAMEWORK_ID
 
+    def write_factory(index=""):
+        (app_dir / "__init__.py").write_text(
+            templates.app_init_py.format(index=index),
+            encoding="utf-8"
+        )
+
+    def write_config(conf):
+        conf_list = str(conf).strip("{}").split(", ")
+        conf_str = ("{\n\t\t"
+                    f"{',\n\t\t'.join(conf_list)}"
+                    "\n\t}")
+        (app_dir / "config.py").write_text(
+            templates.app_config_py.format(
+                name=name,
+                frontend=conf_str
+            ), encoding="utf-8"
+        )
+
     if not skip_defaults:
         typer.secho("Generating default structure...",
                     bold=True)
@@ -55,6 +73,11 @@ def project(
         (project_root / "additives").mkdir(exist_ok=True)
         (project_root / ".gitignore").write_text(
             templates.app_gitignore, encoding="utf-8"
+        )
+        write_factory()
+        write_config({ "type": "none" })
+        (project_root / "main.py").write_text(
+            templates.main_py, encoding="utf-8"
         )
 
     def frontend():
@@ -75,10 +98,6 @@ def project(
             )
 
             shutil.rmtree(app_dir / "app", ignore_errors=True)
-            (project_root / "main.py").write_text(
-                templates.main_py.format(index=""),
-                encoding="utf-8"
-            )
         else:
             node_cmd(
                 ["npm", "install"],
@@ -88,24 +107,12 @@ def project(
             (app_dir / "templates/index.html").write_text(
                 templates.app_index_html, encoding="utf-8"
             )
-            (project_root / "main.py").write_text(
-                templates.main_py.format(
-                    index=f"""
-    from {FRAMEWORK_ID}.app import app_router
-    app.include_router(app_router)
-                """), encoding="utf-8"
+            write_factory(
+                f"\n    from {FRAMEWORK_ID}.app import app_router"
+                f"\n    app.include_router(app_router)\n"
             )
 
-        conf_list = str(conf).strip("{}").split(", ")
-        conf_str = ("{\n\t\t"
-                    f"{',\n\t\t'.join(conf_list)}"
-                    "\n\t}")
-        (app_dir / "config.py").write_text(
-            templates.app_config_py.format(
-                name=name,
-                frontend=conf_str
-            ), encoding="utf-8"
-        )
+        write_config(conf)
 
     if not skip_frontend: frontend()
 

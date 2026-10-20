@@ -21,7 +21,7 @@ from webfluid.core.config.build import build_config
 from webfluid.core.constants import (
     APP_STATIC, FRAMEWORK_STATIC, PROCESSING, ADDITIVES
 )
-from webfluid.core.identity import FRAMEWORK_NAME
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_NAME
 from webfluid.core.processing import setup_processing
 from webfluid.surface.frontend import Frontend
 from webfluid.utils.core import (
@@ -34,9 +34,16 @@ from webfluid.exceptions import FrameworkException
 _moved = { "app_root": "project_root" }
 
 
+def _project_root(import_name):
+    root = Path(get_root_path(import_name)).resolve()
+    if root.name == FRAMEWORK_ID and (root / "__init__.py").exists():
+        return root.parent
+    return root
+
+
 class Fluid(FastAPI):
     def __init__(self, import_name):
-        self.project_root = Path(get_root_path(import_name)).resolve()
+        self.project_root = _project_root(import_name)
         self.additive_root = self.project_root / "additives"
 
         init_configs(self)

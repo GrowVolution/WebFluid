@@ -62,4 +62,4 @@ class AsyncManager:
             raise FrameworkException(f"Unexpected SMTP error: {type(e).__name__}: {e}")
         finally:
             try: await smtp.quit()
-            except: pass
+            except Exception: pass

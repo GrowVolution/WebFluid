@@ -217,6 +217,7 @@ translation extraction and compilation, and Migrate adds migration commands.
 ## A minimal application
 
 ```python
+# fluid/__init__.py
 from webfluid import Fluid
 
 
@@ -224,12 +225,20 @@ def prepare_fluid() -> Fluid:
     app = Fluid(__name__)
     # register routers, additives, sources, and hooks here
     return app
+```
 
+```python
+# main.py
+from fluid import prepare_fluid
 
 if __name__ == "__main__":
-    fluid = prepare_fluid()
-    fluid.mix()
+    _fluid = prepare_fluid()
+    _fluid.mix()
 ```
+
+The factory lives in the app package, so every tool that only needs to build the
+application — `wf migrate` above all — imports `fluid` and calls it, while
+`main.py` stays the entrypoint `wf run` starts.
 
 In practice you rarely start from a blank file — `wf create project` generates a
 working structure, and `wf run` launches it against a chosen app configuration.

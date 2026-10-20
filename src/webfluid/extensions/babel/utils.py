@@ -245,5 +245,5 @@ def fake_t(s, **args):
 
 
 def fake_tn(s, p, n, **args):
-    args.setdefault("n", n)
+    args.setdefault("num", n)
     return (s if n == 1 else p) % args

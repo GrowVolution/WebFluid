@@ -28,6 +28,7 @@ role_permissions = Table(
 
 class User(db.Model):
     __tablename__ = "users"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -175,6 +176,7 @@ class BackupCode(db.Model):
 
 class Role(db.Model):
     __tablename__ = "roles"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
@@ -201,6 +203,7 @@ class Role(db.Model):
 
 class Permission(db.Model):
     __tablename__ = "permissions"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)

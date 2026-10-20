@@ -5,6 +5,7 @@ from webfluid.utils.core import Version
 
 _additives: dict[str, dict[Path, list[tuple[str, Version, str]]]]
 
+def _validate_package(package: Path) -> bool: ...
 def _load_additives(
     package: Path, target: str, additive_type: str, do_log: bool
 ) -> None: ...

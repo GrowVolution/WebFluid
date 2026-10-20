@@ -1,6 +1,4 @@
-from webfluid.core.identity import (
-    FRAMEWORK_NAME, FRAMEWORK_PACKAGE, BASE_TEMPLATE
-)
+from webfluid.core.identity import FRAMEWORK_PACKAGE
 
 api_py = """from .health import handle_request as health
 from .v1 import setup as setup_v1
@@ -89,14 +87,16 @@ additive = Additive(
 
 @additive.before_enable
 def before_enable(_):
-    from .api import v1
-    additive.api.include_router(v1)
+    from .api import setup_v1, health
+    additive.api.get("/health")(health)
+    setup_v1(additive)
     {{index}}"""
 
 
 adtv_gitignore = """[folders]
 .vscode/
 .idea/
+__pycache__/
 node_modules/
 translations/
 dist/

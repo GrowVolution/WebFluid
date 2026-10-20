@@ -61,6 +61,52 @@ def test_legacy_cache_keeps_refreshed_entries(monkeypatch):
     assert cache.get("key") == "new"
 
 
+def test_a_zero_timeout_never_expires(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(
+        "webfluid.extensions.cache.legacy.monotonic", lambda: now[0]
+    )
+
+    cache = LegacyCache(FakeFluid())
+    cache.set("key", "value", timeout=0)
+
+    now[0] += 10 ** 6
+    cache.set("other", "value", timeout=1)
+
+    assert cache.get("key") == "value"
+    assert cache._expiry == [(now[0] + 1, "other")]
+
+
+def test_no_timeout_takes_the_default(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(
+        "webfluid.extensions.cache.legacy.monotonic", lambda: now[0]
+    )
+
+    cache = LegacyCache(FakeFluid(CACHE_DEFAULT_TIMEOUT=30))
+    cache.set("key", "value")
+
+    now[0] += 31
+    assert cache.get("key") is None
+
+
+def test_redis_receives_no_expiry_for_a_zero_timeout():
+    from webfluid.extensions.cache.redis import RedisCache
+
+    calls = []
+
+    class Client:
+        def set(self, key, value, ex=None): calls.append(ex)
+
+    cache = RedisCache(FakeFluid())
+    cache._sync = Client()
+    cache.set("forever", "value", timeout=0)
+    cache.set("default", "value")
+    cache.set("short", "value", timeout=5)
+
+    assert calls == [None, 300, 5]
+
+
 async def test_legacy_cache_async_api(monkeypatch):
     cache = LegacyCache(FakeFluid())
 

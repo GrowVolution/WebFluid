@@ -1,6 +1,6 @@
 ---
 name: webfluid
-description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains main.py with prepare_fluid(), an app_configs/ directory, a fluid/ package, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
+description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
 ---
 
 # Working with WebFluid
@@ -11,12 +11,12 @@ This file is short enough to read whole; the ranges are for coming back to one s
 ranges the task needs.
 
 - `39-59` **Orient before you write**
-- `60-105` **The rules that keep generated code correct**
-- `106-190` **The shapes to generate**
-- `191-208` **Task → route**
-- `209-218` **Verify your work**
-- `219-251` **Pull deeper detail live**
-- `252-265` **References**
+- `60-106` **The rules that keep generated code correct**
+- `107-200` **The shapes to generate**
+- `201-218` **Task → route**
+- `219-228` **Verify your work**
+- `229-261` **Pull deeper detail live**
+- `262-275` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -45,7 +45,7 @@ Read these four things first — it costs one tool call each and settles what yo
 |-----------------------------|------------------------------------------------------------------------------------|
 | `app_configs/*.ini`         | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
 | `fluid/config.py`           | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
-| `main.py`                   | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
+| `fluid/__init__.py`         | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
 | `additives/*/manifest.json` | Which feature modules exist, their ids, and what they require                      |
 
 `app_configs/` and `additives/` are **gitignored by the generated `.gitignore`**. `git status` will
@@ -65,10 +65,11 @@ python -c "from webfluid import version; print(version())"
 2. **Reach batteries through the shared registry, never construct them.** `from webfluid.core.ext
    import db, babel, security, events, cache, mail, jwt, scheduler` — process-wide singletons,
    created lazily on first attribute access.
-3. **Use the app factory.** Name it `prepare_fluid()` in `main.py`. `wf migrate` looks for exactly
-   that name, and a module-level `Fluid(__name__)` is constructed by every tool that imports your
-   modules — including ones with no app config in the environment, where the constructor raises on
-   the missing `SECRET_KEY`.
+3. **Use the app factory.** Name it `prepare_fluid()` in `fluid/__init__.py`, and keep `main.py` a
+   two-line entrypoint that imports and calls it. `wf migrate` imports the `fluid` package and looks
+   for exactly that name, and a module-level `Fluid(__name__)` is constructed by every tool that
+   imports your modules — including ones with no app config in the environment, where the
+   constructor raises on the missing `SECRET_KEY`.
 4. **Run through `wf run <app>`.** Startup and shutdown hooks live in `fluid.mix()`, not in the ASGI
    lifespan protocol. An external ASGI server skips table creation, the scheduler, Additive
    registration, the static mounts and the frozen loader stack.
@@ -109,10 +110,11 @@ The scaffolder produces this layout and every doc page assumes it. Match it.
 
 ```text
 myapp/
-├── main.py              # prepare_fluid(), includes the routers
+├── main.py              # the entrypoint: calls prepare_fluid() under __main__
 ├── app_configs/app.ini  # secrets, EXT_*/WF_* switches, [additives] — gitignored
 ├── additives/           # feature modules
 └── fluid/
+    ├── __init__.py      # prepare_fluid(), includes the routers
     ├── config.py        # @register_config Config(MyConfig)
     ├── api/             # JSON routers, mounted under /api
     ├── app/             # HTML routes, default_response_class=HTMLResponse
@@ -149,7 +151,7 @@ app_router.get("/")(index)
 ```
 
 ```python
-# main.py
+# fluid/__init__.py
 from webfluid import Fluid
 
 
@@ -165,10 +167,18 @@ def prepare_fluid() -> Fluid:
     app.startup_hook(register_events)
 
     return app
+```
 
+`Fluid(__name__)` from inside the app package still resolves `project_root` to the project root, the
+directory that holds `fluid/` — not to the package itself.
+
+```python
+# main.py
+from fluid import prepare_fluid
 
 if __name__ == "__main__":
-    prepare_fluid().mix()
+    _fluid = prepare_fluid()
+    _fluid.mix()
 ```
 
 Database access always goes through an executor context manager, which owns the transaction:

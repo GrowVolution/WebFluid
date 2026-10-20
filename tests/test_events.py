@@ -59,3 +59,30 @@ def test_registering_a_new_event_off_loop_after_startup_raises(events):
 
     with pytest.raises(FrameworkException):
         events.create_signal("late")
+
+
+def test_a_refused_late_registration_leaves_nothing_behind(events):
+    events.create_pending_loops()
+
+    with pytest.raises(FrameworkException):
+        events.create_signal("late")
+
+    assert not events.has_event("late") and "late" not in events._events
+
+
+def test_the_consumer_loop_does_not_inherit_the_registering_context(events):
+    import contextvars
+    request = contextvars.ContextVar("request", default=None)
+    seen = []
+
+    async def run():
+        manager = LoopManager(events, None)
+
+        async def loop(event): seen.append(request.get())
+        manager._loop = loop
+
+        request.set("pinned")
+        await manager.create_loop("ping")
+
+    asyncio.run(run())
+    assert seen == [None]

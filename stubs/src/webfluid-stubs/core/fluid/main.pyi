@@ -20,6 +20,8 @@ from webfluid.core.fluid.server import Server
 
 _moved: dict[str, str]
 
+def _project_root(import_name: str) -> Path: ...
+
 class Fluid(FastAPI):
     config: Config
     name: str

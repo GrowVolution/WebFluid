@@ -28,14 +28,14 @@ class RedisCache(BaseCache):
         return self._async
 
     def set(self, key, value, timeout=None):
-        self.cache.set(key, value, ex=timeout or self._default_timeout)
+        self.cache.set(key, value, ex=self._ttl(timeout))
 
     def get(self, key): return self.cache.get(key)
     def delete(self, key): self.cache.delete(key)
     def clear(self): self.cache.flushdb()
 
     async def aset(self, key, value, timeout=None):
-        await self.acache.set(key, value, ex=timeout or self._default_timeout)
+        await self.acache.set(key, value, ex=self._ttl(timeout))
 
     async def aget(self, key): return await self.acache.get(key)
     async def adelete(self, key): await self.acache.delete(key)

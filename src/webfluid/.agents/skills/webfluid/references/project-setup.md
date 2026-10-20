@@ -4,22 +4,22 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `25-59` **The command tree**
-- `60-94` **The project layout**
-- `95-112` **What `Fluid(import_name)` does, in constructor order**
-- `113-225` **`app_configs/<name>.ini`**
-  - `164-178` `EXT_*` — batteries
-  - `179-194` `WF_*` — surface features
-  - `195-200` `[additives]`
-  - `201-212` Secrets from files
-  - `213-218` `[dev]`
-  - `219-225` Environment the CLI injects
-- `226-314` **Config classes**
-  - `259-304` What belongs where
-  - `305-314` Reading config
-- `315-335` **One project, many apps**
-- `336-365` **`wf run` and deployment**
-- `366-394` **Ocean**
+- `25-61` **The command tree**
+- `62-98` **The project layout**
+- `99-118` **What `Fluid(import_name)` does, in constructor order**
+- `119-231` **`app_configs/<name>.ini`**
+  - `170-184` `EXT_*` — batteries
+  - `185-200` `WF_*` — surface features
+  - `201-206` `[additives]`
+  - `207-218` Secrets from files
+  - `219-224` `[dev]`
+  - `225-231` Environment the CLI injects
+- `232-320` **Config classes**
+  - `265-310` What belongs where
+  - `311-320` Reading config
+- `321-342` **One project, many apps**
+- `343-372` **`wf run` and deployment**
+- `373-401` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -51,8 +51,10 @@ entry-point name. Your own extension gets a `wf <name> …` group the same way.
 
 > **The scaffolders are interactive and have no non-interactive flag.** Without a TTY, run
 > `wf create project <name> --skip-frontend` (which asks nothing) and write `app_configs/<name>.ini`
-> by hand. All three refuse a non-empty target — never regenerate over an existing project; write
-> the missing file by hand instead.
+> by hand. That project is complete and runnable — `main.py`, `fluid/__init__.py` and
+> `fluid/config.py` included, the last with `APP_FRONTEND = { "type": "none" }`; only the frontend
+> workspace is missing. All three refuse a non-empty target — never regenerate over an existing
+> project; write the missing file by hand instead.
 
 Run npm through `wf node npm …`, never a global npm. It guarantees the runtime the framework will
 use at boot and works on machines with no Node installed.
@@ -61,12 +63,13 @@ use at boot and works on machines with no Node installed.
 
 ```text
 myapp/
-├── main.py                  # prepare_fluid(), includes the routers
+├── main.py                  # the entrypoint: calls prepare_fluid() under __main__
 ├── package.json             # npm workspace (Vite frontends only)
 ├── vite.config.js           # orchestrator, written by the CLI — do not hand-write
 ├── app_configs/app.ini      # one .ini per app: secrets + switches — gitignored
 ├── additives/               # feature modules — gitignored
 └── fluid/
+    ├── __init__.py          # prepare_fluid(), includes the routers
     ├── config.py            # @register_config Config(MyConfig) — committed, non-secret
     ├── _my_config.py        # a maintainer's local overrides — gitignored
     ├── api/{__init__,health}.py, api/v1/__init__.py
@@ -79,14 +82,15 @@ myapp/
 
 The split is load-bearing:
 
-| Directory         | Why it matters                                                    |
-|-------------------|-------------------------------------------------------------------|
-| `fluid/api`       | Mounted under `/api`; JSON default response class                 |
-| `fluid/app`       | Router created with `default_response_class=HTMLResponse`         |
-| `fluid/models`    | The generated Alembic `env.py` imports `fluid.models` **by name** |
-| `fluid/events`    | Registered from a startup hook, not at import                     |
-| `fluid/static`    | Served at `/static`, reversed with route name `static`            |
-| `fluid/templates` | Searched **before** the framework's own templates                 |
+| Directory           | Why it matters                                                    |
+|---------------------|-------------------------------------------------------------------|
+| `fluid/__init__.py` | Holds `prepare_fluid()`; `wf migrate` imports `fluid` **by name**  |
+| `fluid/api`         | Mounted under `/api`; JSON default response class                 |
+| `fluid/app`         | Router created with `default_response_class=HTMLResponse`         |
+| `fluid/models`      | The generated Alembic `env.py` imports `fluid.models` **by name** |
+| `fluid/events`      | Registered from a startup hook, not at import                     |
+| `fluid/static`      | Served at `/static`, reversed with route name `static`            |
+| `fluid/templates`   | Searched **before** the framework's own templates                 |
 
 `.gitignore` written by the scaffolder excludes `app_configs/`, `additives/`, `migrate/`,
 `translations/`, `logs/`, `_my_config.py`, `tailwind.css`, `*.db`. Editing an Additive in place
@@ -94,7 +98,9 @@ shows nothing in `git status` — verify by reading files.
 
 ## What `Fluid(import_name)` does, in constructor order
 
-1. `project_root` from `import_name`; `additive_root = project_root / "additives"`.
+1. `project_root` from `import_name`: the directory of that module, except when it is the `fluid`
+   package itself — then its parent, so the factory in `fluid/__init__.py` and an entrypoint next
+   to it resolve to the same project root. `additive_root = project_root / "additives"`.
 2. `init_configs()` imports `fluid.config` and the `config` module of every **enabled** Additive.
 3. `Config()` is built: `DefaultConfig`, then every `@register_config` class in priority order.
    **After this, `fluid.config` holds every key the framework knows.**
@@ -314,9 +320,10 @@ table lives at `/latest/config/config-class.md`.
 
 ## One project, many apps
 
-`fluid.name` comes from the config name, so one `main.py` can assemble different applications:
+`fluid.name` comes from the config name, so one factory can assemble different applications:
 
 ```python
+# fluid/__init__.py
 def prepare_fluid() -> Fluid:
     app = Fluid(__name__)
 

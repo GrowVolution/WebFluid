@@ -192,3 +192,93 @@ def test_an_unknown_kid_is_an_invalid_token(monkeypatch):
     ))
 
     with pytest.raises(pyjwt.InvalidTokenError): decoder.decode(token)
+
+
+@pytest.mark.parametrize("model, make", [
+    (User, lambda i: User(f"reuse{i}", f"reuse{i}@example.org")),
+    (Role, lambda i: Role(f"reuse{i}")),
+    (Permission, lambda i: Permission(f"reuse{i}"))
+])
+async def test_sqlite_never_hands_a_deleted_id_to_the_next_row(model, make):
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(db.Model.metadata.create_all)
+
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        first, last = make(1), make(2)
+        session.add_all([first, last])
+        await session.commit()
+        removed = last.id
+        await session.delete(last)
+        await session.commit()
+
+        following = make(3)
+        session.add(following)
+        await session.commit()
+        assert following.id > removed
+
+    await engine.dispose()
+
+
+def _session_gate(error=None, user=None):
+    from types import SimpleNamespace
+
+    async def resolve(_):
+        if error is not None: raise error
+        yield user
+
+    return SimpleNamespace(resolve=resolve)
+
+
+def _bearer(principal, token_present=True):
+    async def resolve_bearer(request, grant):
+        yield principal, token_present
+    return resolve_bearer
+
+
+async def test_a_bearer_grant_does_not_pass_the_email_gate(monkeypatch):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from webfluid.extensions.security.services.user.gating.bearer import any as gate
+
+    principal = SimpleNamespace(id=7, email="bearer@example.org", email_verified=False)
+    monkeypatch.setattr(gate, "resolve_bearer", _bearer(principal))
+    wrapped = gate.resolver_fn(
+        _session_gate(HTTPException(status_code=401, detail="NOT_AUTHENTICATED")), None, "read"
+    )
+
+    with pytest.raises(HTTPException) as info: await anext(wrapped(SimpleNamespace()))
+
+    assert (info.value.status_code, info.value.detail) == (401, "EMAIL_NOT_VERIFIED")
+
+
+async def test_a_verified_bearer_principal_still_resolves(monkeypatch):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from webfluid.extensions.security.services.user.gating.bearer import any as gate
+
+    principal = SimpleNamespace(id=7, email="bearer@example.org", email_verified=True)
+    monkeypatch.setattr(gate, "resolve_bearer", _bearer(principal))
+    wrapped = gate.resolver_fn(
+        _session_gate(HTTPException(status_code=401, detail="NOT_AUTHENTICATED")), None, "read"
+    )
+
+    assert await anext(wrapped(SimpleNamespace())) is principal
+
+
+async def test_an_endpoint_error_is_not_rerouted_to_the_bearer_grant(monkeypatch):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from webfluid.extensions.security.services.user.gating.bearer import any as gate
+
+    user = SimpleNamespace(id=1, email="session@example.org", email_verified=True)
+    principal = SimpleNamespace(id=7, email="bearer@example.org", email_verified=True)
+    monkeypatch.setattr(gate, "resolve_bearer", _bearer(principal))
+    resolution = gate.resolver_fn(_session_gate(user=user), None, "read", True)(SimpleNamespace())
+
+    assert await anext(resolution) is user
+    with pytest.raises(HTTPException) as info:
+        await resolution.athrow(HTTPException(status_code=404, detail="MISSING"))
+
+    assert (info.value.status_code, info.value.detail) == (404, "MISSING")

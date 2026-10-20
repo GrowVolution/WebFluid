@@ -28,6 +28,16 @@ class Events:
             raise ValueError(f"Event '{name}' is already registered as "
                              f"{'internal' if is_internal else 'public'}.")
 
+        new_broadcaster = name not in self._broadcasters
+        running = in_running_loop()
+        if new_broadcaster and not running and self._pending is None:
+            raise FrameworkException(
+                f"Cannot register event '{name}': the application has "
+                "already started and this call is not running inside "
+                "its event loop. Register events from an enable hook, "
+                "a startup hook or a request handler instead."
+            )
+
         if name not in self._events:
             self._events[name] = {
                 "singleton": singleton,
@@ -35,18 +45,11 @@ class Events:
                 "handlers": []
             }
 
-        if name not in self._broadcasters:
+        if new_broadcaster:
             self._broadcasters[name] = BroadCaster(
                 name, self._event_queue_size
             )
-            if not in_running_loop():
-                if self._pending is None:
-                    raise FrameworkException(
-                        f"Cannot register event '{name}': the application has "
-                        "already started and this call is not running inside "
-                        "its event loop. Register events from an enable hook, "
-                        "a startup hook or a request handler instead."
-                    )
+            if not running:
                 self._pending.append(name)
                 return
             self._create_loop(name)

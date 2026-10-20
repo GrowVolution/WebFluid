@@ -19,6 +19,12 @@ class Model(DeclarativeBase):
         state = inspect(self)
         return hash(state.identity)
 
+    def __eq__(self, other):
+        if self is other: return True
+        if type(self) is not type(other): return NotImplemented
+        identity = inspect(self).identity
+        return identity is not None and identity == inspect(other).identity
+
     @declared_attr
     def __tablename__(cls):
         tablename = cls.__dict__.get("__tablename__")

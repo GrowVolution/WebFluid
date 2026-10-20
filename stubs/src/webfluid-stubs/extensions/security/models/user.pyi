@@ -10,6 +10,7 @@ role_permissions: Table
 
 class User(Model):
     __tablename__: str
+    __table_args__: dict[str, bool]
     id: Mapped[int]
     username: Mapped[str]
     email: Mapped[str | None]
@@ -76,6 +77,7 @@ class BackupCode(Model):
 
 class Role(Model):
     __tablename__: str
+    __table_args__: dict[str, bool]
     id: Mapped[int]
     name: Mapped[str]
     is_admin: Mapped[bool]
@@ -87,6 +89,7 @@ class Role(Model):
 
 class Permission(Model):
     __tablename__: str
+    __table_args__: dict[str, bool]
     id: Mapped[int]
     name: Mapped[str]
     roles: Mapped[list[Role]]

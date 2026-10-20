@@ -487,3 +487,10 @@ def test_gettext_still_answers_with_the_source_on_a_miss(bound, compiled):
 
     assert t.gettext("nothing") == "nothing"
     assert t.ngettext("nothing", "nothings", 2) == "nothings"
+
+
+def test_the_babel_free_plural_fallback_formats_num_like_ngettext():
+    from webfluid.extensions.babel.utils import fake_tn
+
+    assert fake_tn("%(num)d item", "%(num)d items", 3) == "3 items"
+    assert fake_tn("%(num)d item", "%(num)d items", 1) == "1 item"

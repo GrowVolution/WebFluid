@@ -21,8 +21,9 @@ def _request(cookie=None, path="/asset.js"):
 @pytest.fixture
 def frontend(tmp_path):
     root = tmp_path / "webfluid" / "frontend"
-    root.mkdir(parents=True)
-    (root / "asset.js").write_text("ok", encoding="utf-8")
+    (root / "dist").mkdir(parents=True)
+    (root / "dist" / "asset.js").write_text("ok", encoding="utf-8")
+    (root / "package.json").write_text("{}", encoding="utf-8")
 
     (tmp_path / "app_configs").mkdir()
     (tmp_path / "app_configs" / "app.ini").write_text(
@@ -39,6 +40,14 @@ async def test_a_known_namespace_serves_its_own_asset(frontend):
     response = await catch(_request("vite_ns=webfluid/frontend"), "asset.js")
 
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_production_never_serves_the_frontend_workspace(frontend):
+    catch = asset_catch(frontend, NAMESPACES)
+    response = await catch(_request("vite_ns=webfluid/frontend"), "package.json")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -83,7 +92,7 @@ async def test_a_traversing_path_cannot_escape_the_namespace(frontend):
 
 
 def test_contained_refuses_anything_outside_the_root(frontend):
-    assert contained(frontend, "webfluid/frontend", "asset.js") is not None
+    assert contained(frontend, "webfluid/frontend", "dist", "asset.js") is not None
     assert contained(frontend, "..", "outside.ini") is None
     assert contained(frontend, "webfluid") is None
 

@@ -2,7 +2,7 @@ from pathlib import Path
 from importlib import import_module
 from configparser import ConfigParser
 import os, random, string, re, sys, \
-    importlib, locale, asyncio
+    importlib.util, locale, asyncio
 
 
 def enabled(key):

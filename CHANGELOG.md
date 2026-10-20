@@ -8,11 +8,19 @@ else is internal and may change in any release.
 
 The first release candidate. `1.0.0b3` closed the last of the known defects that
 could be closed inside a stabilisation release; this one changes nothing about
-the shape of the framework and exists to let the `1.0.0` surface sit still for a
-while before it is frozen. Three behaviour fixes, one internal rename, and a
-pass over the typing and the documentation that ships in the package.
+the framework's own surface and exists to let the `1.0.0` surface sit still for a
+while before it is frozen. Twenty-two behaviour fixes — nine of them defects the
+`1.0.0b3` documentation lists as known issues, among them two security fixes —
+one small addition to `FluidExtension`, two changes to the shape of a generated
+project, one internal rename, and a pass over the typing and the documentation
+that ships in the package.
 
-There are no breaking changes.
+There are no breaking changes. Three fixes change what a call does where the old
+behaviour was the defect: a bearer principal without a verified email is
+refused, production no longer serves frontend source files, and `timeout=0` on
+the cache means no expiry. A project generated before this release keeps running
+unchanged; only `wf migrate` wants its app factory moved, as described under
+*Changed*.
 
 ### Fixed
 
@@ -51,8 +59,181 @@ There are no breaking changes.
   with an `atexit` registration behind it for the paths that unwind but do not
   reach the lifecycle. POSIX behaviour is unchanged — `start_new_session` plus a
   process-group kill already covered everything but `SIGKILL`.
+- `wf create additive` generated an Additive that could not be enabled. Its
+  `before_enable` did `from .api import v1` and `additive.api.include_router(v1)`,
+  but the generated `api/__init__.py` exports `health` and `setup_v1` — `v1` there
+  is the sub-package, a module rather than a router — so the first enable of a
+  fresh Additive failed. The template now registers `GET /health` and calls
+  `setup_v1(additive)`, the shape every other generated file already assumed.
+- The `.gitignore` that `wf create additive` writes did not ignore `__pycache__/`,
+  although the project template does. An Additive is its own repository, so the
+  bytecode of every module it imported ended up staged with its sources on the
+  first `git add .`. The Additive template now lists `__pycache__/` next to the
+  other generated folders.
+- `installed_additives()` and `installed_bases()` failed in a project that had no
+  `additives/` directory yet, although nothing is installed there and an empty
+  list is the honest answer. Both now answer `[]` when the package does not
+  exist, and raise `ValueError` when it exists but is not a directory, next to
+  the existing check that the package is called `additives`.
+- `db.Model` hashed by identity but compared by object, so two instances of the
+  same row — one per request, as `current_user` loads them, or a row reloaded in
+  an event handler — had the same hash and were still unequal. Every cache keyed
+  by a model (`functools.lru_cache`, `alru_cache`, a `dict` or `set`) missed on
+  each new instance, grew until eviction and never matched an invalidation with a
+  freshly loaded row. `db.Model` now defines `__eq__` next to `__hash__`: instances
+  of the same class with the same identity are equal; transient objects without
+  an identity only equal themselves, and comparing with anything that is not the
+  same model class is left to the other operand.
+- On SQLite the security models handed the id of a deleted user, role or
+  permission to the next row. Their primary keys were plain `INTEGER PRIMARY
+  KEY` columns, which SQLite fills with the highest id in use plus one, so
+  deleting the newest account and registering another produced a second account
+  under the first one's id — and with it everything outside the framework that
+  is keyed by that id and was not removed with the row: sessions and tokens that
+  name it, records of other tables, caches. `User`, `Role` and `Permission` now
+  declare `__table_args__ = {"sqlite_autoincrement": True}`, so their tables are
+  created with `AUTOINCREMENT` and SQLite never reuses an id. Every other dialect
+  ignores the option and already behaved this way, and nothing about the models'
+  attributes changes.
+
+  `create_all` does not alter existing tables, and Alembic's autogenerate does
+  not compare the option, so a database created before this release keeps
+  reusing ids until its three tables are rebuilt by hand. One revision does it;
+  run it with foreign-key enforcement off, which is SQLite's default:
+
+  ```python
+  def upgrade():
+      for table in ("users", "roles", "permissions"):
+          with op.batch_alter_table(table, recreate="always",
+                                    table_kwargs={"sqlite_autoincrement": True}):
+              pass
+  ```
+
+  The rebuilt table continues after the highest id it still holds; an id that
+  was already deleted at the top of the table before the rebuild can still be
+  handed out once.
+- Both bearer grant gates let a bearer token through the email gate. The
+  `RequirementOrGrantGate` caught every `HTTPException` of the session chain —
+  `401 EMAIL_NOT_VERIFIED` included — and fell back to the bearer token, whose
+  principal was never checked for a verified address, although `1.0.0b3`
+  announced that both grant gates enforce it. A bearer principal without a
+  verified email now gets `401 EMAIL_NOT_VERIFIED` as well. The same `except`
+  also caught exceptions the route itself raised, because FastAPI throws them
+  into the dependency at its `yield`: with a bearer header present a route's
+  `404` turned into `403 NOT_AUTHORIZED` or into a `RuntimeError` from a second
+  `yield`. Errors raised after the gate resolved its user now pass through
+  unchanged.
+- Production served the source workspace of every Vite frontend. The root asset
+  catch resolved a path under `<vite_ns>/` and `<vite_ns>/public/` — the
+  workspace — so with a valid `vite_ns` cookie `GET /package.json`,
+  `GET /src/main.ts` or a nested `.env` came out of the frontend directory. Out
+  of debug mode it now resolves under `<vite_ns>/dist/` only, where the build
+  puts the public files as well; debug mode still proxies the workspace to the
+  dev server.
+- An error page replaced the response it rendered for and dropped its headers.
+  The after-request processor built a fresh `HTMLResponse` for `400`, `401`,
+  `403`, `404`, `405`, `429`, `500`, `502` and `503`, so `Set-Cookie`,
+  `WWW-Authenticate` and `Retry-After` were lost. The page now carries every
+  header of the original response except the ones that describe the body.
+- The `/ws/i18n` socket translated in the default locale. Its `translate`
+  request ran without a request context and without a forced locale, so
+  `get_locale()` always fell back to `BABEL_DEFAULT_LOCALE`; the sibling `cache`
+  request resolved the connection's locale correctly. Both resolve it the same
+  way now.
+- `live._p` and `live._np` of `i18n.js` sent their arguments in the wrong order
+  — `[string, context]` against the server's `apgettext(context, string)` and the
+  context last for `anpgettext` — so a contextual live translation looked up the
+  context as the message. They send the context first.
+- `fake_tn`, the plural fallback Jinja uses with `EXT_BABEL` off, filled `n`
+  while the translator and every catalogue use `%(num)d`, so a plural message
+  raised `KeyError: 'num'`. It fills `num` like `ngettext`.
+- An event channel registered from a request handler pinned that request into
+  its consumer task for good. `create_loop` used `asyncio.create_task`, which
+  copies the calling context, so every handler of that channel saw the
+  long-gone request, ran with `reraise=True` and failed silently inside
+  `gather(return_exceptions=True)`. The consumer task now starts with an empty
+  context, so handlers see no request and a failure is logged.
+- Registering a new event after startup outside the running loop raised, but
+  only after the broadcaster had been created, leaving a half-registered event
+  that accepted triggers nobody would ever drain. The check runs first now and
+  a refused registration leaves nothing behind.
+- `timeout=0` on the cache silently became `CACHE_DEFAULT_TIMEOUT` — and would
+  have made Redis reject the write had it got through. Both backends now store
+  an entry with `timeout=0` without expiry; `timeout=None` still takes the
+  default, and a `CACHE_DEFAULT_TIMEOUT` of `0` means no expiry as well.
+- `wf migrate` ran `alembic` from `PATH`. With `wf` started from a virtual
+  environment that was not activated, that was another interpreter's Alembic
+  importing another installation of WebFluid, and an upgrade failed against
+  code that was not the project's. `revision`, `upgrade` and `downgrade` run
+  `python -m alembic` with the interpreter `wf` itself runs on.
+- `update_translations` created its coroutine at registration time and awaited
+  it in the startup hook, so every process that built the application without
+  starting it — `wf migrate`, a test or a tool — ended with *coroutine
+  'TransactionService.update' was never awaited*. Updates are queued as data and
+  run in the startup hook.
+- The SMTP clients' cleanup swallowed everything on `quit()` with a bare
+  `except`, including `asyncio.CancelledError` and `KeyboardInterrupt`; it now
+  only ignores exceptions.
+- `wf migrate init` could not produce a usable migration environment. Its
+  `env.py` template was copied verbatim, placeholders and all, so the generated
+  file carried `def get_{FRAMEWORK_ID}()` as literal text and Alembic refused it
+  on the first command; and the function it looked for lived in `main.py`, which
+  `env.py` never imports, so even a hand-corrected file could not find the
+  application. The templates are now `env.py.mako`, rendered into
+  `migrate/migrations_<app>/env.py` with the framework's package name and the
+  app-package name taken from the identity seam, and the factory they call sits
+  in the app package where the import finds it. `init` no longer copies a
+  `__pycache__` out of the framework either.
+- `get_root_path()` raised `AttributeError: module 'importlib' has no attribute
+  'util'` on the one path that needs `find_spec` — a module that is not in
+  `sys.modules` yet. Only the import of `importlib.util` was missing.
+
+### Added
+
+- `FluidExtension.raise_unexpanded()` raises the `FrameworkException` an
+  extension raises when it is used before `expand_fluid` ran, with the message
+  taken from the class attribute `_unexpanded` (default
+  `"{instance}.expand_fluid() has never been called."`, `{instance}` being the
+  class name). `Delegated` uses it, so an extension that overrides `_unexpanded`
+  changes the message of every delegated attribute at once, and an extension that
+  guards a method of its own raises the same error with one call instead of
+  rebuilding it. The wording of the delegated error therefore changes from *has
+  not been called* to *has never been called*.
 
 ### Changed
+
+- **The app factory moves from `main.py` into the app package.** `wf create
+  project` writes `prepare_fluid()` into `fluid/__init__.py` and leaves `main.py`
+  as the two-line entrypoint that imports and calls it under `__main__`. The
+  factory was the one part of the generated project that only `main.py` could
+  reach: `wf migrate` imports the app package and has no way to execute a script
+  at the project root, so autogenerated revisions never saw the real application.
+  It is now in the place every tool that only needs to *build* the app already
+  looks, while `wf run` keeps starting `main.py` exactly as before.
+
+  An existing project keeps working: move the body of `prepare_fluid()` into
+  `fluid/__init__.py` and reduce `main.py` to the import and the `__main__`
+  block. Leaving it in `main.py` is still fine for `wf run`, and still invisible
+  to `wf migrate`.
+- `wf create project --skip-frontend` writes a complete project. `main.py` and
+  `fluid/config.py` were written by the frontend step, so skipping it — the only
+  non-interactive way to scaffold, and the one the documentation points at for a
+  terminal without a TTY — left a project that `wf run` refused to start and
+  whose settings fell back to `DefaultConfig` entirely: the framework's own
+  window title, and an `APP_FRONTEND` of HTMX with Alpine that nothing had set
+  up. Both files are now written together with the default structure, with
+  `APP_FRONTEND = { "type": "none" }`, which is also what the interactive
+  question offers as its default. The frontend step still overwrites
+  `fluid/config.py` with the answers when it runs.
+- `Fluid(import_name)` resolves `project_root` to the parent directory when
+  `import_name` is the app package itself, so `Fluid(__name__)` means the same
+  project root from `fluid/__init__.py` as it did from `main.py`. Any other
+  module still resolves to its own directory, including a project root that
+  happens to be named after the framework.
+- `wf create app` asks for `MAIL_PASSWORD` with a password prompt, so the value
+  is no longer echoed to the terminal (or into a recorded session) while it is
+  typed — the way an Additive's `setup` questions of type `password` already
+  were.
 
 - Every extension's implementation module is now called `main.py`:
   `sqlalchemy/sqlalchemy.py`, `cache/cache.py`, `security/security.py` and
@@ -102,6 +283,19 @@ There are no breaking changes.
   The runtime always did; the stub refused `KeyboardInterrupt`, `SystemExit` and
   `asyncio.CancelledError`, which is most of what a shutdown path actually
   catches.
+- `User`, `Role` and `Permission` in `webfluid.extensions.security.models.user`
+  declare `__table_args__`.
+- `FluidExtension` gains `_unexpanded` and `raise_unexpanded()`, and
+  `webfluid.utils.additives.loading` gains `_validate_package`.
+- `BaseCache` gains `_ttl()`, and `Translations._update_tasks` holds
+  `(domain, translations)` pairs instead of coroutines.
+- `webfluid.cli.create.project.project` writes the app factory, `main.py` and
+  `fluid/config.py` through two local helpers instead of inline in its frontend
+  step.
+- `webfluid.core.fluid.main` gains `_project_root()`, and
+  `webfluid.cli.create.templates` gains `app_init_py`; `main_py` no longer takes
+  an `index` placeholder, `app_init_py` carries it instead. The Migrate
+  templates' `migrations/env.py` is `migrations/env.py.mako`.
 - `Server` sheds `_loop`, `_shutdown_flag` and `_handle_shutdown` in step with
   the runtime and renames `_add_shutdown_handlers` to `_absorb_signals`;
   `webfluid.core.fluid.server` gains `_SIGNALS`, and `wf_node` gains
@@ -139,19 +333,49 @@ There are no breaking changes.
   moves that package's version out from under the host application at install
   time. List only what nothing above you in the chain provides; the packaging
   checklist and the additive pitfalls carry the same rule.
+- The additives reference shows the `before_enable` the scaffold now generates,
+  says what `installed_additives()` answers without an `additives/` directory, and
+  documents `raise_unexpanded()` and `_unexpanded` next to `Delegated`; the
+  batteries reference quotes both wordings of the unexpanded error.
+- The batteries reference warns that APScheduler skips a run more than one
+  second late by default, which drops one-shot jobs planned from
+  `before_enable` on any slow boot, and says to pass `misfire_grace_time=None`;
+  it states that an event handler never sees a request and that the cache's
+  `timeout=0` means no expiry.
+- Every page that shows the app factory — the README, the agent skill and the
+  project-setup and batteries references — puts it in `fluid/__init__.py` with
+  `main.py` as the entrypoint beside it, lists `fluid/__init__.py` in the project
+  layout, and states that Migrate finds the factory by importing the app package
+  and never by executing `main.py`. The constructor walkthrough says what
+  `project_root` resolves to for the app package, and the Migrate section
+  distinguishes the `env.py.mako` template that ships in the framework from the
+  `env.py` that `init` renders into the project.
 
 ### Tests
 
-246, two more than `1.0.0b3`. The server test that asserted the removed shutdown
-flag is now one for a server that returns and one for a startup phase that
-raises, and a third pins the signal handlers down as absorbers so they cannot be
-removed as dead code again.
+271, twenty-seven more than `1.0.0b3`. The server test that asserted the removed
+shutdown flag is now one for a server that returns and one for a startup phase
+that raises, and a third pins the signal handlers down as absorbers so they
+cannot be removed as dead code again. Three more delete the newest user, role
+and permission on SQLite and check that the next row gets a new id. The bearer
+gate is tested for the email gate on a bearer principal and for a route error
+passing through, the asset catch for a production request of a workspace file,
+the cache for `timeout=0` and the default on both backends, the error page for
+the headers it keeps, the event channel for a refused late registration and
+for the context of its consumer task, and `fake_tn` for its plural variable. Nine more cover the scaffolded app
+factory and entrypoint, both migration environments rendering from the seam with
+no placeholder left, the three ways `project_root` resolves, and a
+`--skip-frontend` project scaffolded end to end for the files it must contain.
 
 ### Known limitations
 
-Unchanged from `1.0.0b3` — the list in that section is still complete and every
-entry is still there for the reason given. None of them is a candidate for a
-release candidate; they are scheduled past `1.0.0`.
+The `1.0.0b3` list is still complete and every entry is still there for the
+reason given; none of them is a candidate for a release candidate, they are
+scheduled past `1.0.0`. Of the defects the `1.0.0b3` documentation added to it,
+two remain: `additive.ws` routes skip an Additive's `before_request` and
+`after_request` hooks, and the error-page processor makes every HTML response
+take the buffering path of the request middleware although it only reads the
+status code.
 
 ## 1.0.0b3
 

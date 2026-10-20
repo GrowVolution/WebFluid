@@ -9,6 +9,16 @@ _additives = {
 }
 
 
+def _validate_package(package):
+    if not package.name == "additives":
+        raise ValueError(f"Invalid package name '{package.name}'.")
+    elif not package.exists(): return False
+    elif not package.is_dir():
+        raise ValueError(f"Package '{package}' is not a directory.")
+
+    return True
+
+
 def _load_additives(package, target, additive_type, do_log):
     from webfluid.core.additive import Manifest
     from webfluid.utils.core import Version
@@ -32,11 +42,10 @@ def _load_additives(package, target, additive_type, do_log):
 
 
 def installed_additives(package, do_log=False, cache=True):
+    if not _validate_package(package): return []
+
     if cache and _additives["additives"].get(package) is not None:
         return _additives["additives"][package]
-
-    if not package.name == "additives":
-        raise ValueError(f"Invalid package name '{package.name}'.")
 
     _additives["additives"][package] = []
     _load_additives(
@@ -47,6 +56,8 @@ def installed_additives(package, do_log=False, cache=True):
 
 
 def installed_bases(package, do_log=False, cache=True):
+    if not _validate_package(package): return []
+
     if cache and _additives["bases"].get(package) is not None:
         return _additives["bases"][package]
 

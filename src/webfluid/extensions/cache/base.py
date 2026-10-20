@@ -9,6 +9,10 @@ class BaseCache(FluidExtension):
     def expand_fluid(self, fluid, *_, **__):
         self._default_timeout = fluid.config["CACHE_DEFAULT_TIMEOUT"]
 
+    def _ttl(self, timeout):
+        ttl = self._default_timeout if timeout is None else timeout
+        return ttl or None
+
     def set(self, key, value, timeout=None): raise NotImplementedError()
     def get(self, key): raise NotImplementedError()
     def delete(self, key): raise NotImplementedError()

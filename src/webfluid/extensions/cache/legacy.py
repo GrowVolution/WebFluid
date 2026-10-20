@@ -20,15 +20,16 @@ class LegacyCache(BaseCache):
 
     def set(self, key, value, timeout=None):
         self._sweep()
-        expires = monotonic() + (timeout or self._default_timeout)
+        ttl = self._ttl(timeout)
+        expires = None if ttl is None else monotonic() + ttl
         self._cache[key] = (expires, value)
-        heappush(self._expiry, (expires, key))
+        if expires is not None: heappush(self._expiry, (expires, key))
 
     def get(self, key):
         entry = self._cache.get(key)
         if entry is None: return None
 
-        if entry[0] <= monotonic():
+        if entry[0] is not None and entry[0] <= monotonic():
             self._cache.pop(key, None)
             return None
 

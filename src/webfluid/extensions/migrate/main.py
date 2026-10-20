@@ -3,13 +3,17 @@ from datetime import datetime, UTC
 import subprocess, shutil, typer, os, sys
 
 from webfluid.extensions.base import FluidExtension
-from webfluid.core.identity import FRAMEWORK_NAME, ENV_PREFIX
+from webfluid.core.identity import (
+    FRAMEWORK_NAME, ENV_PREFIX,
+    FRAMEWORK_PACKAGE, FRAMEWORK_ID
+)
 from webfluid.core.config.main import Config
 from webfluid.core.config.init import init_configs
 from webfluid.core.config.build import build_config
 from webfluid.utils.core import parse_config, read_config
 
 _templates = Path(__file__).parent / "templates"
+_alembic = [sys.executable, "-m", "alembic"]
 class _Dummy: project_root = None
 
 
@@ -66,8 +70,17 @@ class Migrate(FluidExtension):
 
         shutil.copytree(
             template_dir / "migrations",
-            migrations_dir
+            migrations_dir,
+            ignore=shutil.ignore_patterns("__pycache__")
         )
+        env_mako = migrations_dir / "env.py.mako"
+        (migrations_dir / "env.py").write_text(
+            env_mako.read_text(encoding="utf-8")
+            .replace("{package}", FRAMEWORK_PACKAGE)
+            .replace("{id}", FRAMEWORK_ID),
+            encoding="utf-8"
+        )
+        env_mako.unlink()
         alembic_ini.write_text(
             (template_dir / "alembic.ini.mako")
             .read_text(encoding="utf-8")
@@ -94,7 +107,7 @@ class Migrate(FluidExtension):
                 "--autogenerate", "-a"
             )
     ):
-        base_cmd = ["alembic", "-c", f"migrate/alembic_{app}.ini", "revision"]
+        base_cmd = [*_alembic, "-c", f"migrate/alembic_{app}.ini", "revision"]
         if autogenerate: base_cmd.append("--autogenerate")
         base_cmd += ["-m", f"[{app}] "
                            f"[{datetime.now(UTC).strftime('%Y-%m-%d_%H-%M-%S')}] "
@@ -110,7 +123,7 @@ class Migrate(FluidExtension):
     @_cli.command()
     def upgrade(app: str):
         subprocess.run(
-            ["alembic", "-c", f"migrate/alembic_{app}.ini",
+            [*_alembic, "-c", f"migrate/alembic_{app}.ini",
              "upgrade", "head"],
             check=True,
             env=_manipulated_env(app),
@@ -127,7 +140,7 @@ class Migrate(FluidExtension):
             )
     ):
         subprocess.run(
-            ["alembic", "-c", f"migrate/alembic_{app}.ini",
+            [*_alembic, "-c", f"migrate/alembic_{app}.ini",
              "downgrade", revision],
             check=True,
             env=_manipulated_env(app),

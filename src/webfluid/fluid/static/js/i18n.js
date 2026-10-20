@@ -167,13 +167,13 @@ export class Translations {
         _p: async (context, string, variables = {}) => await request(
             "translate", {
                 fn: "pgettext", domain: this.currentDomain,
-                args: [ string, context ], variables
+                args: [ context, string ], variables
             }
         ),
         _np: async (context, singular, plural, num, variables = {}) => await request(
             "translate", {
                 fn: "npgettext", domain: this.currentDomain,
-                args: [ singular, plural, num, context ], variables
+                args: [ context, singular, plural, num ], variables
             }
         )
     }

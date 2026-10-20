@@ -1,5 +1,4 @@
-from collections.abc import Callable, Coroutine
-from typing import Any
+from collections.abc import Callable
 
 from webfluid.extensions.babel.main.main import Babel
 from webfluid.extensions.babel.main.translation.domains import Domains
@@ -12,7 +11,7 @@ async def _load_translations(babel: Babel, domains: Domains) -> None: ...
 
 
 class Translations:
-    _update_tasks: list[Coroutine[Any, Any, None]]
+    _update_tasks: list[tuple[str, _Translations]]
     _update_blocked: bool
     _update_disabled: bool
     def __init__(self, update_disabled: bool) -> None: ...

@@ -48,6 +48,37 @@ async def test_async_rows_stay_readable_after_the_executor_closes(bound):
     assert (row.key, row.domain, row.cached) == ("farewell", "messages", True)
 
 
+def test_instances_of_one_row_are_equal_across_sessions(bound):
+    from functools import lru_cache
+
+    with db.executor(model=I18nKey) as e:
+        e.insert(I18nKey("same", "messages"), flush=True)
+
+    def load():
+        with db.executor(model=I18nKey) as e:
+            return e.exec(select(I18nKey).where(I18nKey.key == "same")).first()
+
+    first, second = load(), load()
+    assert first is not second
+    assert first == second and hash(first) == hash(second)
+    assert len({first, second}) == 1
+
+    calls = []
+
+    @lru_cache
+    def check(row):
+        calls.append(row)
+        return True
+
+    check(first)
+    check(second)
+    assert len(calls) == 1
+
+    fresh, other = I18nKey("fresh", "messages"), I18nKey("fresh", "messages")
+    assert fresh == fresh and fresh != other and fresh != first
+    assert first != "same"
+
+
 def test_deleting_through_the_executor(bound):
     with db.executor(model=I18nKey) as e:
         e.insert(I18nKey("gone", "messages"), flush=True)

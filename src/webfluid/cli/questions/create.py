@@ -3,7 +3,7 @@ import questionary
 
 from .main import (
     select, confirm, checkbox, text,
-    choice, fixed_choice
+    password, choice, fixed_choice
 )
 from webfluid.core.constants import FEATURE_FLAGS, EXTENSION_FLAGS
 
@@ -166,7 +166,7 @@ mail_username = text(
     default=""
 )
 
-mail_password = text(
+mail_password = password(
     "MAIL_PASSWORD:",
     default=""
 )

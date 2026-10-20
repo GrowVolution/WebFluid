@@ -77,4 +77,4 @@ class SyncManager:
         finally:
             if smtp is not None:
                 try: smtp.quit()
-                except: pass
+                except Exception: pass

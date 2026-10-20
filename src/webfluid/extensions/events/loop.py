@@ -1,4 +1,4 @@
-import json, asyncio
+import json, asyncio, contextvars
 
 from webfluid.utils.core import safe_execute
 
@@ -47,4 +47,4 @@ class LoopManager:
     def create_loop(self, event):
         return asyncio.create_task(safe_execute(
             self._loop, False, event
-        ))
+        ), context=contextvars.Context())

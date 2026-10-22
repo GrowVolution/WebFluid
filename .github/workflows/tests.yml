@@ -43,6 +43,21 @@ jobs:
       - name: Check that the agent documentation indexes are current
         run: python -m webfluid agents index --check
 
+  distributions:
+    name: distribution contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Verify shipped documentation and cache exclusions
+        run: python scripts/check_distribution.py dist
+
   stubs:
     name: stub tree
     runs-on: ubuntu-latest

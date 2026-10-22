@@ -14,6 +14,9 @@ of re-implementing.
 The framework is at its first release candidate (`1.0.0rc1`) and targets
 Python 3.14+.
 
+The shipped [framework contract](src/webfluid/CONTRACT.md) describes the integration
+boundaries; the [agent skill](src/webfluid/.agents/SKILL.md) routes to detailed references.
+
 ---
 
 ## Why it exists

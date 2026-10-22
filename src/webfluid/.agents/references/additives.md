@@ -5,7 +5,7 @@ Read this file in parts. Each range is `first-last` as the file stands now — o
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
 - `27-41` **Which one**
-- `42-490` **Additives**
+- `42-491` **Additives**
   - `68-136` The manifest
     - `101-136` `requires.packages` — only what nothing else already brings
   - `137-176` The additive object
@@ -19,9 +19,9 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `381-409` `install()` and `configure()`
   - `410-471` Documenting an Additive for people and agents
     - `446-471` References point down, never up
-  - `472-490` Packaging checklist
-- `491-580` **Extensions (`FluidExtension`)**
-  - `556-580` What `expand_fluid` may do
+  - `472-491` Packaging checklist
+- `492-581` **Extensions (`FluidExtension`)**
+  - `557-581` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -219,16 +219,16 @@ def after_enable(): ...        # no arguments
 All of these are **scoped to the Additive's own routes**, not the whole app.
 
 **An exception in `before_enable` or `after_enable` fails the Additive's registration.** The error
-is logged against the Additive and the others still register — but this one serves nothing. So an
-enable hook registers first and touches data last:
+is logged against the Additive and the others still register. Registration is not transactional:
+earlier side effects remain, and a failed `after_enable` can leave mounted routes. Do not treat
+the registration log as a guarantee that the application or dependent modules stopped.
 
-1. Routes, events, queries, translations, services' configuration — everything that cannot fail on
-   a healthy process.
-2. Anything that reads or writes the database comes after, and must survive a database that has no
-   tables yet: the first boot of an app runs before its migrations. Either schedule it as a one-shot
-   job (`scheduler.add_job(fn, DateTrigger(run_date=…), misfire_grace_time=None)`) or catch
-   `SQLAlchemyError` around it and log what is now missing in words an operator can act on.
-3. Never the sync executor in an enable hook — it blocks the loop the whole boot runs on.
+1. Run migrations before serving requests. Security-critical initialization, such as loading
+   token revocations, must propagate failures rather than silently accepting an empty state.
+2. Keep assembly separate from optional database maintenance. Optional work can run as a one-shot
+   scheduler job or handle a specific database error with an actionable log. Do not apply that
+   recovery to authorization, revocation or other security prerequisites.
+3. Use the async executor in enable hooks; a sync executor blocks the boot loop.
 
 Startup hooks are closed by the time an Additive enables: `fluid.startup_hook(...)` from inside an
 enable hook raises `RuntimeError`. The scheduler is the place for work that must follow the boot —
@@ -476,7 +476,8 @@ package they all require, so that no package has to answer a query of one built 
 - [ ] Every contract name goes through `unique_name()`
 - [ ] Every config key prefixed with the id
 - [ ] `required_extensions` lists what the code actually uses
-- [ ] Enable hooks register first and survive a database without tables; no sync executor in them
+- [ ] Migrations precede serving traffic; security-critical initialization propagates errors;
+      only optional work is deferred, and enable hooks use the async executor
 - [ ] `requires.packages` holds nothing the framework, a required Additive or your base already
       installs
 - [ ] `.gitignore` present — it decides what ships

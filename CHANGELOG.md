@@ -24,16 +24,22 @@ behaviour was the defect: a bearer principal without a verified email is
 refused, production no longer serves frontend source files, `timeout=0` on the
 cache means no expiry, a role or permission requirement with an empty list is
 refused as malformed instead of failing with `TypeError`, and **an Additive
-whose enable hook raises no longer registers**. The last one is the one an
+whose enable hook raises no longer reports successful registration**. The last one is the one an
 Additive author has to check: a `before_enable` that reads or writes the
 database before this app's migrations have run used to fail quietly and leave a
 half-wired Additive behind; it now fails that Additive's registration, loudly.
-Register routes first and guard boot-time data work — *Fixed* has the details. A project generated before this release keeps running
+Registration does not roll back earlier side effects; an `after_enable` failure can leave routes
+mounted. Run migrations before serving traffic and propagate security-critical initialization
+errors; defer only optional work. *Fixed* has the details. A project generated before this release keeps running
 unchanged; only `wf migrate` wants its app factory moved, as described under
 *Changed*.
 
 ### Fixed
 
+- Wheel and source builds exclude the local Node toolchain cache under
+  `surface/dist` and Python bytecode, so files bundled with npm are not shipped
+  as WebFluid modules. CI verifies these exclusions and the shipped contract and
+  agent documentation. The downloaded toolchain remains local to the installation.
 - An Additive's `url_for` could only ever reverse that Additive's own routes.
   The scoped context processor ran every endpoint name through
   `additive.unique_name()` before the lookup, which is what keeps two Additives
@@ -485,13 +491,13 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 - The events battery's introspection line listed six methods of the registries,
   of which the manager exposed none. It now names the two that exist and says
   what they are for.
-- The additives reference says what an enable hook may do now that its failure
-  counts: register everything first, and keep database work last and able to
-  survive a database without tables — through a one-shot scheduler job or a
-  logged `SQLAlchemyError` — because the first boot of an app runs before its
-  migrations. It notes that startup hooks are already closed when an Additive
-  enables, and the packaging checklist gains the matching item. Three
-  first-party Additives had this exact defect.
+- The Additives reference distinguishes optional deferred maintenance from
+  security-critical initialization, whose errors must propagate. It documents
+  that failed registration does not roll back side effects or stop dependent
+  Additives, and that startup hooks are already closed when an Additive enables.
+  The packaging checklist requires migrations before serving traffic.
+- The framework now ships `CONTRACT.md` with its public integration boundaries
+  and local references; the agent skill and repository README link to it.
 - A package's documentation set gains `DOCS.md`: the long-form guide for the
   person who answers for an Additive, an extension or an SDK — concepts, flows,
   every setting and what it changes, the security model, operation and

@@ -62,12 +62,19 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["webfluid.surface.dist*"]
 
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "*.pyo", "__pycache__/*", "*/__pycache__/*"]
+"webfluid" = ["surface/dist/*"]
+"webfluid.surface" = ["dist/*"]
+
 [tool.setuptools.package-data]
 webfluid = [
+    "CONTRACT.md",
     ".agents/**/*",
     "fluid/**/*",
     "extensions/babel/babel.cfg",

@@ -18,7 +18,7 @@ the task needs.
 - `258-277` **Task → route**
 - `278-289` **Verify your work**
 - `290-323` **Pull deeper detail live**
-- `324-337` **References**
+- `324-339` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -322,6 +322,8 @@ battery, or the exact enable sequence — the references below carry the working
 carry the exhaustive detail.
 
 ## References
+
+The package's [CONTRACT.md](../CONTRACT.md) defines its public integration boundaries.
 
 Each reference opens with a line-range index of its own sections. Read those first 30 lines, then
 open only the ranges the task needs — these files run to several hundred lines each and loading one

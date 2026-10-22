@@ -57,6 +57,8 @@ async def register_additives(fluid):
                 await additive.enable(fluid)
                 log_factory.log(f"[{additive.name}] Additive successfully registered.")
             except Exception as e:
+                # TODO(1.1): make failed registration atomic and stop dependent modules;
+                # after_enable can fail after routes and other side effects are installed.
                 log_factory.exception(e, f"[{additive.name}] Failed registering additive.")
 
             bar.update()

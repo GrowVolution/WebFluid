@@ -7,6 +7,7 @@ def install_request_logger(fluid):
     def before_request():
         r = FluidContext.current().request
         agent = r.headers.get("user-agent", "unknown")
+        client = r.client.host if r.client else "unknown"
         log_factory.log(
-            f"[Request] {r.method} {r.url.path} from {r.client.host} ({agent})"
+            f"[Request] {r.method} {r.url.path} from {client} ({agent})"
         )

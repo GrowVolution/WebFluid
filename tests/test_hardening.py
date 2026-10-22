@@ -1,6 +1,6 @@
 from starlette.requests import Request
 from uuid import uuid4
-import jwt, pytest
+import jwt, os, pytest
 
 from webfluid.extensions.jwt.config import JWTConfig
 from webfluid.extensions.jwt.decode import _kid
@@ -247,3 +247,114 @@ async def test_an_unsigned_csrf_token_is_refused(tokens):
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "INVALID_TOKEN"
+
+
+@pytest.mark.parametrize("header", [
+    b"host", b"content-length", b"transfer-encoding",
+    b"connection", b"keep-alive", b"upgrade", b"expect"
+])
+def test_a_proxied_request_drops_hop_by_hop_headers(header):
+    from webfluid.utils.core.proxy import forwarded_headers
+
+    request = Request({
+        "type": "http", "method": "POST", "path": "/",
+        "headers": [(header, b"value"), (b"authorization", b"Bearer t")],
+        "query_string": b""
+    })
+    forwarded = forwarded_headers(request.headers)
+
+    assert header.decode() not in forwarded
+    assert forwarded["authorization"] == "Bearer t"
+
+
+@pytest.mark.parametrize("pid", [
+    "", ".", "..", "../users", "a/b", "C:" + chr(92) + "users", "a:b"
+])
+def test_a_package_id_that_is_not_a_directory_name_is_refused(pid):
+    from importlib import import_module
+    install = import_module("webfluid.cli.ocean.install")
+
+    assert install._usable_id(pid) is False
+
+
+@pytest.mark.parametrize("pid", ["users", "users-admin", "stripe_connect"])
+def test_a_plain_package_id_stays_usable(pid):
+    from importlib import import_module
+    install = import_module("webfluid.cli.ocean.install")
+
+    assert install._usable_id(pid) is True
+
+
+@pytest.fixture
+def ocean_token(tmp_path, monkeypatch):
+    from webfluid.utils import ocean
+
+    target = tmp_path / ".wf-ocean"
+    monkeypatch.setattr(ocean, "TOKEN_FILE", target)
+    return ocean, target
+
+
+def test_the_ocean_token_survives_a_round_trip(ocean_token):
+    ocean, _ = ocean_token
+    ocean.save_token("  secret-token  ")
+
+    assert ocean.load_token() == "secret-token"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes only")
+def test_the_ocean_token_is_written_for_its_owner_only(ocean_token):
+    ocean, target = ocean_token
+    target.write_text("loose", encoding="utf-8")
+    target.chmod(0o644)
+    ocean.save_token("secret-token")
+
+    assert target.stat().st_mode & 0o077 == 0
+
+
+@pytest.mark.parametrize("stored", ["", "not-a-hash", "$argon2id$v=19$broken"])
+def test_a_hash_the_hasher_cannot_read_fails_the_check(stored):
+    from webfluid.extensions.security.services.hashing import HashService
+
+    service = HashService(1, 8, 1, threads=1)
+
+    assert service.verify(stored, "whatever") is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requirement, field", [
+    ("has_roles", "roles"), ("has_any_role", "roles"),
+    ("has_permissions", "permissions"), ("has_any_permission", "permissions")
+])
+@pytest.mark.parametrize("value", [[], None, "admin"])
+async def test_a_requirement_without_a_usable_list_is_refused(requirement, field, value):
+    from webfluid.extensions.security.services.user.gating.check import check_requirement
+
+    with pytest.raises(ValueError, match=field):
+        await check_requirement(object(), { "requirement": requirement, field: value })
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("r", [
+    { "requirement": "is_admin" }, { "requirement": "has_2fa" },
+    { "requirement": "has_roles", "roles": ["staff"] }
+])
+async def test_a_requirement_beyond_sign_in_fails_closed_without_a_user(r):
+    from webfluid.extensions.security.services.user.gating.check import check_requirement
+
+    assert await check_requirement(None, r) is False
+
+
+def test_the_request_logger_survives_a_client_less_scope(make_fluid):
+    from webfluid.core.context import FluidContext
+    from webfluid.core.processing.lifecycle.before import install_request_logger
+
+    fluid = make_fluid()
+    hooks = []
+    fluid._request_lifecycle.before.add = hooks.append
+    install_request_logger(fluid)
+
+    request = Request({
+        "type": "http", "method": "GET", "path": "/",
+        "headers": [], "query_string": b""
+    })
+    with FluidContext(fluid, request): hooks[0]()

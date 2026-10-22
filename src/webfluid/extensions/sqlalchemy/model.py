@@ -6,6 +6,8 @@ from webfluid.exceptions import FrameworkException
 
 
 class Model(DeclarativeBase):
+    # TODO(1.1): give str a length in type_annotation_map; MySQL refuses a bare
+    # VARCHAR, and fixing it changes the DDL of every model (needs a migration).
     __bind_set__ = False
     __metadata__ = {}
 

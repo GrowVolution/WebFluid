@@ -15,7 +15,9 @@ class EventManager(FluidExtension):
     event: Callable[..., Callable[..., Any]]
     trigger: Callable[..., None]
     listen: Callable[[str], AsyncIterator[Any]]
+    has_event: Callable[[str], bool]
     query: Callable[..., Callable[..., Any]]
     request: Callable[..., Awaitable[Any]]
+    has_query: Callable[[str], bool]
     def __init__(self, fluid: Fluid | None = None) -> None: ...
     def expand_fluid(self, fluid: Fluid, *args: Any, **kwargs: Any) -> None: ...

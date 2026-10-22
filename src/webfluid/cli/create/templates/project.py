@@ -115,16 +115,22 @@ class Config(MyConfig):
 """
 
 
+app_router_include = (
+     "\n    from .app import app_router"
+    f"\n    _{FRAMEWORK_ID}.include_router(app_router)\n"
+)
+
+
 app_init_py = f"""from {FRAMEWORK_PACKAGE} import Fluid
 
 
 def prepare_{FRAMEWORK_ID}() -> Fluid:
-    app = Fluid(__name__)
+    _{FRAMEWORK_ID} = Fluid(__name__)
 
-    from {FRAMEWORK_ID}.api import api_router
-    app.include_router(api_router)
+    from .api import api_router
+    _{FRAMEWORK_ID}.include_router(api_router)
 {{index}}
-    return app
+    return _{FRAMEWORK_ID}
 """
 
 

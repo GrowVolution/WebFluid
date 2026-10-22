@@ -10,6 +10,7 @@ from webfluid.cli.create.templates.project import (
     app_index_py as app_index_py,
     app_router_py as app_router_py,
     app_config_py as app_config_py,
+    app_router_include as app_router_include,
     app_init_py as app_init_py,
     main_py as main_py,
     app_gitignore as app_gitignore,
@@ -29,7 +30,7 @@ __all__ = [
 
     "api_router_py", "app_v1_py", "app_index_html",
     "app_index_py", "app_router_py", "app_config_py",
-    "app_init_py", "main_py", "app_gitignore",
+    "app_router_include", "app_init_py", "main_py", "app_gitignore",
 
     "api_py", "adtv_v1_py", "adtv_index_html",
     "adtv_index_py", "app_py", "init_py", "adtv_gitignore",

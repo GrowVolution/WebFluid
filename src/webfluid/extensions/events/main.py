@@ -27,8 +27,10 @@ class EventManager(FluidExtension):
     event = Delegated("_events.event")
     trigger = Delegated("_events.trigger")
     listen = Delegated("_events.listen")
+    has_event = Delegated("_events.has_event")
     query = Delegated("_queries.query")
     request = Delegated("_queries.request")
+    has_query = Delegated("_queries.has_query")
 
     def __init__(self, fluid=None):
         self._events = None

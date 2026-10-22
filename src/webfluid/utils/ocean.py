@@ -67,6 +67,8 @@ def load_token():
 
 
 def save_token(token):
+    TOKEN_FILE.touch(mode=0o600, exist_ok=True)
+    TOKEN_FILE.chmod(0o600)
     TOKEN_FILE.write_text(token.strip(), encoding="utf-8")
 
 

@@ -5,6 +5,8 @@ def _disabled(*_, **__):
 
 
 class Limiter:
+    # TODO(1.1): RATELIMIT_DEFAULT only reaches routes that carry @limit;
+    # enforcing it everywhere needs SlowAPIMiddleware and an announcement.
     def __init__(self, fluid):
         self.enabled = fluid.config["RATELIMIT_ENABLED"]
         if not self.enabled: return

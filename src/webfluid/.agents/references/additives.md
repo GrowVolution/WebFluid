@@ -4,22 +4,24 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `25-39` **Which one**
-- `40-406` **Additives**
-  - `66-134` The manifest
-    - `99-134` `requires.packages` — only what nothing else already brings
-  - `135-174` The additive object
-  - `175-197` Handlers and rendering
-  - `198-233` Local lifecycle hooks
-  - `234-253` Enabling
-  - `254-269` The four rules
-  - `270-317` Contracts: events and queries
-    - `306-317` Contract design rules
-  - `318-362` Base Additives
-  - `363-391` `install()` and `configure()`
-  - `392-406` Packaging checklist
-- `407-490` **Extensions (`FluidExtension`)**
-  - `466-490` What `expand_fluid` may do
+- `27-41` **Which one**
+- `42-490` **Additives**
+  - `68-136` The manifest
+    - `101-136` `requires.packages` — only what nothing else already brings
+  - `137-176` The additive object
+  - `177-199` Handlers and rendering
+  - `200-251` Local lifecycle hooks
+  - `252-271` Enabling
+  - `272-287` The four rules
+  - `288-335` Contracts: events and queries
+    - `324-335` Contract design rules
+  - `336-380` Base Additives
+  - `381-409` `install()` and `configure()`
+  - `410-471` Documenting an Additive for people and agents
+    - `446-471` References point down, never up
+  - `472-490` Packaging checklist
+- `491-580` **Extensions (`FluidExtension`)**
+  - `556-580` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -216,6 +218,22 @@ def after_enable(): ...        # no arguments
 
 All of these are **scoped to the Additive's own routes**, not the whole app.
 
+**An exception in `before_enable` or `after_enable` fails the Additive's registration.** The error
+is logged against the Additive and the others still register — but this one serves nothing. So an
+enable hook registers first and touches data last:
+
+1. Routes, events, queries, translations, services' configuration — everything that cannot fail on
+   a healthy process.
+2. Anything that reads or writes the database comes after, and must survive a database that has no
+   tables yet: the first boot of an app runs before its migrations. Either schedule it as a one-shot
+   job (`scheduler.add_job(fn, DateTrigger(run_date=…), misfire_grace_time=None)`) or catch
+   `SQLAlchemyError` around it and log what is now missing in words an operator can act on.
+3. Never the sync executor in an enable hook — it blocks the loop the whole boot runs on.
+
+Startup hooks are closed by the time an Additive enables: `fluid.startup_hook(...)` from inside an
+enable hook raises `RuntimeError`. The scheduler is the place for work that must follow the boot —
+list `scheduling` in `required_extensions` when you use it.
+
 > **`additive.after_request` does not receive a `Response`.** It runs inside the router's endpoint
 > wrapper, before FastAPI serialises anything, so it receives — and must return — whatever your
 > handler returned: a dict, a pydantic model, a string. `fluid.after_request`, in the ASGI
@@ -389,6 +407,68 @@ setup = {
 except for `auto`, which needs `value`. Answers land in a config section named after the id. A base
 is configured before its child.
 
+## Documenting an Additive for people and agents
+
+An Additive is reused by people who decide whether to install it and by agents who wire it into an
+application. Each audience gets its own file, and none of them repeats another:
+
+| File               | Reader   | Holds                                                                                               |
+|--------------------|----------|-----------------------------------------------------------------------------------------------------|
+| `README.md`        | people   | The landing page: why the Additive exists, what it gives a project, install, license               |
+| `DOCS.md`          | people   | The guide a person reads before answering for the Additive: concepts, flows, every setting and what it changes, security model, operation, troubleshooting |
+| `CHANGELOG.md`     | people   | What changed per version, in plain language, with what an upgrade requires                          |
+| `CONTRACT.md`      | agents   | The complete integration surface: routes, signals, queries provided and consumed, config, errors    |
+| `.agents/SKILL.md` | agents   | When to use the Additive, the rules that keep an integration correct, recipes, and where to look    |
+
+`DOCS.md` explains; it does not enumerate. It may name a route, a signal or an error code to make a
+flow understandable, and points into `CONTRACT.md` for the exact shapes rather than copying them, so
+the two never drift apart. An SDK carries the same set next to its own `pubspec.yaml` or
+`pyproject.toml`.
+
+`CONTRACT.md` is the reference an agent loads in parts, so it states payloads, answers and error
+codes exactly and describes an Additive **only through what it provides and what it requires** —
+never through the applications that happen to use it. `.agents/SKILL.md` stays short: frontmatter
+with a `name` and a `description` that says when to load it, then the decisions an agent gets wrong
+without it. It does not copy the contract; it links into it by line range:
+
+```markdown
+## Contract map
+
+<!-- index ../CONTRACT.md -->
+<!-- /index -->
+```
+
+`wf agents index` fills every `<!-- index -->` block below the current directory — the file's own
+sections, or the sections of the file a block names — and leaves everything else untouched. Run it
+after editing either file; `wf agents index --check` changes nothing and exits with `1` when a range
+is stale, which makes it a fitting CI step.
+
+### References point down, never up
+
+Every package documents itself as if nothing above it existed. Its Markdown — `README.md`,
+`CHANGELOG.md`, `CONTRACT.md`, `.agents/SKILL.md` and any reference file — may name the framework,
+its own dependencies (the `requires` of its manifest, transitively) and the optional contracts it
+consumes. It never names a package, SDK or application that depends on it — and `DOCS.md` is no
+exception, however natural an example from a real consumer would read. The same holds for
+extensions and for SDKs, whose dependencies are their `pubspec.yaml` or `pyproject.toml`.
+
+| Situation                                          | Write                                                                 | Not                                                         |
+|----------------------------------------------------|-----------------------------------------------------------------------|-------------------------------------------------------------|
+| A feature moved into a lower package               | Its CHANGELOG describes the feature and the upgrade on its own terms  | "moved here from `users`", "the users SDK now sends …"      |
+| The consumer had to change because of it           | The consumer's CHANGELOG says so and names the lower package          | the lower package explaining its consumers' upgrade         |
+| An example payload, id, header or class            | A neutral name: `my-app`, `shop:order`, `myapp/1.0.0 (android; …)`    | the name of a real consumer                                 |
+| A collector or extension point                     | The owner documents the query; each contributor documents its answer  | the owner listing who contributes                           |
+| A requirement only some consumer has               | That consumer's README or SKILL, e.g. a platform setting               | the lower package's setup guide                             |
+| Two packages must stay aligned                     | The higher one follows the lower one's CHANGELOG                      | the lower one promising to follow its consumers             |
+
+A lower package that seems to need a sentence about its consumers is usually missing a neutral
+concept: a role (`host`, `peer`), a generic consumer ("any route", "an Additive that integrates
+it"), or an extension point the consumers implement. Name that concept instead.
+
+The rule reaches into code where a package answers another package's collector: contribute only to
+collectors of packages you require. A collector every contributor should reach belongs to the lowest
+package they all require, so that no package has to answer a query of one built on top of it.
+
 ## Packaging checklist
 
 - [ ] `manifest.json` — correct `id`, real `version`, `requires.wf` set, dependencies declared
@@ -396,10 +476,14 @@ is configured before its child.
 - [ ] Every contract name goes through `unique_name()`
 - [ ] Every config key prefixed with the id
 - [ ] `required_extensions` lists what the code actually uses
+- [ ] Enable hooks register first and survive a database without tables; no sync executor in them
 - [ ] `requires.packages` holds nothing the framework, a required Additive or your base already
       installs
 - [ ] `.gitignore` present — it decides what ships
 - [ ] `extract/` holds only what the host should own
+- [ ] `README.md`, `DOCS.md`, `CONTRACT.md` and `.agents/SKILL.md` present, indexes current
+      (`wf agents index --check`)
+- [ ] No Markdown names a package or app that depends on this one
 - [ ] A license
 
 ---
@@ -416,6 +500,12 @@ myext = "extension.main:MyExtension"
 The group name is exactly `webfluid.extensions`; the entry-point **name** becomes the CLI
 sub-command (`wf myext …`); the target must be a `FluidExtension` subclass (anything else is skipped
 with a warning).
+
+`FluidExtension` is an abstract base class and `expand_fluid` is its abstract method: a subclass
+that does not implement it cannot be instantiated at all — `TypeError` at construction, before any
+`fluid` is passed. The same holds for the framework's other extension points: a cache backend
+implements all eight methods of `BaseCache` (`set`, `get`, `delete`, `clear` and their `a*` twins),
+and an executor implements `exec`, `insert`, `delete` and `flush` of the executor base.
 
 ```python
 from webfluid.extensions import FluidExtension

@@ -40,6 +40,9 @@ jobs:
       - name: Run the full test suite
         run: python -m pytest -q
 
+      - name: Check that the agent documentation indexes are current
+        run: python -m webfluid agents index --check
+
   stubs:
     name: stub tree
     runs-on: ubuntu-latest

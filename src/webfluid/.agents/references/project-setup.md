@@ -4,22 +4,22 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `25-61` **The command tree**
-- `62-98` **The project layout**
-- `99-118` **What `Fluid(import_name)` does, in constructor order**
-- `119-231` **`app_configs/<name>.ini`**
-  - `170-184` `EXT_*` — batteries
-  - `185-200` `WF_*` — surface features
-  - `201-206` `[additives]`
-  - `207-218` Secrets from files
-  - `219-224` `[dev]`
-  - `225-231` Environment the CLI injects
-- `232-320` **Config classes**
-  - `265-310` What belongs where
-  - `311-320` Reading config
-- `321-342` **One project, many apps**
-- `343-372` **`wf run` and deployment**
-- `373-401` **Ocean**
+- `25-62` **The command tree**
+- `63-99` **The project layout**
+- `100-119` **What `Fluid(import_name)` does, in constructor order**
+- `120-232` **`app_configs/<name>.ini`**
+  - `171-185` `EXT_*` — batteries
+  - `186-201` `WF_*` — surface features
+  - `202-207` `[additives]`
+  - `208-219` Secrets from files
+  - `220-225` `[dev]`
+  - `226-232` Environment the CLI injects
+- `233-321` **Config classes**
+  - `266-311` What belongs where
+  - `312-321` Reading config
+- `322-343` **One project, many apps**
+- `344-373` **`wf run` and deployment**
+- `374-402` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -48,6 +48,7 @@ entry-point name. Your own extension gets a `wf <name> …` group the same way.
 | `wf migrate …`             | project root          | reads `app_configs/<app>.ini`, writes `migrate/` |
 | `wf ocean install`         | project root          | writes `additives/`, `extensions/`               |
 | `wf ocean publish`         | the package directory | reads `manifest.json` or `pyproject.toml`        |
+| `wf agents index`          | anywhere              | refreshes `<!-- index -->` blocks below the cwd  |
 
 > **The scaffolders are interactive and have no non-interactive flag.** Without a TTY, run
 > `wf create project <name> --skip-frontend` (which asks nothing) and write `app_configs/<name>.ini`
@@ -325,16 +326,16 @@ table lives at `/latest/config/config-class.md`.
 ```python
 # fluid/__init__.py
 def prepare_fluid() -> Fluid:
-    app = Fluid(__name__)
+    _fluid = Fluid(__name__)
 
-    if app.name == "api":
-        from fluid.api import api_router
-        app.include_router(api_router)
-    elif app.name == "web":
-        from fluid.app import app_router
-        app.include_router(app_router)
+    if _fluid.name == "api":
+        from .api import api_router
+        _fluid.include_router(api_router)
+    elif _fluid.name == "web":
+        from .app import app_router
+        _fluid.include_router(app_router)
 
-    return app
+    return _fluid
 ```
 
 `wf run api` and `wf run web` then serve different route sets, switches, databases and Additives

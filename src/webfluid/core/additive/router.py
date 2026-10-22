@@ -6,6 +6,8 @@ from webfluid.utils.logging import factory as log_factory
 
 
 class Router(APIRouter):
+    # TODO(1.1): the async wrapper hides `def` endpoints from FastAPI's
+    # threadpool, so a blocking Additive handler stalls the event loop.
     def __init__(self, *args, **kwargs):
         self._http_middleware = []
         super().__init__(*args, **kwargs)

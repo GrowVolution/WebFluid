@@ -21,6 +21,7 @@ from webfluid.utils.core import (
 )
 from . import (
     additives as additives,
+    agents as agents,
     ocean as ocean,
     countries as countries,
     logging as logging,
@@ -35,5 +36,5 @@ __all__ = [
     "Version", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additives", "ocean", "countries", "logging", "cli", "surface",
+    "additives", "agents", "ocean", "countries", "logging", "cli", "surface",
 ]

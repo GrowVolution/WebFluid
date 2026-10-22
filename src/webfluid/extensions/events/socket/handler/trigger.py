@@ -1,5 +1,7 @@
 
 
+# TODO(1.1): internal=False lets any anonymous socket trigger, not only
+# subscribe; split the two without changing what the flag means today.
 def trigger(events, msg, res):
     data = msg["data"]
     if not isinstance(data, dict):

@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 from webfluid.exceptions import FrameworkException
 
 
@@ -20,14 +22,14 @@ class Delegated:
         return target
 
 
-class FluidExtension:
+class FluidExtension(ABC):
     _unexpanded = "{instance}.expand_fluid() has never been called."
 
     def __init__(self, fluid=None, *args, **kwargs):
         if fluid is not None: self.expand_fluid(fluid, *args, **kwargs)
 
-    def expand_fluid(self, fluid, *args, **kwargs):
-        raise NotImplementedError()
+    @abstractmethod
+    def expand_fluid(self, fluid, *args, **kwargs): ...
 
     @classmethod
     def cli_entry(cls, app, name):

@@ -1,5 +1,5 @@
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError
 from concurrent.futures import ThreadPoolExecutor
 
 from webfluid.core.identity import FRAMEWORK_ABBR
@@ -21,7 +21,7 @@ class HashService:
 
     def verify(self, password_hash, password):
         try: return self._hasher.verify(password_hash, password)
-        except VerifyMismatchError: return False
+        except (VerificationError, InvalidHashError): return False
 
     async def ahash(self, password):
         return await run_in_executor(

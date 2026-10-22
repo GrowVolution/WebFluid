@@ -1,12 +1,10 @@
 from contextvars import ContextVar
 
-from webfluid.core.context.base import BaseContext
+from webfluid.extensions.sqlalchemy.executor.base import BaseExecutor
 
 
-class Executor(BaseContext):
+class Executor(BaseExecutor):
     _ctx = ContextVar("sqlalchemy.executor")
-    def __init__(self, session):
-        self.session = session
 
     def exec(self, statement, scalars=True):
         results = self.session.execute(statement)

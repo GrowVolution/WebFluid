@@ -5,9 +5,13 @@ import httpx
 
 from fastapi import Request, Response, WebSocket
 
-_proxy_client: httpx.AsyncClient | None
-_SKIPPED_HEADERS: frozenset[str]
+from starlette.datastructures import Headers
 
+_proxy_client: httpx.AsyncClient | None
+_DROPPED_RESPONSE_HEADERS: frozenset[str]
+_DROPPED_REQUEST_HEADERS: frozenset[str]
+
+def forwarded_headers(headers: Headers) -> httpx.Headers: ...
 def proxy_client() -> httpx.AsyncClient: ...
 def get_proxy(
     base_url: str, prefix: str = "", pass_prefix: bool = False,

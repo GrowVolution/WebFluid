@@ -4,33 +4,33 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `50-183` **SQLAlchemy — `EXT_SQLALCHEMY`**
+- `50-187` **SQLAlchemy — `EXT_SQLALCHEMY`**
   - `52-65` URIs carry no driver
   - `66-95` Models
-  - `96-134` Executors
-  - `135-144` What survives the block
-  - `145-163` Binds
-  - `164-183` Creating tables
-- `184-229` **Migrate — CLI only, no `EXT_` switch**
-- `230-356` **Security — `EXT_SECURITY` (requires `EXT_SQLALCHEMY`)**
-  - `248-256` Relationship loading
-  - `257-288` Registration and authentication
-  - `289-320` Route guards
-  - `321-335` CSRF and single-use tokens
-  - `336-356` Bearer grants — one route, browser and machine
-- `357-451` **Babel — `EXT_BABEL` (requires `EXT_SQLALCHEMY`)**
-  - `375-404` The runtime store
-  - `405-418` Domains
-  - `419-438` Locale and timezone
-  - `439-451` Formatting
-- `452-573` **Events — `EXT_EVENTS`**
-  - `520-527` Delivery semantics
-  - `528-573` On the client
-- `574-621` **Cache — `EXT_CACHE`**
-- `622-668` **Mail — `EXT_MAIL`**
-  - `647-668` Batching
-- `669-708` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `709-740` **Scheduling — `EXT_SCHEDULING`**
+  - `96-138` Executors
+  - `139-148` What survives the block
+  - `149-167` Binds
+  - `168-187` Creating tables
+- `188-233` **Migrate — CLI only, no `EXT_` switch**
+- `234-360` **Security — `EXT_SECURITY` (requires `EXT_SQLALCHEMY`)**
+  - `252-260` Relationship loading
+  - `261-292` Registration and authentication
+  - `293-324` Route guards
+  - `325-339` CSRF and single-use tokens
+  - `340-360` Bearer grants — one route, browser and machine
+- `361-455` **Babel — `EXT_BABEL` (requires `EXT_SQLALCHEMY`)**
+  - `379-408` The runtime store
+  - `409-422` Domains
+  - `423-442` Locale and timezone
+  - `443-455` Formatting
+- `456-579` **Events — `EXT_EVENTS`**
+  - `524-531` Delivery semantics
+  - `532-579` On the client
+- `580-631` **Cache — `EXT_CACHE`**
+- `632-678` **Mail — `EXT_MAIL`**
+  - `657-678` Batching
+- `679-718` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `719-750` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -114,6 +114,10 @@ async with db.async_executor(model=MyModel) as e:
 | `delete(obj, flush=False)`      |                                                                                                              |
 | `flush()`                       |                                                                                                              |
 | `.session`                      | The real SQLAlchemy session, for anything the wrapper does not cover                                         |
+
+`Executor` and `AsyncExecutor` share an abstract base that declares exactly these four methods. A
+wrapper of your own — a read-only executor, a tracing one — subclasses the concrete class it wraps
+and keeps all four; a subclass of the base that leaves one out raises `TypeError` on construction.
 
 ```python
 db.executor(bind_key=None, model=None)          # sync,  new session
@@ -567,7 +571,9 @@ Everything else that reads the request works unchanged — the locale resolution
 timezone, `url_for` — so a handler may render a template and answer with HTML in the visitor's
 language.
 
-Introspection: `has_event`, `has_query`, `is_singleton`, `is_internal`, `broadcaster`, `handlers`.
+Introspection: `events.has_event(name)` and `events.has_query(name)`, both plain booleans. They
+are what an optional dependency asks before it addresses a contract another Additive may not have
+installed. Nothing else about the registry is public.
 
 ---
 
@@ -596,6 +602,10 @@ both backends. `CACHE_TYPE = legacy` is wrong the moment you run more than one w
 There is no automatic namespacing. Prefix your keys (`myapp:…`, `<additive_id>:…`) and never write
 under `jwt:`. **Never call `clear()` / `aclear()` in an app that uses JWT** — it is `flushdb` and
 drops the signing keys.
+
+`BaseCache` is abstract. A backend of your own implements all eight methods — `set`, `get`,
+`delete`, `clear` and `aset`, `aget`, `adelete`, `aclear` — or it cannot be constructed; inherit
+`_ttl()` for the `timeout` semantics above instead of re-deriving them.
 
 The read-through pattern: cache in the query, invalidate in the event that changes the data.
 

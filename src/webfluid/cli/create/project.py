@@ -107,10 +107,7 @@ def project(
             (app_dir / "templates/index.html").write_text(
                 templates.app_index_html, encoding="utf-8"
             )
-            write_factory(
-                f"\n    from {FRAMEWORK_ID}.app import app_router"
-                f"\n    app.include_router(app_router)\n"
-            )
+            write_factory(templates.app_router_include)
 
         write_config(conf)
 

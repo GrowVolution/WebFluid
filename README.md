@@ -1,12 +1,15 @@
 # WebFluid
 
-A CLI-first, full-stack web framework for Python, built on top of FastAPI.
+An operating system for web applications, built on FastAPI — so that the next
+application is assembled from maintained building blocks instead of being written
+from zero again.
 
-WebFluid is the framework that powers the WebFluid platform. It keeps FastAPI's
-async foundation and adds the pieces you normally have to assemble yourself: an
-opinionated project layout, a set of optional built-in extensions (database,
-i18n, sessions, caching, mail, and more), a bundled frontend toolchain, and a
-package registry called **Ocean** for sharing reusable features between projects.
+WebFluid keeps FastAPI's async foundation and adds what every project rebuilds:
+an opinionated project layout, optional built-in extensions (database, i18n,
+sessions, caching, mail, events, scheduling, tokens), a bundled frontend
+toolchain, and **Ocean**, a registry of installable feature modules — accounts,
+sign-in, payments, admin screens, integrity checks — that projects share instead
+of re-implementing.
 
 The framework is at its first release candidate (`1.0.0rc1`) and targets
 Python 3.14+.
@@ -15,20 +18,36 @@ Python 3.14+.
 
 ## Why it exists
 
-Building a web application in Python usually means wiring together a web layer,
-a database, a migration tool, translations, a session and auth story, a caching
-layer, a task scheduler, and a frontend build — and then repeating most of that
-work on the next project.
+Anyone can now produce a working web application in minutes — with a coding
+agent, with any stack. What that does not produce is software someone can stand
+behind: every generated project brings its own conventions, its own version of
+login, payments and permissions, its own tests and its own maintenance, and the
+same mistakes are made again in each of them. The result is a growing amount of
+code that works today and that nobody reviews, owns or improves.
 
-WebFluid exists to remove that repetition without hiding the underlying tools.
-It is opinionated about *structure* (how a project is laid out, how features are
-packaged, how apps are configured and run) while staying close to the libraries
-developers already know: FastAPI for the web layer, SQLAlchemy for data, Jinja
-for templates, Babel for translations, Alembic for migrations, Vite and Tailwind
-for the frontend.
+WebFluid is built for the opposite. Its value is not that it makes any one
+implementation possible — that is no longer rare — but that you rarely need a new
+one:
 
-The result is a workflow where a single command scaffolds a project, another
-enables the features you need, and a third runs it.
+- **Established solutions instead of fresh ones.** Features ship as Additives
+  with a written contract. A project installs and configures them; it writes only
+  what is specific to it.
+- **One maintainer per solution.** Issues and feedback from every project that
+  uses an Additive flow to one place and back out as one release, so a fix or a
+  hardening reaches everyone instead of one fork.
+- **Built for agents, accountable to people.** Every Additive and the framework
+  itself carry agent documentation — a contract with exact payloads and errors, a
+  skill that says when and how to use it — so an agent wires in what exists
+  instead of generating it again. The code stays small, conventional and
+  reviewable, so that a person can take responsibility for what ships.
+- **Gets better with use.** The more projects run a solution, the more of its
+  edge cases are found and fixed, and the better agents get at using it.
+
+Under the hood WebFluid stays close to the libraries developers already know:
+FastAPI for the web layer, SQLAlchemy for data, Jinja for templates, Babel for
+translations, Alembic for migrations, Vite and Tailwind for the frontend. A
+single command scaffolds a project, another installs the features it needs, and
+a third runs it.
 
 ---
 
@@ -84,8 +103,12 @@ manifest.
   (for example `sqlalchemy` or `jwt`), and the framework refuses to enable it if
   the host app does not provide them.
 
-Additives are installed into a project rather than imported as libraries, which
-keeps their templates and assets editable and their behaviour transparent.
+Additives are installed into a project rather than imported as libraries, so
+their routes, templates and assets are there to be read and reviewed by whoever
+has to answer for the application. Reading them is the point; editing them is
+not — an Additive you change stops receiving its upstream fixes, so a project
+extends one through the contract it publishes and sends anything missing back to
+its maintainer.
 
 ---
 
@@ -96,7 +119,7 @@ an `EXT_*` flag, so an app only pays for what it uses.
 
 | Extension      | Purpose                                                               |
 |----------------|-----------------------------------------------------------------------|
-| **SQLAlchemy** | Async database access with support for PostgreSQL, MySQL, and SQLite. |
+| **SQLAlchemy** | Async database access against PostgreSQL or SQLite; MySQL is wired but see *Known limitations* in the release notes. |
 | **Migrate**    | Alembic-based schema migrations.                                      |
 | **Babel**      | Internationalisation and localisation of text, dates, and numbers.    |
 | **Security**   | Sessions, roles, and request protection primitives.                   |
@@ -152,16 +175,21 @@ pip install "webfluid[typing]"
 
 ## Working with a coding agent
 
-The package ships an agent skill at `webfluid/.agents/skills/webfluid/`: a
-`SKILL.md` and six references covering the CLI and project layout, the runtime
-and request lifecycle, every extension, the additive and extension contracts,
-the frontend surface, and the current release's known defects. Pointing a coding
-agent at that directory is what makes it generate WebFluid code rather than
-plain FastAPI code with the framework's names on it.
+The package ships an agent skill at `webfluid/.agents/`: a `SKILL.md` and six
+references covering the CLI and project layout, the runtime and request
+lifecycle, every extension, the additive and extension contracts, the frontend
+surface, and the current release's known defects. Pointing a coding agent at
+that directory is what makes it generate WebFluid code rather than plain FastAPI
+code with the framework's names on it — and what makes it reach for an existing
+Additive before it writes the same feature again.
 
 Every one of those files opens with an index of its sections and their line
-ranges, so an agent reads the part a task needs instead of the whole file. The
-same material is published for agents at <https://docs.webfluid.dev/llms.txt>.
+ranges, so an agent reads the part a task needs instead of the whole file.
+Additives, extensions and SDKs document themselves the same way — a
+`CONTRACT.md` and an `.agents/SKILL.md` for agents next to a `README.md` and a
+`DOCS.md` for the people who answer for them — and `wf agents index` keeps
+every index in a project current. The same material is published
+for agents at <https://docs.webfluid.dev/llms.txt>.
 
 ---
 
@@ -222,9 +250,9 @@ from webfluid import Fluid
 
 
 def prepare_fluid() -> Fluid:
-    app = Fluid(__name__)
+    _fluid = Fluid(__name__)
     # register routers, additives, sources, and hooks here
-    return app
+    return _fluid
 ```
 
 ```python
@@ -247,11 +275,12 @@ working structure, and `wf run` launches it against a chosen app configuration.
 
 ## Who it is for
 
-WebFluid is aimed at Python developers building full-stack web applications who
-want a clear project structure and reusable features without stepping away from
-the FastAPI ecosystem. If you have ever wanted a Flask- or Django-style sense of
-"a place for everything" on top of modern async Python, this framework is built
-for that.
+WebFluid is aimed at teams and individuals — and the agents they work with — who
+build user-facing web applications and would rather reuse a maintained solution
+than own another copy of it: a clear project structure, installable features with
+contracts, and the FastAPI ecosystem underneath. If you have ever wanted a Flask-
+or Django-style sense of "a place for everything" on top of modern async Python,
+and a place to get the everything from, this framework is built for that.
 
 ---
 

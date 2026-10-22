@@ -6,7 +6,7 @@ __all__ = [
     "Version", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additives", "ocean", "countries", "logging", "cli", "surface"
+    "additives", "agents", "ocean", "countries", "logging", "cli", "surface"
 ]
 
 
@@ -22,7 +22,7 @@ def __getattr__(name):
         return getattr(core, name)
 
     if name in {
-        "additives", "ocean", "countries", "logging", "cli", "surface"
+        "additives", "agents", "ocean", "countries", "logging", "cli", "surface"
     }:
         from importlib import import_module
         return import_module(f".{name}", __name__)

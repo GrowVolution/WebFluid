@@ -125,8 +125,21 @@ def _pull_bundle(ocean, ref):
         return None
 
 
+def _usable_id(pid):
+    if not pid or pid in {".", ".."}: return False
+    return not any(char in pid for char in ("/", "\\", ":"))
+
+
 def _add_spec(specs, seen, ptype, spec, origin=None):
     pid, _ = _parse_spec(spec)
+    if not _usable_id(pid):
+        typer.secho(
+            f"[{spec}] Not a usable package id; it is also the directory "
+            "the package is installed into.",
+            fg=typer.colors.RED
+        )
+        return
+
     if (ptype, pid) in seen:
         typer.secho(
             f"[{pid}] Requested more than once"

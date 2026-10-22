@@ -14,6 +14,8 @@ class UrlFor(BaseModel):
 
 
 def add_route(fluid):
+    # TODO(1.1): move under the framework prefix like IDENTITY_ROUTE; the bare
+    # path can collide with app routes. Renaming needs a deprecation window.
     from ..timestamping import timestamped
 
     @fluid.post("/url-for")

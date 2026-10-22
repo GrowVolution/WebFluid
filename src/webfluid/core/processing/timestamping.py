@@ -2,7 +2,7 @@ from selectolax.lexbor import LexborHTMLParser
 
 
 def timestamped(path, ts):
-    return path + f"?t={ts}"
+    return f"{path}{'&' if '?' in path else '?'}t={ts}"
 
 
 def timestamped_node(src, ts):

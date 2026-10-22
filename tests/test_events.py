@@ -86,3 +86,24 @@ def test_the_consumer_loop_does_not_inherit_the_registering_context(events):
 
     asyncio.run(run())
     assert seen == [None]
+
+
+def test_the_manager_answers_whether_a_contract_exists(make_fluid):
+    from webfluid.extensions.events.main import EventManager
+
+    manager = EventManager(make_fluid())
+
+    manager.create_signal("public_signal", internal=False)
+    manager.query("answerable")(lambda data: None)
+
+    assert manager.has_event("public_signal") is True
+    assert manager.has_event("never_registered") is False
+    assert manager.has_query("answerable") is True
+    assert manager.has_query("never_registered") is False
+
+
+def test_the_manager_refuses_introspection_before_it_is_expanded():
+    from webfluid.extensions.events.main import EventManager
+
+    with pytest.raises(FrameworkException):
+        EventManager().has_query("anything")

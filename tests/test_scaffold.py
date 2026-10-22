@@ -8,10 +8,7 @@ from webfluid.core.identity import (
 
 _ENV = FRAMEWORK_ROOT / "extensions/migrate/templates"
 
-_INDEX = (
-    f"\n    from {FRAMEWORK_ID}.app import app_router"
-    f"\n    app.include_router(app_router)\n"
-)
+_INDEX = templates.app_router_include
 
 
 @pytest.mark.parametrize("index", ["", _INDEX])
@@ -28,11 +25,12 @@ def test_the_generated_factory_carries_no_placeholder(index):
     assert factory.name == f"prepare_{FRAMEWORK_ID}"
 
 
-def test_the_generated_factory_includes_the_app_router():
+def test_the_generated_factory_includes_both_routers():
     source = templates.app_init_py.format(index=_INDEX)
 
-    assert f"from {FRAMEWORK_ID}.app import app_router" in source
-    assert f"from {FRAMEWORK_ID}.api import api_router" in source
+    assert "from .app import app_router" in source
+    assert "from .api import api_router" in source
+    assert f"_{FRAMEWORK_ID}.include_router(app_router)" in source
 
 
 def test_the_generated_entrypoint_calls_the_factory():

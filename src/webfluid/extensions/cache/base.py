@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from webfluid.extensions.base import FluidExtension
 
 
@@ -13,12 +15,20 @@ class BaseCache(FluidExtension):
         ttl = self._default_timeout if timeout is None else timeout
         return ttl or None
 
-    def set(self, key, value, timeout=None): raise NotImplementedError()
-    def get(self, key): raise NotImplementedError()
-    def delete(self, key): raise NotImplementedError()
-    def clear(self): raise NotImplementedError()
+    @abstractmethod
+    def set(self, key, value, timeout=None): ...
+    @abstractmethod
+    def get(self, key): ...
+    @abstractmethod
+    def delete(self, key): ...
+    @abstractmethod
+    def clear(self): ...
 
-    async def aset(self, key, value, timeout=None): raise NotImplementedError()
-    async def aget(self, key): raise NotImplementedError()
-    async def adelete(self, key): raise NotImplementedError()
-    async def aclear(self): raise NotImplementedError()
+    @abstractmethod
+    async def aset(self, key, value, timeout=None): ...
+    @abstractmethod
+    async def aget(self, key): ...
+    @abstractmethod
+    async def adelete(self, key): ...
+    @abstractmethod
+    async def aclear(self): ...

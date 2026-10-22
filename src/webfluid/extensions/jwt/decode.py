@@ -26,8 +26,7 @@ class Decoder:
             token, secret,
             algorithms=[self._config.algorithm],
             issuer=self._config.issuer,
-            audience=self._config.audience(audience),
-            verify=True
+            audience=self._config.audience(audience)
         )
 
     def decode(self, token, audience="default"):

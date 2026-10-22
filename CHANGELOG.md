@@ -9,16 +9,26 @@ else is internal and may change in any release.
 The first release candidate. `1.0.0b3` closed the last of the known defects that
 could be closed inside a stabilisation release; this one changes nothing about
 the framework's own surface and exists to let the `1.0.0` surface sit still for a
-while before it is frozen. Twenty-two behaviour fixes — nine of them defects the
-`1.0.0b3` documentation lists as known issues, among them two security fixes —
-one small addition to `FluidExtension`, two changes to the shape of a generated
-project, one internal rename, and a pass over the typing and the documentation
-that ships in the package.
+while before it is frozen. Thirty behaviour fixes — nine of them defects the
+`1.0.0b3` documentation lists as known issues, two of those security fixes, and
+three more security fixes found while auditing this release candidate — small
+additions to `FluidExtension`, the event manager and the scaffolding templates,
+two changes to the shape of a generated project, one internal rename, and a pass
+over the typing and the documentation that ships in the package. Five defects that cannot
+be fixed without touching a schema, a signature or a URL are marked in the
+source with a `TODO(1.1)` saying why, and are listed under *Known limitations*.
 
-There are no breaking changes. Three fixes change what a call does where the old
+There are no breaking changes for code that uses the framework the way its
+documentation describes. Five fixes change what a call does where the old
 behaviour was the defect: a bearer principal without a verified email is
-refused, production no longer serves frontend source files, and `timeout=0` on
-the cache means no expiry. A project generated before this release keeps running
+refused, production no longer serves frontend source files, `timeout=0` on the
+cache means no expiry, a role or permission requirement with an empty list is
+refused as malformed instead of failing with `TypeError`, and **an Additive
+whose enable hook raises no longer registers**. The last one is the one an
+Additive author has to check: a `before_enable` that reads or writes the
+database before this app's migrations have run used to fail quietly and leave a
+half-wired Additive behind; it now fails that Additive's registration, loudly.
+Register routes first and guard boot-time data work — *Fixed* has the details. A project generated before this release keeps running
 unchanged; only `wf migrate` wants its app factory moved, as described under
 *Changed*.
 
@@ -187,9 +197,78 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 - `get_root_path()` raised `AttributeError: module 'importlib' has no attribute
   'util'` on the one path that needs `find_spec` — a module that is not in
   `sys.modules` yet. Only the import of `importlib.util` was missing.
+- The request logger crashed on every request whose ASGI scope carries no
+  client. It read `request.client.host` unconditionally, and `client` is `None`
+  for a connection over a Unix socket, for an in-process transport and for
+  anything that speaks ASGI without a peer address. `before_request`
+  processors re-raise, so the `AttributeError` left the request with a 500
+  although nothing was wrong with it. An unknown peer is now logged as
+  `unknown`.
+- An Additive's enable hooks swallowed their own failures. `before_enable` and
+  `after_enable` ran through `safe_execute` with re-raising off, so a hook that
+  could not register its routes, its models or its contracts only logged a
+  traceback — and registration then carried on and reported *Additive
+  successfully registered* for an Additive that was half there, answering 404 on
+  the routes it was supposed to own. Both phases now propagate, which is what
+  the registration loop around them has always been written to catch: the
+  failure is reported against the Additive that caused it, and the remaining
+  Additives still register.
+- `security.hash_service.verify()` raised instead of refusing a password hash it
+  cannot read. Only `VerifyMismatchError` was caught, so a row whose hash is
+  empty, truncated or written by another scheme left `InvalidHashError` or a
+  bare `VerificationError` to travel up as a 500 out of the sign-in handler
+  rather than as a failed sign-in. Every verification failure now answers
+  `False`; a hash the hasher cannot parse is a hash that does not match.
+- `security.user_service.check_requirement()` raised `TypeError` on a
+  requirement whose `roles` or `permissions` list is empty: the shape check let
+  the empty list through, and the call then picked the one-argument form by the
+  list's truthiness. An empty list is now refused as malformed with the same
+  `ValueError` a missing one gets — deliberately not passed on, because
+  `has_roles` and `has_permissions` answer an empty list with `True`, and a gate
+  must not open on a requirement that names nothing. The shape is now checked
+  before the administrator shortcut, so a malformed requirement surfaces for an
+  administrator as well instead of being waved through, and every requirement
+  beyond `is_authenticated` answers `False` for an anonymous caller instead of
+  raising `AttributeError` on `None`.
+- The debug cache-buster corrupted any URL that already had a query string. It
+  appended `?t=<timestamp>` unconditionally, so `url_for` on a route with query
+  parameters produced a second `?` and the parameters after it were lost. The
+  separator is now chosen from the URL.
+- The HTTP proxy forwarded the client's hop-by-hop headers to the upstream.
+  `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`,
+  `Upgrade` and `Expect` describe one connection and belong to the hop that
+  carries them; passing them on with a body the proxy has already read meant the
+  upstream could be told a framing that no longer applied — a chunked request
+  arrived announcing `Transfer-Encoding: chunked` next to a complete body — and
+  that the upstream saw the near end's `Host` rather than its own. They are
+  dropped now, as the equivalent response headers already were, and the client
+  library sets the correct framing for the body it sends. Authorization,
+  cookies and every other end-to-end header still travel.
+- `wf ocean install` used a package id as a directory name without checking it.
+  The id reaches the command from the command line and, for a bundle, from the
+  hub's answer, and it was joined onto `additives/` or `extensions/`
+  unvalidated, so an id holding a path separator or `..` would have unpacked the
+  archive outside the project. An id that cannot be a single directory name is
+  now refused before anything is downloaded.
+- The Ocean token file was created with the process umask, which on a POSIX
+  system means every local account could read the bearer token of the logged-in
+  maintainer. It is created and kept at mode `600`.
 
 ### Added
 
+- `wf agents index [PATHS…]` keeps the agent documentation of a project, an
+  Additive or an extension navigable. It finds every `CONTRACT.md` and every
+  Markdown file under an `.agents/` directory below the current directory —
+  skipping `node_modules`, `build`, `.git` and the like — and writes the
+  `<!-- index -->` block of section line ranges each file opens with. A block of
+  the form `<!-- index ../CONTRACT.md -->` … `<!-- /index -->` is filled with the
+  ranges of the file it names instead, which is how an Additive's
+  `.agents/SKILL.md` points into its contract without ranges going stale. The
+  command preserves each file's line endings, changes nothing in fenced code, and
+  with `--check` writes nothing and exits with `1` when an index is out of date,
+  so it can guard a CI pipeline. The implementation is
+  `webfluid.utils.agents` (`index`, `discover`); `scripts/agent_docs_index.py`
+  now uses it for the framework's own skill.
 - `FluidExtension.raise_unexpanded()` raises the `FrameworkException` an
   extension raises when it is used before `expand_fluid` ran, with the message
   taken from the class attribute `_unexpanded` (default
@@ -199,9 +278,44 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   guards a method of its own raises the same error with one call instead of
   rebuilding it. The wording of the delegated error therefore changes from *has
   not been called* to *has never been called*.
+- `events.has_event(name)` and `events.has_query(name)` answer whether a
+  contract is registered, without going through the registries themselves. The
+  agent documentation has named this pair as the way an Additive addresses an
+  optional dependency since `1.0.0b3`, but `EventManager` delegated neither, so
+  the documented call raised `AttributeError`. Nothing else about the registries
+  becomes public: `is_singleton`, `is_internal`, `broadcaster` and `handlers`
+  stay internal plumbing, and the documentation no longer lists them.
+- `webfluid.cli.create.templates.app_router_include` holds the lines
+  `wf create project` adds to the generated factory when the project keeps the
+  HTML router. The scaffolder and its test now read the same string instead of
+  each carrying their own copy of it.
 
 ### Changed
 
+- **The framework's extension points are abstract base classes.**
+  `FluidExtension` derives from `ABC` and declares `expand_fluid` abstract;
+  `BaseCache` declares `set`, `get`, `delete`, `clear` and their `a*` twins
+  abstract; and the SQLAlchemy executors share a new abstract base
+  (`webfluid.extensions.sqlalchemy.executor.base.BaseExecutor`) that owns the
+  `session` and declares `exec`, `insert`, `delete` and `flush`. Every class the
+  framework ships already implements all of them, so nothing changes for an
+  application. A subclass of your own that leaves one out now fails with
+  `TypeError` when it is constructed instead of with `NotImplementedError` the
+  first time the missing method is called — the mistake surfaces at start-up,
+  not in production traffic.
+- **The agent skill moves to `webfluid/.agents/`.** `SKILL.md` sits directly in
+  `.agents/` and its references in `.agents/references/`, instead of one level
+  below in `.agents/skills/webfluid/`. The package data pattern is unchanged.
+  The skill now opens with what the ecosystem is for — reuse an installed or
+  published Additive before building the same feature again, extend it through
+  its documented extension points instead of editing it — and with the rules
+  that keep a human able to take responsibility for generated code. It states
+  that the framework's base classes are abstract, and the task table routes
+  "use an installed Additive" to that Additive's own `.agents/SKILL.md`. A new
+  rule keeps package documentation pointing down: the Markdown of an Additive,
+  an extension or an SDK names only what it requires, never what builds on it
+  — not even in its CHANGELOG — and `references/additives.md` shows the neutral
+  wording for each case.
 - **The app factory moves from `main.py` into the app package.** `wf create
   project` writes `prepare_fluid()` into `fluid/__init__.py` and leaves `main.py`
   as the two-line entrypoint that imports and calls it under `__main__`. The
@@ -279,6 +393,12 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   and every `__getitem__` on it — the documented way to reach the request from a
   handler did not type-check. `try_current()` narrows to `<Class> | None`, which
   is the shape the off-request guard in a scheduled job or a mail routine needs.
+- `FluidExtension` and `BaseCache` are declared with `ABC` and `@abstractmethod`
+  in the stubs, so a checker flags a subclass that misses one before it runs.
+  `webfluid.extensions.sqlalchemy.executor.base` (`BaseExecutor`),
+  `webfluid.utils.agents` and `webfluid.cli.agents` are new stub modules, and
+  `Executor` and `AsyncExecutor` derive from `BaseExecutor` there as they do at
+  runtime.
 - `LogFactory.exception` accepts a `BaseException` rather than an `Exception`.
   The runtime always did; the stub refused `KeyboardInterrupt`, `SystemExit` and
   `asyncio.CancelledError`, which is most of what a shutdown path actually
@@ -303,13 +423,20 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 ### Documentation
 
-- The coding-agent skill under `.agents/skills/webfluid/` now opens each file —
+- The coding-agent skill under `.agents/` now opens each file —
   `SKILL.md` and all six references — with a generated index of its sections and
   their line ranges, so an agent can read the thirty lines of index and then
   only the two hundred lines it needs instead of pulling a seven-hundred-line
-  reference into context to answer one question. `scripts/agent_docs_index.py`
-  regenerates every index in place and is idempotent; run it after editing any
-  of those files.
+  reference into context to answer one question. `wf agents index` (or
+  `scripts/agent_docs_index.py` for the framework's own files) regenerates every
+  index in place and is idempotent; run it after editing any of those files.
+- The additives reference gains *Documenting an Additive for people and agents*:
+  which of `README.md`, `CHANGELOG.md`, `CONTRACT.md` and `.agents/SKILL.md`
+  serves which reader, that a contract describes an Additive only through what
+  it provides and requires, and how a skill links into its contract by range.
+  The packaging checklist asks for all three files and a current index; the
+  extensions section and the batteries reference say what the abstract base
+  classes require of a subclass.
 - The split between `app_configs/<app>.ini` and `fluid/config.py` is now stated
   outright in both the skill and its project-setup reference, because "secret"
   was being read too narrowly. The `.ini` is gitignored and becomes the process
@@ -350,22 +477,56 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   `project_root` resolves to for the app package, and the Migrate section
   distinguishes the `env.py.mako` template that ships in the framework from the
   `env.py` that `init` renders into the project.
+- Those same pages now show the factory exactly as `wf create project` writes
+  it — the local is `_fluid` and the routers are imported relative to the app
+  package — so an agent reading a generated project and an agent reading the
+  documentation see one shape instead of two. The skill says so in as many
+  words, and says why the imports sit inside the factory.
+- The events battery's introspection line listed six methods of the registries,
+  of which the manager exposed none. It now names the two that exist and says
+  what they are for.
+- The additives reference says what an enable hook may do now that its failure
+  counts: register everything first, and keep database work last and able to
+  survive a database without tables — through a one-shot scheduler job or a
+  logged `SQLAlchemyError` — because the first boot of an app runs before its
+  migrations. It notes that startup hooks are already closed when an Additive
+  enables, and the packaging checklist gains the matching item. Three
+  first-party Additives had this exact defect.
+- A package's documentation set gains `DOCS.md`: the long-form guide for the
+  person who answers for an Additive, an extension or an SDK — concepts, flows,
+  every setting and what it changes, the security model, operation and
+  troubleshooting. `README.md` stays the landing page, `CONTRACT.md` stays the
+  exact surface, and `DOCS.md` points into the contract instead of copying it.
+  The look-down rule and the packaging checklist cover it.
 
 ### Tests
 
-271, twenty-seven more than `1.0.0b3`. The server test that asserted the removed
-shutdown flag is now one for a server that returns and one for a startup phase
-that raises, and a third pins the signal handlers down as absorbers so they
-cannot be removed as dead code again. Three more delete the newest user, role
-and permission on SQLite and check that the next row gets a new id. The bearer
-gate is tested for the email gate on a bearer principal and for a route error
-passing through, the asset catch for a production request of a workspace file,
-the cache for `timeout=0` and the default on both backends, the error page for
-the headers it keeps, the event channel for a refused late registration and
-for the context of its consumer task, and `fake_tn` for its plural variable. Nine more cover the scaffolded app
-factory and entrypoint, both migration environments rendering from the seam with
-no placeholder left, the three ways `project_root` resolves, and a
-`--skip-frontend` project scaffolded end to end for the files it must contain.
+315, seventy-one more than `1.0.0b3`. Forty are new in this release candidate
+and each pins one of its fixes: the hop-by-hop headers a proxied request must
+not carry, the package ids `wf ocean install` refuses as directory names and the
+plain ones it keeps, the round trip of the Ocean token file and — on POSIX, so
+one test is skipped on Windows — its mode, the three unreadable password hashes
+that must fail the check rather than raise, every role and permission
+requirement refusing an empty, missing or non-list value, three requirements
+failing closed for an anonymous caller, the request logger on a scope without a
+client, and the event manager answering `has_event` and `has_query` — before
+expansion as well as after. Four cover `wf agents index`: discovery
+order and skipped trees, an index that settles and stays put, a linked block
+that carries its target's ranges and keeps the file's line endings, and
+`--check` writing nothing. The server test that asserted the removed shutdown
+flag is now one for a server that returns and one for a startup phase that
+raises, and a third pins the signal handlers down as absorbers so they cannot be
+removed as dead code again. Three more delete the newest user, role and
+permission on SQLite and check that the next row gets a new id. The bearer gate
+is tested for the email gate on a bearer principal and for a route error passing
+through, the asset catch for a production request of a workspace file, the cache
+for `timeout=0` and the default on both backends, the error page for the headers
+it keeps, the event channel for a refused late registration and for the context
+of its consumer task, and `fake_tn` for its plural variable. Nine more cover the
+scaffolded app factory and entrypoint, both migration environments rendering
+from the seam with no placeholder left, the three ways `project_root` resolves,
+and a `--skip-frontend` project scaffolded end to end for the files it must
+contain.
 
 ### Known limitations
 
@@ -376,6 +537,39 @@ two remain: `additive.ws` routes skip an Additive's `before_request` and
 `after_request` hooks, and the error-page processor makes every HTML response
 take the buffering path of the request middleware although it only reads the
 status code.
+
+This release candidate adds five, each marked `TODO(1.1)` at the place in the
+source that would have to change:
+
+- **A bare `Mapped[str]` column has no length, and MySQL and MariaDB refuse to
+  compile a `VARCHAR` without one.** `pymysql` and `aiomysql` are supported
+  drivers, but every model the framework ships — the security models above all —
+  is unusable on them until `Model` maps `str` through a length-bearing type.
+  Doing that changes the DDL of every existing model, so it needs a release that
+  may ask for a migration. SQLite and PostgreSQL are unaffected.
+- **A sync endpoint in an Additive runs on the event loop.** The Additive
+  router wraps every endpoint in an async middleware chain, so FastAPI sees an
+  async callable and skips the threadpool it would otherwise run a `def` handler
+  in. A blocking handler inside an Additive therefore stalls the process. Write
+  `async def` handlers in an Additive, or hand blocking work to
+  `webfluid.utils.run_in_executor`.
+- **`RATELIMIT_DEFAULT` only applies to routes that carry `@app.limit(...)`.**
+  SlowAPI needs its own middleware to enforce default limits process wide, and
+  adding it silently rate-limits every route of every existing application. The
+  key is read and passed on, so a route that opts in gets the default; a route
+  that does not is unlimited.
+- **`POST /url-for` is the one framework route without the framework's
+  prefix.** It can collide with an application route of the same name, and it
+  answers to anyone who can reach the application, reversing any endpoint name
+  the route table holds. It discloses paths, nothing more, but it belongs under
+  the same prefix as `/wf-identity`; moving it breaks every client that calls it
+  today, so it needs a deprecation window.
+- **A public event can be triggered by any browser, not only subscribed to.**
+  `internal=False` is the only switch, and it opens `/ws/events` in both
+  directions without authentication. A handler of a public event must treat its
+  payload as an untrusted key — look the subject up again and recompute — which
+  every Additive in the first-party catalogue already does. Separating
+  subscription from triggering changes the meaning of an existing argument.
 
 ## 1.0.0b3
 

@@ -1,22 +1,24 @@
 ---
 name: webfluid
-description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
+description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, the `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
 ---
 
 # Working with WebFluid
 
 <!-- index -->
-This file is short enough to read whole; the ranges are for coming back to one section. Every
-`references/*.md` opens with an index of the same shape — read those first 30 lines, then only the
-ranges the task needs.
+This file is short enough to read whole; the ranges are for coming back to one section. Every file
+it points to opens with an index of the same shape — read those first 30 lines, then only the ranges
+the task needs.
 
-- `39-59` **Orient before you write**
-- `60-106` **The rules that keep generated code correct**
-- `107-200` **The shapes to generate**
-- `201-218` **Task → route**
-- `219-228` **Verify your work**
-- `229-261` **Pull deeper detail live**
-- `262-275` **References**
+- `47-68` **Orient before you write**
+- `69-88` **Reuse before you build**
+- `89-100` **Leave the human in charge**
+- `101-159` **The rules that keep generated code correct**
+- `160-257` **The shapes to generate**
+- `258-277` **Task → route**
+- `278-289` **Verify your work**
+- `290-323` **Pull deeper detail live**
+- `324-337` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -25,6 +27,12 @@ logging, the event loop, the frontend build, the migration environment and a mod
 
 Mental model: **FastAPI for the routes, Flask-shaped ergonomics for the app object, and a runtime
 that owns the process.**
+
+The point of the ecosystem is that you rarely start from zero. Accounts, sign-in, payments,
+merchant onboarding, tokens and admin screens exist as **Additives** — packaged, centrally
+maintained feature modules with a written contract. Your job is usually to install, configure and
+connect them, and to write only what is genuinely specific to this application. Code you do not
+write is code nobody has to review, test and maintain twice.
 
 |           |                                                                                          |
 |-----------|------------------------------------------------------------------------------------------|
@@ -39,23 +47,56 @@ that owns the process.**
 ## Orient before you write
 
 Almost every WebFluid mistake comes from assuming a feature is available. Nothing is on by default.
-Read these four things first — it costs one tool call each and settles what your code may use:
+Read these first — one tool call each, and they settle what your code may use:
 
-| Read                        | Tells you                                                                          |
-|-----------------------------|------------------------------------------------------------------------------------|
-| `app_configs/*.ini`         | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
-| `fluid/config.py`           | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
-| `fluid/__init__.py`         | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
-| `additives/*/manifest.json` | Which feature modules exist, their ids, and what they require                      |
+| Read                          | Tells you                                                                          |
+|-------------------------------|------------------------------------------------------------------------------------|
+| `app_configs/*.ini`           | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
+| `fluid/config.py`             | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
+| `fluid/__init__.py`           | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
+| `additives/*/manifest.json`   | Which feature modules exist, their ids, and what they require                      |
+| `additives/*/.agents/SKILL.md` | How to use that Additive; it points into its `CONTRACT.md` by line range          |
 
-`app_configs/` and `additives/` are **gitignored by the generated `.gitignore`**. `git status` will
-not show your edits there — verify by reading files, not by diffing.
+The `.gitignore` the scaffolder writes into a project excludes `app_configs/` and `additives/`.
+`git status` will not show your edits there — verify by reading files, not by diffing.
 
 To confirm the running framework version:
 
 ```bash
 python -c "from webfluid import version; print(version())"
 ```
+
+## Reuse before you build
+
+Before you write a feature, check whether the ecosystem already ships it:
+
+1. **An installed Additive.** Each one carries `.agents/SKILL.md` (when and how to use it) and
+   `CONTRACT.md` (every route, event and query it offers, with payloads and error codes). Prefer its
+   REST API and its id-scoped queries over re-implementing the same behaviour next to it.
+2. **Ocean, the package hub.** `wf ocean search <term>` finds a package; `wf ocean install -a <id>`
+   adds an Additive, `-e <id>` an extension, and `--prefer-stable` falls back to the latest
+   prerelease while a package has no stable one. An installed package is maintained upstream: fixes
+   and hardening arrive with the next release instead of living as a private fork in this
+   repository.
+3. **Only then write your own** — as an Additive of your own when the feature is self-contained,
+   so that it can be reused and published the same way.
+
+When an Additive almost fits, extend it through its documented extension points (queries it
+consumes, signals it emits, collector queries) rather than editing its files. An edited Additive
+stops receiving upstream fixes. If the contract lacks what you need, say so in your answer — that
+gap is feedback for the maintainer, and it is how the shared solution improves.
+
+## Leave the human in charge
+
+Someone has to be able to take responsibility for what you produce. Work so that they can:
+
+- Keep one concern per change, and say in your answer which behaviour changed — not only which
+  files. A reviewer reads the summary first.
+- Never weaken a gate, a check or a test to make something pass. If a gate refuses, find out why.
+- Put decisions that belong to the operator into configuration with a safe default, and name the
+  key in your answer: rates, limits, allowlists, external URLs, feature switches.
+- Never invent a secret, a key or a credential, and never move one into a committed file.
+- Prefer the documented surface over internals, so the next release does not silently break it.
 
 ## The rules that keep generated code correct
 
@@ -85,8 +126,7 @@ python -c "from webfluid import version; print(version())"
    (`DATABASE_URI`, `REDIS_URI`). `fluid/config.py` is committed: it is where a reader of the
    repository sees what the app actually is, and it is the only place a dict, a list or a real
    boolean can live, because the `.ini` is a flat string map. `fluid/_my_config.py` is gitignored
-   and takes a maintainer's private-but-not-secret overrides. Putting a secret in `config.py`
-   commits it forever; putting `APP_FRONTEND` in the `.ini` cannot work at all.
+   and takes a maintainer's private-but-not-secret overrides.
 8. **Every hook has an arity contract, checked at registration time.** Startup, shutdown,
    `before_request` and `context_processor` take **0** required arguments; `after_request` takes
    **1**; event and query handlers take **1**. A mismatch raises `TypeError` where you registered
@@ -98,11 +138,24 @@ python -c "from webfluid import version; print(version())"
 11. **Autoescape is on** for `.html`, `.htm`, `.xml`, `.xhtml`, `.svg` and every `render_string`
     source. To emit HTML on purpose, wrap it in `markupsafe.Markup` or use `| safe`; never reach for
     either on a value that came from a request.
-12. **Write no comments or docstrings** when editing an existing WebFluid codebase, unless the
-    project already has them. The generated style is deliberately bare.
-13. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is
+12. **Additives talk through id-scoped events and queries, never through imports.** Another
+    Additive's package may not be installed, may be a different version, or may be replaced; its
+    contract is stable, its modules are not.
+13. **The framework's base classes are abstract.** `FluidExtension.expand_fluid`, the eight methods
+    of `BaseCache` and `exec`/`insert`/`delete`/`flush` of the executor base are abstract: a
+    subclass that misses one raises `TypeError` when it is instantiated, not when the method is
+    called.
+14. **Write no comments or docstrings** when editing an existing WebFluid codebase, unless the
+    project already has them. The generated style is deliberately bare; the reasoning goes into
+    your answer and the commit message.
+15. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is
     internal and may move between releases. Do not import from undocumented module paths such as
     `webfluid.core.fluid.main`.
+16. **A package's documentation only looks down.** The Markdown of an Additive, an extension or an
+    SDK — README, DOCS, CHANGELOG, CONTRACT, SKILL, references — names only what that package
+    requires, never a package or app that builds on it. That holds for history too: a lower
+    package's CHANGELOG describes a feature as its own, never as "moved here from" a consumer.
+    Examples use neutral names (`my-app`, `shop`). Details in `references/additives.md`.
 
 ## The shapes to generate
 
@@ -112,7 +165,7 @@ The scaffolder produces this layout and every doc page assumes it. Match it.
 myapp/
 ├── main.py              # the entrypoint: calls prepare_fluid() under __main__
 ├── app_configs/app.ini  # secrets, EXT_*/WF_* switches, [additives] — gitignored
-├── additives/           # feature modules
+├── additives/           # feature modules, each with manifest.json, CONTRACT.md, .agents/SKILL.md
 └── fluid/
     ├── __init__.py      # prepare_fluid(), includes the routers
     ├── config.py        # @register_config Config(MyConfig)
@@ -156,18 +209,22 @@ from webfluid import Fluid
 
 
 def prepare_fluid() -> Fluid:
-    app = Fluid(__name__)
+    _fluid = Fluid(__name__)
 
-    from fluid.app import app_router
-    from fluid.api import api_router
-    app.include_router(app_router)
-    app.include_router(api_router)
+    from .api import api_router
+    _fluid.include_router(api_router)
 
-    from fluid.events.models import register as register_events
-    app.startup_hook(register_events)
+    from .app import app_router
+    _fluid.include_router(app_router)
 
-    return app
+    from .events.models import register as register_events
+    _fluid.startup_hook(register_events)
+
+    return _fluid
 ```
+
+This is the shape `wf create project` writes, down to the name of the local: match it, so that the
+next agent reading a generated project and this page sees one shape.
 
 `Fluid(__name__)` from inside the app package still resolves `project_root` to the project root, the
 directory that holds `fluid/` — not to the package itself.
@@ -200,21 +257,23 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
 
 ## Task → route
 
-| Task                         | Do this                                                                                    | Depth                         |
-|------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|
-| Scaffold a project           | `wf create project <name>` (add `--skip-frontend` when there is no TTY)                    | `references/project-setup.md` |
-| Add an app config            | `wf create app <name>` is interactive — without a TTY, write the `.ini` by hand            | `references/project-setup.md` |
-| Add a setting                | Secret, or could hold one → `.ini`. Everything else → `fluid/config.py`                     | `references/project-setup.md` |
-| Add a page or route          | Handler module + router `__init__.py`; template extends `fluid_base.html`                  | `references/frontend.md`      |
-| Add a model                  | `fluid/models/`, then `wf migrate revision <app> -a -m "..."` → `wf migrate upgrade <app>` | `references/batteries.md`     |
-| Add auth / protect a route   | `security.user_service` guards as `Depends` defaults                                       | `references/batteries.md`     |
-| Translate                    | Symbolic `SCREAMING_SNAKE` keys, JSON runtime store, `update_translations` before `mix()`  | `references/batteries.md`     |
-| Run code at startup          | `@app.startup_hook` in the factory (0 args)                                                | `references/runtime.md`       |
-| Reach the request anywhere   | `FluidContext.current()` / `try_current()`, `cached_or`                                    | `references/runtime.md`       |
-| Build a feature module       | `wf create additive <id>`; routes registered in `before_enable`                            | `references/additives.md`     |
-| Make two Additives talk      | Id-scoped events/queries via `additive.unique_name()` — **never an import**                | `references/additives.md`     |
-| Ship a battery-style service | A `FluidExtension` distribution, not an Additive                                           | `references/additives.md`     |
-| Debug wrong behaviour        | Check the known-defect list first                                                          | `references/pitfalls.md`      |
+| Task                         | Do this                                                                                    | Depth                          |
+|------------------------------|--------------------------------------------------------------------------------------------|--------------------------------|
+| Scaffold a project           | `wf create project <name>` (add `--skip-frontend` when there is no TTY)                    | `references/project-setup.md`  |
+| Add an app config            | `wf create app <name>` is interactive — without a TTY, write the `.ini` by hand            | `references/project-setup.md`  |
+| Add a setting                | Secret, or could hold one → `.ini`. Everything else → `fluid/config.py`                    | `references/project-setup.md`  |
+| Add a page or route          | Handler module + router `__init__.py`; template extends `fluid_base.html`                  | `references/frontend.md`       |
+| Add a model                  | `fluid/models/`, then `wf migrate revision <app> -a -m "..."` → `wf migrate upgrade <app>` | `references/batteries.md`      |
+| Add auth / protect a route   | An auth Additive first; otherwise `security.user_service` guards as `Depends` defaults     | `references/batteries.md`      |
+| Translate                    | Symbolic `SCREAMING_SNAKE` keys, JSON runtime store, `update_translations` before `mix()`  | `references/batteries.md`      |
+| Run code at startup          | `@app.startup_hook` in the factory (0 args)                                                | `references/runtime.md`        |
+| Reach the request anywhere   | `FluidContext.current()` / `try_current()`, `cached_or`                                    | `references/runtime.md`        |
+| Use an installed Additive    | Its `.agents/SKILL.md`, then the `CONTRACT.md` ranges it names                             | the Additive's own files       |
+| Build a feature module       | `wf create additive <id>`; routes registered in `before_enable`                            | `references/additives.md`      |
+| Make two Additives talk      | Id-scoped events/queries via `additive.unique_name()` — **never an import**                | `references/additives.md`      |
+| Document an Additive         | `CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                                 | `references/additives.md`      |
+| Ship a battery-style service | A `FluidExtension` distribution, not an Additive                                           | `references/additives.md`      |
+| Debug wrong behaviour        | Check the known-defect list first                                                          | `references/pitfalls.md`       |
 
 ## Verify your work
 
@@ -225,6 +284,8 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
   (autogenerate misses renames and emits drop+add), then `wf migrate upgrade <app>`.
 - Log with `from webfluid.utils.logging import factory as log`. It is silent unless `IN_EXECUTION`
   is set, which only `wf run` does — a log line from a script or a test is dropped.
+- After editing a `CONTRACT.md` or anything under `.agents/`, run `wf agents index` so the line
+  ranges stay true; `wf agents index --check` fails when one is stale.
 
 ## Pull deeper detail live
 
@@ -253,7 +314,8 @@ curl -s https://docs.webfluid.dev/latest/ext/security.md
 
 `Accept: text/markdown` on any documentation URL returns the Markdown variant without the suffix.
 The Markdown mirror starts at `1.0.0b2`; older versions are HTML only. When the installed version is
-newer than the published `latest`, prefer the installed package's `CHANGELOG.md` for the delta.
+newer than the published `latest`, the release notes of the installed version (`CHANGELOG.md` in
+the WebFluid repository) are the authority on the delta.
 
 Reach for the live docs when you need a complete config key table, the full API surface of a
 battery, or the exact enable sequence — the references below carry the working knowledge, the docs
@@ -270,6 +332,6 @@ whole to answer one question is wasted context.
 | `references/project-setup.md` | The `wf` CLI, project layout, app configs vs. config classes, deployment                                       |
 | `references/runtime.md`       | `mix()`, hooks, `FluidContext`, request flow, logging, rate limits, proxies                                    |
 | `references/batteries.md`     | The eight `EXT_*` batteries — SQLAlchemy, Security, Babel, Events, Cache, Mail, JWT, Scheduling — plus Migrate |
-| `references/additives.md`     | Additives, base Additives, contracts, packaging, and writing a `FluidExtension`                                |
+| `references/additives.md`     | Additives, base Additives, contracts, agent docs, packaging, and writing a `FluidExtension`                    |
 | `references/frontend.md`      | `WF_*` switches, template resolution, `fluid_base.html`, themes, htmx and Vite                                 |
 | `references/pitfalls.md`      | Known defects of the current release and the traps that produce silently wrong code                            |

@@ -4,25 +4,25 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `43-100` **Live defects (as of `1.0.0rc1`)**
-  - `45-62` Runtime and lifecycle
-  - `63-69` Data
-  - `70-75` Auth and tokens
-  - `76-85` Events
-  - `86-91` i18n
-  - `92-100` Tooling
-- `101-108` **Fixed in `1.0.0rc1`**
-- `109-148` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
-  - `114-125` Security fixes — assume the old behaviour is what an attacker still tries
-  - `126-148` Correctness fixes
-- `149-260` **Traps that are not bugs**
-  - `153-169` Configuration
-  - `170-188` Templates and rendering
-  - `189-207` Database
-  - `208-220` Events and cache
-  - `221-228` Mail
-  - `229-247` Additives
-  - `248-260` Process model
+- `43-123` **Live defects (as of `1.0.0rc1`)**
+  - `45-75` Runtime and lifecycle
+  - `76-87` Data
+  - `88-93` Auth and tokens
+  - `94-108` Events
+  - `109-114` i18n
+  - `115-123` Tooling
+- `124-139` **Fixed in `1.0.0rc1`**
+- `140-179` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
+  - `145-156` Security fixes — assume the old behaviour is what an attacker still tries
+  - `157-179` Correctness fixes
+- `180-291` **Traps that are not bugs**
+  - `184-200` Configuration
+  - `201-219` Templates and rendering
+  - `220-238` Database
+  - `239-251` Events and cache
+  - `252-259` Mail
+  - `260-278` Additives
+  - `279-291` Process model
 <!-- /index -->
 
 Treat the first section as part of the API. Generating code that trips one of these produces a
@@ -52,6 +52,19 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
   processors can rewrite the body, and gives that up the moment the app announces `more_body`. A
   buffered response also keeps the app's `Content-Length` — a processor that changes the body must
   return a **new** response rather than mutating the one it was handed.
+- **A sync endpoint in an Additive runs on the event loop.** `TODO(1.1)` in
+  `core/additive/router.py`. The Additive router wraps every endpoint in an async middleware chain,
+  so FastAPI sees an async callable and skips the threadpool it would otherwise run a `def` handler
+  in. Write `async def` handlers inside an Additive; hand blocking work to
+  `webfluid.utils.run_in_executor`.
+- **`RATELIMIT_DEFAULT` applies only to routes that carry `@app.limit(...)`.** `TODO(1.1)` in
+  `core/fluid/ratelimit.py`. Enforcing a process-wide default needs SlowAPI's own middleware, which
+  would rate-limit every route of every existing application. A route that opts in gets the default
+  limits; a route that does not is unlimited.
+- **`POST /url-for` is the one framework route without the framework's prefix.** `TODO(1.1)` in
+  `core/processing/api/url_for.py`. It can collide with an application route of the same name, and
+  it reverses any endpoint name in the route table for anyone who can reach the application. It
+  discloses paths and nothing more, but do not add a route of your own at `/url-for`.
 - **`additive.after_request` does not receive a `Response`.** It runs inside the router's endpoint
   wrapper, before FastAPI serialises anything, so it receives whatever the handler returned (a dict,
   a model, a string). `fluid.after_request` *does* receive a real `Response`.
@@ -62,6 +75,11 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 
 ### Data
 
+- **A bare `Mapped[str]` has no length, and MySQL and MariaDB refuse a `VARCHAR` without one.**
+  `TODO(1.1)` in `extensions/sqlalchemy/model.py`. `pymysql` and `aiomysql` are wired and
+  `mysql://…` resolves, but the models the framework ships — the security models above all — cannot
+  create their tables there. Use PostgreSQL or SQLite; on MySQL, give every `str` column an explicit
+  `mapped_column(String(n))` in your own models and expect the shipped ones to fail at DDL.
 - **`wf migrate init` picks its template from `SQLALCHEMY_BINDS` in the config, at init time.** Binds
   attached at runtime via `Model.set_bind` — which is how `SECURITY_MODELS_DB_BIND`,
   `BABEL_DATABASE_BIND` and most Additives do it — are invisible to it. Declare them in
@@ -75,6 +93,11 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 
 ### Events
 
+- **A public event can be triggered by any browser, not only subscribed to.** `TODO(1.1)` in
+  `extensions/events/socket/handler/trigger.py`. `internal=False` is the only switch, and it opens
+  `/ws/events` for both directions without authentication. Treat the payload of a public event as
+  an untrusted key: look the subject up again and recompute from the database, never apply what the
+  message says. If an event only needs to reach the server, keep it `internal=True`.
 - **Event delivery is best-effort.** Broadcasts use a bounded per-listener buffer sized by
   `EVENTS_EVENT_QUEUE_SIZE` (default 5); a slow consumer loses its oldest events, logged as a
   warning. Fine for dashboards and live notifications, wrong for anything that must not be lost — use
@@ -105,6 +128,14 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 | An Additive's `url_for` only ever reverses that Additive's own routes | The scoped name is tried first and the plain name is the fallback, on and off request |
 | `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                               |
 | Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX |
+| An Additive's enable hook can fail silently                           | `before_enable` and `after_enable` propagate; a failing hook fails that Additive's registration, loudly |
+| `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventManager`; the other registry methods stay internal                     |
+| An unreadable password hash answers 500 out of the sign-in handler    | Every argon2 verification failure answers `False`                                                  |
+| A requirement with an empty `roles` / `permissions` list answers 500  | Refused as malformed (`ValueError`), checked before the admin shortcut; anonymous callers get `False` |
+| The request logger answers 500 when the scope carries no client       | An unknown peer is logged as `unknown`                                                             |
+| The HTTP proxy forwards the client's hop-by-hop headers upstream      | `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade` and `Expect` are dropped |
+| `wf ocean install` joins a package id onto a path unchecked           | An id that cannot be a single directory name is refused before anything is downloaded              |
+| The Ocean token file is written with the process umask                | Created and kept at mode `600`                                                                     |
 
 ## Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here
 

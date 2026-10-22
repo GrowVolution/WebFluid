@@ -1,6 +1,7 @@
 from importlib.metadata import entry_points
 import typer
 
+from webfluid.cli.agents import cli_entry as agents_cli
 from webfluid.cli.create import cli_entry as create_cli
 from webfluid.cli.ocean import cli_entry as ocean_cli
 from webfluid.cli.run import cli_entry as run_cli
@@ -15,6 +16,7 @@ def cli():
     create_cli(app)
     ocean_cli(app)
     run_cli(app)
+    agents_cli(app)
 
     node_cli(app)
     tailwind_cli(app)

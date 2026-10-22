@@ -4,9 +4,20 @@ import httpx, asyncio, websockets
 
 _proxy_client = None
 
-_SKIPPED_HEADERS = frozenset({
+_DROPPED_RESPONSE_HEADERS = frozenset({
     "content-encoding", "content-length", "transfer-encoding", "connection"
 })
+_DROPPED_REQUEST_HEADERS = frozenset({
+    "host", "content-length", "transfer-encoding",
+    "connection", "keep-alive", "upgrade", "expect"
+})
+
+
+def forwarded_headers(headers):
+    return httpx.Headers([
+        (key, value) for key, value in headers.items()
+        if key.lower() not in _DROPPED_REQUEST_HEADERS
+    ])
 
 
 def proxy_client():
@@ -28,7 +39,7 @@ def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
             resp = await proxy_client().request(
                 r.method,
                 url,
-                headers=httpx.Headers(r.headers),
+                headers=forwarded_headers(r.headers),
                 content=await r.body()
             )
 
@@ -39,7 +50,7 @@ def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
             response.raw_headers = [
                 (key.encode(), value.encode())
                 for key, value in resp.headers.multi_items()
-                if key.lower() not in _SKIPPED_HEADERS
+                if key.lower() not in _DROPPED_RESPONSE_HEADERS
             ] + [(b"content-length", str(len(resp.content)).encode())]
             return response
 

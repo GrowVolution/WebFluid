@@ -1,8 +1,8 @@
 from sqlalchemy import MetaData, inspect
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 
-from webfluid.utils.core import camel_to_snake
 from webfluid.exceptions import FrameworkException
+from webfluid.utils.core import camel_to_snake
 
 
 class Model(DeclarativeBase):

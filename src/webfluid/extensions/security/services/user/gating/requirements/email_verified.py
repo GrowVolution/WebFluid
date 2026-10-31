@@ -1,10 +1,6 @@
 from fastapi import Request, HTTPException, Depends
 
 
-def requirement_fulfilled(user):
-    return user.email and user.email_verified
-
-
 def _resolver_fn(default_gate):
     async def wrapped(request: Request):
         async for user in default_gate.resolve(request):
@@ -12,6 +8,10 @@ def _resolver_fn(default_gate):
                 raise HTTPException(status_code=401, detail="EMAIL_NOT_VERIFIED")
             yield user
     return wrapped
+
+
+def requirement_fulfilled(user):
+    return user.email and user.email_verified
 
 
 class Gate:

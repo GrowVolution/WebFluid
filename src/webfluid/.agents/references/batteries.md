@@ -23,14 +23,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `409-422` Domains
   - `423-442` Locale and timezone
   - `443-455` Formatting
-- `456-579` **Events — `EXT_EVENTS`**
-  - `524-531` Delivery semantics
-  - `532-579` On the client
-- `580-631` **Cache — `EXT_CACHE`**
-- `632-678` **Mail — `EXT_MAIL`**
-  - `657-678` Batching
-- `679-718` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `719-750` **Scheduling — `EXT_SCHEDULING`**
+- `456-584` **Events — `EXT_EVENTS`**
+  - `524-533` Delivery semantics
+  - `534-584` On the client
+- `585-636` **Cache — `EXT_CACHE`**
+- `637-683` **Mail — `EXT_MAIL`**
+  - `662-683` Batching
+- `684-723` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `724-755` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -524,7 +524,9 @@ because nothing will ever drain it.
 ### Delivery semantics
 
 Best-effort by design: a bounded per-listener deque sized by `EVENTS_EVENT_QUEUE_SIZE` (default 5).
-A slow consumer loses its oldest events, logged as a warning. Also **in-process only** (two workers
+A slow consumer loses its oldest events, logged as a warning. A browser subscription keeps the
+events published while none of its `listen` requests was waiting — at most `EVENTS_SOCKET_BACKLOG`
+(default 32), oldest dropped first — and answers the next `listen` from that backlog. Also **in-process only** (two workers
 are two independent buses), **no persistence, no replay**, and no ordering guarantee across
 channels. Fine for dashboards and live notifications; wrong for anything that must not be lost — use
 the database plus a query for that.
@@ -547,8 +549,11 @@ promise to reject rather than resolve `undefined` on failure. Reach for `window.
 only for a websocket route of your own.
 
 Requests made before the socket is open are queued and sent on connect, and each one rejects after
-`options.timeout` (15 s) — `EventManager` turns that rejection into a logged `undefined`. A query
-that raises answers `{"error": ...}` and the connection stays up.
+`options.timeout` (15 s) or the `timeout` passed to `request(type, data, { timeout })` — `0` waits
+indefinitely, which is what `EventManager` uses for `listen`. Other rejections become a logged
+`undefined`. A query that raises answers `{"error": ...}` and the connection stays up. When the
+socket reconnects, every `EventManager` loop subscribes again on its own (with a backoff of up to
+ten seconds); events published while the socket was down are gone.
 
 Driving a whole view off the bus instead of a REST route is a normal thing to do: one query per
 paint, on a connection that is already open, with no route, no schema and no serialiser in between.

@@ -1,3 +1,4 @@
+from collections import deque
 from fastapi import WebSocket
 from typing import Any
 
@@ -6,11 +7,17 @@ from webfluid.extensions.events.events import Events
 from webfluid.extensions.events.queries import Queries
 from webfluid.extensions.events.socket.handler import SocketHandler
 
+class Subscription:
+    listeners: list[int | str]
+    backlog: deque[Any]
+    def __init__(self, backlog: int) -> None: ...
+
 class SocketManager:
     _fluid: Fluid
     _handler: SocketHandler
+    _backlog: int
     _websockets: dict[str, WebSocket]
-    _subscriptions: dict[str, dict[str, list[int | str]]]
+    _subscriptions: dict[str, dict[str, Subscription]]
     def __init__(self, fluid: Fluid, events: Events, queries: Queries) -> None: ...
     async def socket(self, ws: WebSocket) -> None: ...
     def join(self, ws: WebSocket) -> str: ...
@@ -22,3 +29,5 @@ class SocketManager:
     def unsubscribe(self, event: str, sid: str) -> None: ...
     def add_listener(self, event: str, sid: str, msg_id: int | str) -> None: ...
     def get_listeners(self, event: str, sid: str) -> list[int | str]: ...
+    def hold(self, event: str, sid: str, data: Any) -> None: ...
+    def take(self, event: str, sid: str) -> tuple[bool, Any]: ...

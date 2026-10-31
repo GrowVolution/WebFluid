@@ -1,17 +1,17 @@
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from itsdangerous import URLSafeTimedSerializer
 from itsdangerous.exc import BadData, SignatureExpired
-from webfluid.core.ext import scheduler, db
-from webfluid.core.constants import DEBUG
-from webfluid.utils.logging import factory as log_factory
-from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import delete, select
-from secrets import token_urlsafe
 from datetime import timedelta, datetime, UTC
+from secrets import token_urlsafe
 import hmac
 
+from webfluid.core.constants import DEBUG
+from webfluid.core.ext import scheduler, db
 from webfluid.extensions.security.models.token import ExpiredToken
+from webfluid.utils.logging import factory as log_factory
 
 
 class TokenService:

@@ -1,7 +1,5 @@
 from webfluid.core.identity import (
-    FRAMEWORK_ID, FRAMEWORK_NAME, FRAMEWORK_PACKAGE,
-    FRAMEWORK_SITE, FRAMEWORK_DOCS,
-    BASE_TEMPLATE, STATIC_GLOBAL
+    FRAMEWORK_ID, FRAMEWORK_NAME, FRAMEWORK_PACKAGE, FRAMEWORK_SITE, FRAMEWORK_DOCS, BASE_TEMPLATE, STATIC_GLOBAL
 )
 
 api_router_py = f"""from fastapi import APIRouter
@@ -11,7 +9,6 @@ api_router = APIRouter(prefix="/api")
 from {FRAMEWORK_ID}.api.v1 import setup as setup_v1
 setup_v1(api_router)
 """
-
 
 app_v1_py = """from fastapi import APIRouter
 
@@ -23,7 +20,6 @@ def setup(router: APIRouter):
 
     router.include_router(v1)
 """
-
 
 app_index_html = f"""{{% extends "{BASE_TEMPLATE}" %}}
 {{# The base example is natively provided by {FRAMEWORK_NAME}. #}}
@@ -76,7 +72,6 @@ app_index_html = f"""{{% extends "{BASE_TEMPLATE}" %}}
     </section>
 {{% endblock %}}"""
 
-
 app_index_py = f"""from {FRAMEWORK_PACKAGE}.core.context import FluidContext
 
 
@@ -84,7 +79,6 @@ async def handle_request():
     ctx = FluidContext.current()
     return await ctx.fluid.render("index.html")
 """
-
 
 app_router_py = f"""from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
@@ -96,7 +90,6 @@ app_router = APIRouter(
 from {FRAMEWORK_ID}.app.index import handle_request as index
 app_router.get("/")(index)
 """
-
 
 app_config_py = f"""from {FRAMEWORK_PACKAGE}.core.config import register_config
 
@@ -114,12 +107,10 @@ class Config(MyConfig):
     APP_FRONTEND = {{frontend}}
 """
 
-
 app_router_include = (
      "\n    from .app import app_router"
     f"\n    _{FRAMEWORK_ID}.include_router(app_router)\n"
 )
-
 
 app_init_py = f"""from {FRAMEWORK_PACKAGE} import Fluid
 
@@ -133,14 +124,12 @@ def prepare_{FRAMEWORK_ID}() -> Fluid:
     return _{FRAMEWORK_ID}
 """
 
-
 main_py = f"""from {FRAMEWORK_ID} import prepare_{FRAMEWORK_ID}
 
 if __name__ == "__main__":
     _{FRAMEWORK_ID} = prepare_{FRAMEWORK_ID}()
     _{FRAMEWORK_ID}.mix()
 """
-
 
 app_gitignore = """[folders]
 .vscode/

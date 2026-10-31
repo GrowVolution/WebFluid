@@ -12,10 +12,6 @@ class Router(APIRouter):
         self._http_middleware = []
         super().__init__(*args, **kwargs)
 
-    def http_middleware(self, fn):
-        self._http_middleware.append(fn)
-        return fn
-
     def _wrapped(self, endpoint):
         chain = None
 
@@ -29,6 +25,10 @@ class Router(APIRouter):
             return await async_result(chain(*args, **kwargs))
 
         return log_factory.additive_context(wrapper)
+
+    def http_middleware(self, fn):
+        self._http_middleware.append(fn)
+        return fn
 
     def add_api_route(self, path, endpoint, **kwargs):
         super().add_api_route(path, self._wrapped(endpoint), **kwargs)

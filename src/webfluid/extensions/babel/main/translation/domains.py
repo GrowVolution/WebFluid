@@ -2,8 +2,8 @@ from functools import wraps
 from inspect import iscoroutinefunction
 
 from ..context import DomainContext
-from webfluid.utils.core import async_result
 from webfluid.exceptions import FrameworkException
+from webfluid.utils.core import async_result
 
 
 class Domains:

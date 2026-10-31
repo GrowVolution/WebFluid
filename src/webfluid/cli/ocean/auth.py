@@ -1,9 +1,9 @@
 import typer
 
+from webfluid.cli import questions
+from webfluid.exceptions import OceanError
 from webfluid.utils import ocean as ocean_utils
 from webfluid.utils.ocean import Ocean, humanize_error
-from webfluid.exceptions import OceanError
-from webfluid.cli import questions
 
 
 def login():

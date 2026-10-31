@@ -32,30 +32,6 @@ class UserService:
         self._requirement_or_grant_gate = bearer.RequirementOrGrantGate(self._2fa_gate)
         self._requirement_and_grant_gate = bearer.RequirementAndGrantGate(self._2fa_gate)
 
-    @property
-    def require_user_fn(self):
-        return self._default_gate.resolve
-
-    @property
-    def require_user(self):
-        return self._default_gate.depends
-
-    @property
-    def require_2fa_fn(self):
-        return self._2fa_gate.resolve
-
-    @property
-    def require_2fa(self):
-        return self._2fa_gate.depends
-
-    @property
-    def require_admin_fn(self):
-        return self._admin_gate.resolve
-
-    @property
-    def require_admin(self):
-        return self._admin_gate.depends
-
     def require_roles_fn(self, roles):
         return self._roles_gate.resolver(roles)
 
@@ -91,3 +67,27 @@ class UserService:
 
     def requirement_and_grant(self, requirement, grant):
         return self._requirement_and_grant_gate.depends(requirement, grant)
+
+    @property
+    def require_user_fn(self):
+        return self._default_gate.resolve
+
+    @property
+    def require_user(self):
+        return self._default_gate.depends
+
+    @property
+    def require_2fa_fn(self):
+        return self._2fa_gate.resolve
+
+    @property
+    def require_2fa(self):
+        return self._2fa_gate.depends
+
+    @property
+    def require_admin_fn(self):
+        return self._admin_gate.resolve
+
+    @property
+    def require_admin(self):
+        return self._admin_gate.depends

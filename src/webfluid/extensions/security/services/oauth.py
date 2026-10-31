@@ -1,8 +1,8 @@
-from fastapi import Request, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.exceptions import HTTPException
-from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import MismatchingStateError
+from authlib.integrations.starlette_client import OAuth
+from fastapi import Request, Depends
+from fastapi.exceptions import HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 _script = """<script>
     window.opener.postMessage({{
@@ -60,14 +60,6 @@ class OAuthService:
             return userinfo
         return wrapped
 
-    def register_provider(self, name, client):
-        self._client.register(name, **client)
-        self._allowed_providers.add(name)
-
-    def unregister_provider(self, name):
-        self._client.unregister(name)
-        self._allowed_providers.remove(name)
-
     @staticmethod
     async def _prepare_session(request: Request):
         device = request.query_params.get("device", "mobile")
@@ -80,6 +72,14 @@ class OAuthService:
             )
 
         request.session["device"] = device
+
+    def register_provider(self, name, client):
+        self._client.register(name, **client)
+        self._allowed_providers.add(name)
+
+    def unregister_provider(self, name):
+        self._client.unregister(name)
+        self._allowed_providers.remove(name)
 
     @staticmethod
     def authorize_response(request, provider, device, csrf=None):

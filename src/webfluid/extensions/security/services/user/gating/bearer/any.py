@@ -1,8 +1,8 @@
 from fastapi import Request, HTTPException, Depends
 
-from .resolve import resolve_bearer
 from ..check import check_requirement
 from ..requirements.email_verified import requirement_fulfilled as email_verified
+from .resolve import resolve_bearer
 
 
 def resolver_fn(two_fa_gate, requirement, grant, _skip_check=False):

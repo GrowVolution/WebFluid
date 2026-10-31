@@ -4,8 +4,8 @@ import json, tomllib, typer
 from webfluid.cli import questions
 from webfluid.cli.ocean.archive import build_archive, sha256_hex
 from webfluid.core.identity import CLI_NAME, HUB_NAME
-from webfluid.utils.ocean import Ocean, humanize_error
 from webfluid.exceptions import OceanError
+from webfluid.utils.ocean import Ocean, humanize_error
 
 
 def _detect_package(root):

@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
 from contextlib import asynccontextmanager, contextmanager
 
 
@@ -30,12 +30,6 @@ class Bind:
             )
         return self._async
 
-    @property
-    def sync_engine(self): return self._sync_bind()[0]
-
-    @property
-    def async_engine(self): return self._async_bind()[0]
-
     async def dispose(self):
         if self._sync is not None:
             self._sync[0].dispose()
@@ -44,6 +38,12 @@ class Bind:
         if self._async is not None:
             await self._async[0].dispose()
             self._async = None
+
+    @property
+    def sync_engine(self): return self._sync_bind()[0]
+
+    @property
+    def async_engine(self): return self._async_bind()[0]
 
     @contextmanager
     def session(self):

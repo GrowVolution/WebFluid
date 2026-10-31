@@ -1,10 +1,8 @@
 import typer
 
-from webfluid.utils.ocean import Ocean, humanize_error
+from webfluid.cli.ocean.output import render_table, truncate, package_state, bundle_id
 from webfluid.exceptions import OceanError
-from webfluid.cli.ocean.output import (
-    render_table, truncate, package_state, bundle_id
-)
+from webfluid.utils.ocean import Ocean, humanize_error
 
 
 def _types(additives, extensions, bundles):

@@ -3,13 +3,13 @@ from webfluid.utils.agents import CLOSE, OPEN, discover, index
 CONTRACT = "# Thing — Contract\n\n# API\n\n## GET /a\n\nAnswers a.\n\n## GET /b\n\nAnswers b.\n\n# Events\n\nNone.\n"
 SKILL = (
     "---\nname: thing\n---\n\n# Using thing\n\n## Rules\n\nKeep it small.\n\n## Contract map\n\n"
-    "<!-- index ../CONTRACT.md -->\n<!-- /index -->\n\n```markdown\n<!-- index ../MISSING.md -->\n<!-- /index -->\n```\n"
+    "<!-- index CONTRACT.md -->\n<!-- /index -->\n\n```markdown\n<!-- index MISSING.md -->\n<!-- /index -->\n```\n"
 )
 
 
 def _package(tmp_path):
     (tmp_path / ".agents").mkdir()
-    contract = tmp_path / "CONTRACT.md"
+    contract = tmp_path / ".agents" / "CONTRACT.md"
     skill = tmp_path / ".agents" / "SKILL.md"
     contract.write_bytes(CONTRACT.encode())
     skill.write_bytes(SKILL.replace("\n", "\r\n").encode())
@@ -20,6 +20,7 @@ def test_discovery_puts_contracts_first_and_skips_build_trees(tmp_path):
     contract, skill = _package(tmp_path)
     (tmp_path / "node_modules" / ".agents").mkdir(parents=True)
     (tmp_path / "node_modules" / ".agents" / "SKILL.md").write_text("# x\n")
+    (tmp_path / "CONTRACT.md").write_text("# outside .agents\n")
 
     assert discover(tmp_path) == [contract, skill]
 
@@ -45,9 +46,9 @@ def test_a_linked_block_carries_the_ranges_of_its_target_and_keeps_line_endings(
     raw = skill.read_bytes()
     assert b"\r\n" in raw and b"\n" not in raw.replace(b"\r\n", b"")
     text = raw.decode().replace("\r\n", "\n")
-    linked = text.split("<!-- index ../CONTRACT.md -->")[1].split(CLOSE)[0]
+    linked = text.split("<!-- index CONTRACT.md -->")[1].split(CLOSE)[0]
     assert "**API**" in linked and "GET /b" in linked
-    assert "<!-- index ../MISSING.md -->\n<!-- /index -->" in text
+    assert "<!-- index MISSING.md -->\n<!-- /index -->" in text
 
 
 def test_check_mode_reports_a_stale_index_without_writing(tmp_path):

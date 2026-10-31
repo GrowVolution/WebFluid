@@ -11,3 +11,8 @@ class OceanError(FrameworkException):
     status: int
     detail: str
     def __init__(self, status: int, detail: str) -> None: ...
+
+class IntegrityGenerationError(FrameworkException):
+    code: str
+    detail: str
+    def __init__(self, code: str, detail: str = "") -> None: ...

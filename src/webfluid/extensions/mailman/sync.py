@@ -1,11 +1,11 @@
-from threading import Thread
 from contextlib import contextmanager
+from threading import Thread
 import smtplib
 
 from .context import ClientContext
 from .message import make_message
-from webfluid.utils.logging import factory as log_factory
 from webfluid.exceptions import FrameworkException
+from webfluid.utils.logging import factory as log_factory
 
 
 class SyncManager:

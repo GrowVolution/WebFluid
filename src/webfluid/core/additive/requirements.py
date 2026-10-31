@@ -1,7 +1,7 @@
 from webfluid.core.identity import FRAMEWORK_NAME, REQUIRES_KEY
+from webfluid.exceptions import AdditiveException, ManifestError
 from webfluid.utils.core import check_required_version, enabled
 from webfluid.utils.logging import factory as log_factory
-from webfluid.exceptions import AdditiveException, ManifestError
 
 
 def normalize(requirement, name):
@@ -27,14 +27,6 @@ class RequirementChecker:
         self.manifest = manifest
         self.additive_root = additive_root
         self.name = manifest.get("name") or manifest["id"]
-
-    def check(self):
-        requirements = self.manifest.get("requires")
-        if not requirements: return
-
-        self._check_framework(requirements)
-        if "additives" in requirements:
-            self._check_additives(requirements["additives"])
 
     def _check_framework(self, requirements):
         if REQUIRES_KEY not in requirements:
@@ -70,3 +62,11 @@ class RequirementChecker:
                 f"[{self.name}] Missing or mismatching additive "
                 f"requirements: {list(missing)}"
             )
+
+    def check(self):
+        requirements = self.manifest.get("requires")
+        if not requirements: return
+
+        self._check_framework(requirements)
+        if "additives" in requirements:
+            self._check_additives(requirements["additives"])

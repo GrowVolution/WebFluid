@@ -1,5 +1,5 @@
 from pathlib import Path
-import typer, sys
+import sys, typer
 
 from .match import match_version
 from webfluid.core.identity import CLI_NAME, HUB_NAME

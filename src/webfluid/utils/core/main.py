@@ -1,8 +1,7 @@
-from pathlib import Path
-from importlib import import_module
 from configparser import ConfigParser
-import os, random, string, re, sys, \
-    importlib.util, locale, asyncio
+from importlib import import_module
+from pathlib import Path
+import asyncio, importlib.util, locale, os, random, re, string, sys
 
 
 def enabled(key):

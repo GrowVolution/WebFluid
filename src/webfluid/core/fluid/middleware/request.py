@@ -11,6 +11,13 @@ def _buffered(status, headers, chunks):
     return response
 
 
+def add(fluid, request_lifecycle):
+    fluid.add_middleware(
+        RequestMiddleware,
+        fluid=fluid, request_lifecycle=request_lifecycle
+    )
+
+
 class RequestMiddleware:
     def __init__(self, app, fluid, request_lifecycle):
         self.app = app
@@ -69,10 +76,3 @@ class RequestMiddleware:
             _buffered(start["status"], start["headers"], chunks)
         )
         await response(scope, receive, send)
-
-
-def add(fluid, request_lifecycle):
-    fluid.add_middleware(
-        RequestMiddleware,
-        fluid=fluid, request_lifecycle=request_lifecycle
-    )

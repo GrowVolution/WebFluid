@@ -1,10 +1,7 @@
 from pathlib import Path
 import questionary
 
-from .main import (
-    select, confirm, checkbox, text,
-    password, choice, fixed_choice
-)
+from .main import select, confirm, checkbox, text, password, choice, fixed_choice
 from webfluid.core.constants import FEATURE_FLAGS, EXTENSION_FLAGS
 
 frontend_type = select(
@@ -46,46 +43,6 @@ use_alpine = confirm(
     "Do you want to use AlpineJS?",
     default=False
 )
-
-#-------------- additive manifest-----------------#
-
-
-def confirm_safe_id(given, suggestion):
-    return confirm(
-        f"Invalid id format '{given}'. Continue with '{suggestion}' instead?",
-        default=True
-    ).ask()
-
-
-def select_base():
-    from webfluid.utils.additives import installed_bases
-    bases = installed_bases(Path.cwd() / "additives")
-    if len(bases) == 0:
-        raise ValueError("There are no base additives installed.")
-
-    choices = [
-        choice(f"<{base_id} {version}>", base_id)
-        for base_id, version, _ in bases
-    ]
-    return select(
-        "Select your base additive:",
-        choices=choices,
-        default=choices[0]
-    ).ask()
-
-
-def additive_name(additive_id):
-    parts = additive_id.split("_")
-    for i, part in enumerate(parts):
-        parts[i] = part.capitalize()
-
-    default = " ".join(parts)
-    return text(
-        "Enter your additive name:",
-        default=default
-    ).ask()
-
-
 version_format = select(
     "Select a version format:",
     choices=[
@@ -134,28 +91,6 @@ requirements = checkbox(
         "jwt"
     ]
 )
-
-#------------------ app config -------------------#
-
-
-def database_uri(name):
-    return text(
-        "DATABASE_URI: ",
-        default=f"sqlite:///{name}.db"
-    ).ask()
-
-
-def additives(installed):
-    choices = [
-        fixed_choice(src[0], src)
-        for src in installed
-    ]
-    return checkbox(
-        "Enable your additives:     ",
-        choices=choices
-    ).ask()
-
-
 redis_uri = text(
     "REDIS_URI:    ",
     default="redis://localhost:6379"
@@ -188,3 +123,57 @@ features = checkbox(
         )) for flag in FEATURE_FLAGS
     ]
 )
+
+
+def confirm_safe_id(given, suggestion):
+    return confirm(
+        f"Invalid id format '{given}'. Continue with '{suggestion}' instead?",
+        default=True
+    ).ask()
+
+
+def select_base():
+    from webfluid.utils.additives import installed_bases
+    bases = installed_bases(Path.cwd() / "additives")
+    if len(bases) == 0:
+        raise ValueError("There are no base additives installed.")
+
+    choices = [
+        choice(f"<{base_id} {version}>", base_id)
+        for base_id, version, _ in bases
+    ]
+    return select(
+        "Select your base additive:",
+        choices=choices,
+        default=choices[0]
+    ).ask()
+
+
+def additive_name(additive_id):
+    parts = additive_id.split("_")
+    for i, part in enumerate(parts):
+        parts[i] = part.capitalize()
+
+    default = " ".join(parts)
+    return text(
+        "Enter your additive name:",
+        default=default
+    ).ask()
+
+
+def database_uri(name):
+    return text(
+        "DATABASE_URI: ",
+        default=f"sqlite:///{name}.db"
+    ).ask()
+
+
+def additives(installed):
+    choices = [
+        fixed_choice(src[0], src)
+        for src in installed
+    ]
+    return checkbox(
+        "Enable your additives:     ",
+        choices=choices
+    ).ask()

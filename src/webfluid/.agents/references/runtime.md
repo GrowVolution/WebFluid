@@ -5,23 +5,23 @@ Read this file in parts. Each range is `first-last` as the file stands now — o
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
 - `27-43` **`mix()` — what owns the process**
-- `44-116` **Hooks**
+- `44-121` **Hooks**
   - `67-83` What the framework registers itself
   - `84-93` Where startup work belongs
-  - `94-116` Graceful shutdown
-- `117-184` **`FluidContext`**
-  - `140-150` The scratchpad
-  - `151-168` `cached_or` — memoise per request
-  - `169-184` Other contexts
-- `185-237` **Request hooks**
-  - `216-237` The cost of `after_request`
-- `238-252` **Reverse URLs**
-- `253-266` **Themes**
-- `267-290` **Rate limiting**
-- `291-309` **Proxies**
-- `310-339` **Logging**
-- `340-365` **Useful helpers**
-- `366-380` **Exceptions**
+  - `94-121` Graceful shutdown
+- `122-189` **`FluidContext`**
+  - `145-155` The scratchpad
+  - `156-173` `cached_or` — memoise per request
+  - `174-189` Other contexts
+- `190-242` **Request hooks**
+  - `221-242` The cost of `after_request`
+- `243-257` **Reverse URLs**
+- `258-271` **Themes**
+- `272-295` **Rate limiting**
+- `296-314` **Proxies**
+- `315-344` **Logging**
+- `345-370` **Useful helpers**
+- `371-385` **Exceptions**
 <!-- /index -->
 
 ## `mix()` — what owns the process
@@ -113,6 +113,11 @@ Node processes the framework starts — the Vite dev server, a frontend build �
 that path. On Windows they are put in a job object the kernel tears down when the app process dies;
 on POSIX they get their own session and are killed by process group. An IDE stop button, a closed
 console window or a crash therefore cannot leave a dev server holding port 5173.
+
+The dev server can also die while the app runs. With `EXT_SCHEDULING` the startup hook registers
+the job `webfluid_vite_watchdog`, which checks the process every five seconds, restarts it and logs
+a warning; after five exits in a row within fifteen seconds of starting it stops trying and says
+so. Without `EXT_SCHEDULING` the start-up logs once that the dev server runs unsupervised.
 
 ## `FluidContext`
 

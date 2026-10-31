@@ -5,6 +5,7 @@ __all__ = [
     "utils", "fluid", "extensions", "exceptions",
 ]
 
+
 def __getattr__(name):
     if name in {"Fluid", "Additive", "Manifest"}:
         from webfluid import core

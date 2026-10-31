@@ -1,4 +1,4 @@
-import sys, os
+import os, sys
 
 from webfluid.utils.core import parse_config, read_config
 

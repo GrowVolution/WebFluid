@@ -1,7 +1,7 @@
 from . import api
-from .lifecycle import install_request_logger, install_error_pages
 from .context import install_context
 from .error import install_error_handler
+from .lifecycle import install_request_logger, install_error_pages
 
 
 def setup_processing(fluid):

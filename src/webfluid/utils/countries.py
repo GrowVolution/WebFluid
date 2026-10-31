@@ -2,6 +2,16 @@ from enum import StrEnum
 
 from webfluid.core.context import FluidContext
 
+_GEO_HEADERS = (
+    "CF-IPCountry",
+    "X-Country-Code",
+    "X-GeoIP-Country",
+    "X-GeoIP-Country-Code",
+    "X-Vercel-IP-Country",
+    "X-AppEngine-Country",
+)
+
+_GEO_IGNORED = frozenset({"XX", "T1", "ZZ", "EU", "AP"})
 
 DEFAULT_COUNTRY = "DE"
 
@@ -32,17 +42,6 @@ ISO_3166_1_ALPHA2 = (
 _CODE_SET = frozenset(ISO_3166_1_ALPHA2)
 
 Country = StrEnum("Country", {code: code for code in ISO_3166_1_ALPHA2})
-
-_GEO_HEADERS = (
-    "CF-IPCountry",
-    "X-Country-Code",
-    "X-GeoIP-Country",
-    "X-GeoIP-Country-Code",
-    "X-Vercel-IP-Country",
-    "X-AppEngine-Country",
-)
-
-_GEO_IGNORED = frozenset({"XX", "T1", "ZZ", "EU", "AP"})
 
 
 def is_valid(code):

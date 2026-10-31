@@ -1,7 +1,7 @@
 import asyncio
 
-from webfluid.utils.core import required_arg_count, safe_execute
 from webfluid.exceptions import FrameworkException
+from webfluid.utils.core import required_arg_count, safe_execute
 
 
 class Queries:
@@ -10,20 +10,20 @@ class Queries:
         self._queries = {}
 
     def query(self, name, singleton=True, internal=True):
-        if singleton and name in self._queries:
-            raise ValueError(f"Query '{name}' already exists.")
-
-        elif not singleton and name in self._queries and self._queries[name]["singleton"]:
-            raise ValueError(f"Singleton query '{name}' already exists.")
-
-        if name not in self._queries:
-            self._queries[name] = {
-                "singleton": singleton,
-                "internal": internal,
-                "handlers": []
-            }
-
         def decorator(fn):
+            if singleton and name in self._queries:
+                raise ValueError(f"Query '{name}' already exists.")
+
+            elif not singleton and name in self._queries and self._queries[name]["singleton"]:
+                raise ValueError(f"Singleton query '{name}' already exists.")
+
+            if name not in self._queries:
+                self._queries[name] = {
+                    "singleton": singleton,
+                    "internal": internal,
+                    "handlers": []
+                }
+
             if required_arg_count(fn) != 1:
                 raise FrameworkException("Query handlers must receive exactly one argument (data).")
             self._queries[name]["handlers"].append(self._ctx_decorator(fn))

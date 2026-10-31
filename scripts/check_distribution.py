@@ -1,13 +1,11 @@
 from pathlib import Path
-import sys
-import tarfile
-import zipfile
-
+import sys, tarfile, zipfile
 
 REQUIRED = (
-    "CONTRACT.md",
+    ".agents/CONTRACT.md",
     ".agents/SKILL.md",
     ".agents/references/additives.md",
+    ".agents/references/style.md",
 )
 
 

@@ -1,6 +1,6 @@
 from fastapi import Request, Response, WebSocket
 from starlette.websockets import WebSocketDisconnect
-import httpx, asyncio, websockets
+import asyncio, httpx, websockets
 
 _proxy_client = None
 

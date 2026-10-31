@@ -1,16 +1,10 @@
-from pydantic import BaseModel
 from fastapi import HTTPException, Request
+from pydantic import BaseModel
 from starlette.routing import NoMatchFound
 from datetime import datetime, UTC
 from typing import Any
 
 from webfluid.core.constants import DEBUG
-
-
-class UrlFor(BaseModel):
-    endpoint: str
-    path_params: dict[str, Any]
-    external: bool = False
 
 
 def add_route(fluid):
@@ -30,3 +24,9 @@ def add_route(fluid):
                 result, datetime.now(UTC).timestamp()
             ) if DEBUG else result
         }
+
+
+class UrlFor(BaseModel):
+    endpoint: str
+    path_params: dict[str, Any]
+    external: bool = False

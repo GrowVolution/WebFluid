@@ -1,12 +1,11 @@
 from fastapi import WebSocketDisconnect
 import json
 
-from .subscribe import subscribe
-from .unsubscribe import unsubscribe
-from .request import request
-from .trigger import trigger
 from .listen import add_listener
-
+from .request import request
+from .subscribe import subscribe
+from .trigger import trigger
+from .unsubscribe import unsubscribe
 from webfluid.utils.logging import factory as log_factory
 
 _KEYS = ("id", "type", "data")

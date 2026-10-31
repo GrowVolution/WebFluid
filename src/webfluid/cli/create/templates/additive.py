@@ -9,7 +9,6 @@ __all__ = [
 ]
 """
 
-
 adtv_v1_py = f"""from fastapi import APIRouter
 from typing import TYPE_CHECKING
 
@@ -24,7 +23,6 @@ def setup(a: "Additive"):
     
     a.api.include_router(v1)
 """
-
 
 adtv_index_html = """{{% extends "{base}" %}}
 {{# The base example is natively provided by {framework}. #}}
@@ -65,7 +63,6 @@ adtv_index_html = """{{% extends "{base}" %}}
     </div>
 {{% endblock %}}"""
 
-
 adtv_index_py = """
 
 async def handle_request():
@@ -91,7 +88,6 @@ def before_enable(_):
     additive.api.get("/health")(health)
     setup_v1(additive)
     {{index}}"""
-
 
 adtv_gitignore = """[folders]
 .vscode/

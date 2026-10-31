@@ -1,17 +1,8 @@
 from webfluid.core import ext
-from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.core.constants import (
-    EXECUTION,
-
-    EXT_SCHEDULING,
-    EXT_SQLALCHEMY,
-    EXT_BABEL,
-    EXT_SECURITY,
-    EXT_EVENTS,
-    EXT_CACHE,
-    EXT_MAIL,
-    EXT_JWT
+    EXECUTION, EXT_SCHEDULING, EXT_SQLALCHEMY, EXT_BABEL, EXT_SECURITY, EXT_EVENTS, EXT_CACHE, EXT_MAIL, EXT_JWT
 )
+from webfluid.core.identity import FRAMEWORK_ID
 
 
 def enable_extensions(fluid):

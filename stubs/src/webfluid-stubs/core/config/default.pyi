@@ -39,6 +39,7 @@ class DefaultConfig:
     BABEL_DATABASE_BIND: str | None
 
     EVENTS_EVENT_QUEUE_SIZE: int
+    EVENTS_SOCKET_BACKLOG: int
     EVENTS_CONFIGURE_SOCKET: bool
 
     SECURITY_SECRET: str | None

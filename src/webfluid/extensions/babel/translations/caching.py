@@ -9,6 +9,14 @@ class Cache:
         self._locale = locale
         self._domain = domain
 
+    @classmethod
+    def _ensure_cache(cls, locale, domain):
+        if locale not in cls._db_cache:
+            cls._db_cache[locale] = {}
+
+        if domain not in cls._db_cache[locale]:
+            cls._db_cache[locale][domain] = {}
+
     def is_uncached(self, key):
         return key in Cache._uncached.get(self._domain, ())
 
@@ -54,14 +62,6 @@ class Cache:
 
         if self._domain in Cache._uncached:
             Cache._uncached[self._domain].discard(key)
-
-    @classmethod
-    def _ensure_cache(cls, locale, domain):
-        if locale not in cls._db_cache:
-            cls._db_cache[locale] = {}
-
-        if domain not in cls._db_cache[locale]:
-            cls._db_cache[locale][domain] = {}
 
     @classmethod
     def already_loaded(cls, locale, domain):

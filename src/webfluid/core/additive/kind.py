@@ -5,6 +5,10 @@ from .router import Router
 from webfluid.exceptions import AdditiveException
 
 
+def kind_for(manifest):
+    return BaseKind() if manifest["type"] == "base" else FeatureKind()
+
+
 class BaseKind:
     is_base = True
 
@@ -49,7 +53,3 @@ class FeatureKind:
         return PrefixLoader({ additive.id: templates })
 
     def check_enable(self, additive): pass
-
-
-def kind_for(manifest):
-    return BaseKind() if manifest["type"] == "base" else FeatureKind()

@@ -1,14 +1,13 @@
 from pathlib import Path
-import io, tarfile, httpx
+import httpx, io, tarfile
 
 from webfluid.core.constants import HUB_API, HUB_AUTH
 from webfluid.core.identity import CLI_NAME, HUB_NAME, HUB_TOKEN_FILE
 from webfluid.exceptions import OceanError
 
-TOKEN_FILE = Path.home() / HUB_TOKEN_FILE
-
 _login = f"You need to log in first. Run '{CLI_NAME} {HUB_NAME.lower()} login'."
 
+TOKEN_FILE = Path.home() / HUB_TOKEN_FILE
 ERROR_MESSAGES = {
     "NOT_AUTHORIZED": "You are not authorized to perform this action.",
     "UNAUTHORIZED": "You are not authorized. Please log in.",
@@ -89,10 +88,6 @@ class Ocean:
         self.base_url = base_url.rstrip("/")
         self.auth_url = auth_url.rstrip("/")
         self.token = token if token is not None else load_token()
-
-    @property
-    def authenticated(self):
-        return bool(self.token)
 
     def _headers(self, extra=None):
         headers = {}
@@ -193,3 +188,7 @@ class Ocean:
             "POST", f"/packages/{ptype}/{package_id}/license",
             json={"license_id": license_id, "values": values}
         )
+
+    @property
+    def authenticated(self):
+        return bool(self.token)

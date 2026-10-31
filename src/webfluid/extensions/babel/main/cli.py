@@ -1,5 +1,5 @@
 from pathlib import Path
-import typer, subprocess, sys
+import subprocess, sys, typer
 
 from webfluid.core.identity import FRAMEWORK_NAME, FRAMEWORK_ROOT
 

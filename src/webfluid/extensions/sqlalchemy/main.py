@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager, contextmanager
 
-from webfluid.extensions.sqlalchemy.bind import Bind
-from webfluid.extensions.sqlalchemy.model import Model
-from webfluid.extensions.sqlalchemy.executor import Executor, AsyncExecutor
-from webfluid.extensions.sqlalchemy.utils import database_uris
-from webfluid.extensions.base import FluidExtension
 from webfluid.exceptions import FrameworkException
+from webfluid.extensions.base import FluidExtension
+from webfluid.extensions.sqlalchemy.bind import Bind
+from webfluid.extensions.sqlalchemy.executor import Executor, AsyncExecutor
+from webfluid.extensions.sqlalchemy.model import Model
+from webfluid.extensions.sqlalchemy.utils import database_uris
 
 
 class SQLAlchemy(FluidExtension):
@@ -19,6 +19,17 @@ class SQLAlchemy(FluidExtension):
         self._binds = {}
 
         super().__init__(fluid)
+
+    def _ensure_initialized(self):
+        if not self._binds:
+            raise FrameworkException("SQLAlchemy.expand_fluid() has not been called.")
+
+    def _resolve_bind(self, bind_key, model):
+        self._ensure_initialized()
+        if not (bind_key or model): bind = self._binds["default"]
+        elif bind_key: bind = self.get_bind(bind_key)
+        else: bind = self.get_bind_for_model(model)
+        return bind
 
     def expand_fluid(self, fluid, *_, **__):
         engine_kwargs = fluid.config["SQLALCHEMY_ENGINE_OPTIONS"]
@@ -38,17 +49,6 @@ class SQLAlchemy(FluidExtension):
 
     async def dispose(self):
         for bind in self._binds.values(): await bind.dispose()
-
-    def _ensure_initialized(self):
-        if not self._binds:
-            raise FrameworkException("SQLAlchemy.expand_fluid() has not been called.")
-
-    def _resolve_bind(self, bind_key, model):
-        self._ensure_initialized()
-        if not (bind_key or model): bind = self._binds["default"]
-        elif bind_key: bind = self.get_bind(bind_key)
-        else: bind = self.get_bind_for_model(model)
-        return bind
 
     def get_bind(self, bind_key):
         self._ensure_initialized()

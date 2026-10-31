@@ -4,6 +4,7 @@ import asyncio
 
 class Listener:
     _last_id = 0
+
     __slots__ = ("id", "buffer", "event")
 
     def __init__(self, maxlen):

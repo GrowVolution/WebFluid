@@ -1,4 +1,4 @@
-import typer, sys, subprocess
+import subprocess, sys, typer
 
 
 def install_packages(additive):

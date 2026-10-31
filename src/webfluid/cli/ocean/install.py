@@ -1,12 +1,12 @@
-from pathlib import Path
 from importlib import import_module
-import sys, subprocess, typer
+from pathlib import Path
+import subprocess, sys, typer
 
-from webfluid.core.identity import CLI_NAME, HUB_NAME
-from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
-from webfluid.exceptions import OceanError
 from webfluid.cli import questions
 from webfluid.cli.ocean.output import bundle_id
+from webfluid.core.identity import CLI_NAME, HUB_NAME
+from webfluid.exceptions import OceanError
+from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
 
 _channels = {
     "": "stable", "a": "alpha", "b": "beta",

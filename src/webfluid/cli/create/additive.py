@@ -1,12 +1,10 @@
 from pathlib import Path
-import typer, json, shutil
+import json, shutil, typer
 
 from .helpers import frontend_conf, create_frontend, make_defaults
 from webfluid.cli import questions
 from webfluid.cli.create import templates
-from webfluid.core.identity import (
-    FRAMEWORK_ID, FRAMEWORK_NAME, REQUIRES_KEY, BASE_TEMPLATE
-)
+from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_NAME, REQUIRES_KEY, BASE_TEMPLATE
 from webfluid.surface import node_cmd
 from webfluid.utils.core import safe_string
 

@@ -1,5 +1,4 @@
 
-
 health_py = """from datetime import datetime, UTC
 
 
@@ -10,13 +9,11 @@ def handle_request():
     }
 """
 
-
 tailwind_raw = """@import "tailwindcss" source("../../");
 
 @theme {
     /* ... */
 }"""
-
 
 vite_base = """
 import { defineConfig } from 'vite'

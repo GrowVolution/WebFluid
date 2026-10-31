@@ -1,4 +1,4 @@
-import json, asyncio, contextvars
+import asyncio, contextvars, json
 
 from webfluid.utils.core import safe_execute
 
@@ -18,7 +18,12 @@ class LoopManager:
                 ws = self._socket.get_ws(sid)
                 if not ws: continue
 
-                for listener_id in self._socket.get_listeners(event, sid):
+                listeners = self._socket.get_listeners(event, sid)
+                if not listeners:
+                    self._socket.hold(event, sid, data)
+                    continue
+
+                for listener_id in listeners:
                     client_tasks.append(ws.send_text(
                         json.dumps({
                             "id": listener_id,

@@ -1,6 +1,6 @@
 from fastapi import HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 import traceback
 
 from webfluid.core.constants import DEBUG

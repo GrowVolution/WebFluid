@@ -1,6 +1,6 @@
-from .main import MergedTranslations
-from .data import TransactionService
 from .caching import Cache
+from .data import TransactionService
+from .main import MergedTranslations
 from .models import I18nKey, I18nMessage
 
 __all__ = [

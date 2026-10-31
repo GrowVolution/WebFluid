@@ -1,8 +1,7 @@
-from .sync import SyncManager
 from .async_ import AsyncManager
-
-from webfluid.extensions.base import Delegated, FluidExtension
+from .sync import SyncManager
 from webfluid.exceptions import FrameworkException
+from webfluid.extensions.base import Delegated, FluidExtension
 
 
 class Mail(FluidExtension):

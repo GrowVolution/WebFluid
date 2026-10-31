@@ -1,4 +1,4 @@
-import string, re
+import re, string
 
 from webfluid.core.config import DefaultConfig
 
@@ -16,6 +16,15 @@ def validate_username(username):
     if not re.match(r"^[a-zA-Z0-9_-]{3,30}$", username):
         raise ValueError("INVALID_USERNAME")
     return username
+
+
+def set_policy(policy):
+    global _policy
+    _policy = policy
+
+
+def validate_password(password):
+    return (_policy or default_policy).validate(password)
 
 
 class PasswordPolicy:
@@ -58,12 +67,3 @@ default_policy = PasswordPolicy(
     DefaultConfig.SECURITY_PASSWORD_MIN_LENGTH,
     DefaultConfig.SECURITY_PASSWORD_REQUIREMENTS
 )
-
-
-def set_policy(policy):
-    global _policy
-    _policy = policy
-
-
-def validate_password(password):
-    return (_policy or default_policy).validate(password)

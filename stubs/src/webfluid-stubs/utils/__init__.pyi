@@ -27,6 +27,7 @@ from . import (
     logging as logging,
     cli as cli,
     surface as surface,
+    integrity as integrity,
 )
 
 __all__ = [
@@ -36,5 +37,5 @@ __all__ = [
     "Version", "check_required_version",
     "get_proxy", "get_websocket_proxy", "add_proxy", "close_proxy_client",
 
-    "additives", "agents", "ocean", "countries", "logging", "cli", "surface",
+    "additives", "agents", "ocean", "countries", "logging", "cli", "surface", "integrity",
 ]

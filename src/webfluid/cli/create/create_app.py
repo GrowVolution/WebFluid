@@ -1,5 +1,5 @@
-from pathlib import Path
 from configparser import ConfigParser
+from pathlib import Path
 from secrets import token_hex
 import typer
 

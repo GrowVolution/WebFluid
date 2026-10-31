@@ -1,7 +1,7 @@
 from jinja2 import Environment, select_autoescape
 
-from .rendering import Renderer
 from .loaders import Loaders
+from .rendering import Renderer
 from webfluid.core.constants import DEBUG
 from webfluid.core.context.jinja import JinjaContext
 

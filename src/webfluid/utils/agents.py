@@ -149,6 +149,6 @@ def discover(root):
     for path in root.rglob("*.md"):
         parts = path.relative_to(root).parts
         if SKIPPED.intersection(parts): continue
-        if path.name == "CONTRACT.md" or ".agents" in parts: found.append(path)
+        if ".agents" in parts: found.append(path)
 
     return sorted(found, key=lambda path: (path.name != "CONTRACT.md", path.as_posix()))

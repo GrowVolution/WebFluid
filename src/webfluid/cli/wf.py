@@ -6,8 +6,8 @@ from webfluid.cli.create import cli_entry as create_cli
 from webfluid.cli.ocean import cli_entry as ocean_cli
 from webfluid.cli.run import cli_entry as run_cli
 from webfluid.core.identity import FRAMEWORK_NAME, EXTENSION_GROUP
-from webfluid.surface import node_cli, tailwind_cli
 from webfluid.extensions.base import FluidExtension
+from webfluid.surface import node_cli, tailwind_cli
 
 app = typer.Typer(name=f"{FRAMEWORK_NAME} CLI")
 

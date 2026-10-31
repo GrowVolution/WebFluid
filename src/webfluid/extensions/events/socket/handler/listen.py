@@ -6,5 +6,10 @@ def add_listener(socket_manager, events, sid, msg, res):
         res["error"] = f"Event '{event}' does not exist or was not subscribed to."
         return res
 
+    held, data = socket_manager.take(event, sid)
+    if held:
+        res["data"] = data
+        return res
+
     socket_manager.add_listener(event, sid, msg["id"])
     return None

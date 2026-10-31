@@ -4,25 +4,25 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `43-123` **Live defects (as of `1.0.0rc1`)**
+- `43-130` **Live defects (as of `1.0.0rc1`)**
   - `45-75` Runtime and lifecycle
   - `76-87` Data
   - `88-93` Auth and tokens
-  - `94-108` Events
-  - `109-114` i18n
-  - `115-123` Tooling
-- `124-139` **Fixed in `1.0.0rc1`**
-- `140-179` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
-  - `145-156` Security fixes — assume the old behaviour is what an attacker still tries
-  - `157-179` Correctness fixes
-- `180-291` **Traps that are not bugs**
-  - `184-200` Configuration
-  - `201-219` Templates and rendering
-  - `220-238` Database
-  - `239-251` Events and cache
-  - `252-259` Mail
-  - `260-278` Additives
-  - `279-291` Process model
+  - `94-110` Events
+  - `111-116` i18n
+  - `117-130` Tooling
+- `131-149` **Fixed in `1.0.0rc1`**
+- `150-189` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
+  - `155-166` Security fixes — assume the old behaviour is what an attacker still tries
+  - `167-189` Correctness fixes
+- `190-301` **Traps that are not bugs**
+  - `194-210` Configuration
+  - `211-229` Templates and rendering
+  - `230-248` Database
+  - `249-261` Events and cache
+  - `262-269` Mail
+  - `270-288` Additives
+  - `289-301` Process model
 <!-- /index -->
 
 Treat the first section as part of the API. Generating code that trips one of these produces a
@@ -100,7 +100,9 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
   message says. If an event only needs to reach the server, keep it `internal=True`.
 - **Event delivery is best-effort.** Broadcasts use a bounded per-listener buffer sized by
   `EVENTS_EVENT_QUEUE_SIZE` (default 5); a slow consumer loses its oldest events, logged as a
-  warning. Fine for dashboards and live notifications, wrong for anything that must not be lost — use
+  warning. A browser subscription buffers up to `EVENTS_SOCKET_BACKLOG` (default 32) events between
+  two `listen` requests; what arrives while its socket is down is lost — resync on reconnect or poll
+  as a fallback. Fine for dashboards and live notifications, wrong for anything that must not be lost — use
   the database plus a query for that.
 - **Registering a *new* event outside a running loop *after* startup raises `FrameworkException`.**
   Before startup it is queued and wired up by a startup hook, so import-time declaration works — but
@@ -117,6 +119,11 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 - **HMR rides on a proxied websocket that can die.** A Vite restart is the usual trigger; the
   affected frontend then silently stops picking up changes. A browser refresh re-establishes it —
   no need to restart `wf run`.
+- **The Vite dev server is only supervised with `EXT_SCHEDULING`.** Its output is discarded, so a
+  crash — typically its file watcher failing on a locked file in a huge project tree — shows up as
+  failing frontend requests. With scheduling a watchdog restarts it and logs a warning; without it,
+  restart `wf run -d`. Keep build output and native app trees out of its watcher
+  (`server.watch.ignored` in the project's `vite.config.js`).
 - **App configs written before `1.0.0b3` on a non-UTF-8 console** read back correctly on the machine
   that wrote them, but a non-ASCII value in one cannot be recovered elsewhere. Rewrite the affected
   configs once, or keep values ASCII and move secrets behind the `*_FILE` indirection.
@@ -128,6 +135,9 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 | An Additive's `url_for` only ever reverses that Additive's own routes | The scoped name is tried first and the plain name is the fallback, on and off request |
 | `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                               |
 | Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX |
+| Events published between two `listen` requests of a socket are lost  | Each subscription keeps a backlog (`EVENTS_SOCKET_BACKLOG`) that answers the next `listen` |
+| `EventManager` stops for good after the socket reconnects             | Its loops subscribe again with a backoff; `listen` no longer times out                   |
+| A crashed Vite dev server goes unnoticed                              | With `EXT_SCHEDULING` a watchdog restarts it with a warning; without, start-up warns once |
 | An Additive's enable hook can fail silently                           | `before_enable` and `after_enable` propagate; a failing hook fails that Additive's registration, loudly |
 | `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventManager`; the other registry methods stay internal                     |
 | An unreadable password hash answers 500 out of the sign-in handler    | Every argon2 verification failure answers `False`                                                  |

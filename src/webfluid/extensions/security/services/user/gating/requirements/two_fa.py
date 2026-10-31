@@ -1,12 +1,6 @@
 from fastapi import Request, HTTPException, Depends
 
 
-def requirement_fulfilled(user):
-    if user.totp_secret is not None and user.totp_secret.confirmed:
-        return True
-    return len(user.webauthn_credentials) > 0
-
-
 def _resolver_fn(default_gate):
     async def wrapped(request: Request):
         async for user in default_gate.resolve(request):
@@ -15,6 +9,12 @@ def _resolver_fn(default_gate):
                 raise HTTPException(status_code=401, detail="TWO_FA_REQUIRED")
             yield user
     return wrapped
+
+
+def requirement_fulfilled(user):
+    if user.totp_secret is not None and user.totp_secret.confirmed:
+        return True
+    return len(user.webauthn_credentials) > 0
 
 
 class Gate:

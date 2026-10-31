@@ -211,3 +211,58 @@ def test_unsubscribing_without_a_subscription_is_an_error(events_app):
 
     assert "error" in response
     assert sockets.has_subscriptions("ping", theirs)
+
+
+@pytest.mark.asyncio
+async def test_events_between_two_listens_wait_for_the_next_listen(events_app):
+    fluid, manager = events_app
+    manager.create_signal("ping")
+
+    await fluid._lifecycle.run_startup()
+    server, task = await serve(fluid, 8484)
+
+    def listen(msg_id):
+        return json.dumps({ "id": msg_id, "type": "listen", "data": "ping" })
+
+    try:
+        async with websockets.connect("ws://127.0.0.1:8484/ws/events") as ws:
+            await ws.send('{"id": 1, "type": "subscribe", "data": "ping"}')
+            await asyncio.wait_for(ws.recv(), timeout=3)
+            await ws.send(listen(2))
+            await asyncio.sleep(0.05)
+            for value in ("a", "b", "c"): manager.trigger("ping", value)
+
+            replies = [json.loads(await asyncio.wait_for(ws.recv(), timeout=3))]
+            for msg_id in (3, 4):
+                await ws.send(listen(msg_id))
+                replies.append(json.loads(await asyncio.wait_for(ws.recv(), timeout=3)))
+    finally:
+        server.should_exit = True
+        await task
+
+    assert replies == [
+        { "id": 2, "data": "a" },
+        { "id": 3, "data": "b" },
+        { "id": 4, "data": "c" }
+    ]
+
+
+def test_the_backlog_keeps_only_the_newest_events(events_app):
+    from webfluid.extensions.events.socket.handler.listen import add_listener
+    from webfluid.extensions.events.socket.main import SocketManager
+
+    fluid, manager = events_app
+    manager.create_signal("ping")
+    fluid.config["EVENTS_SOCKET_BACKLOG"] = 2
+    sockets = SocketManager(fluid, manager._events, manager._queries)
+
+    sid = sockets.join(object())
+    sockets.subscribe("ping", sid)
+    for value in (1, 2, 3): sockets.hold("ping", sid, value)
+
+    answers = [add_listener(sockets, manager._events, sid, { "id": n, "data": "ping" }, { "id": n })
+               for n in (10, 11, 12)]
+
+    assert answers[:2] == [{ "id": 10, "data": 2 }, { "id": 11, "data": 3 }]
+    assert answers[2] is None
+    assert sockets.get_listeners("ping", sid) == [12]

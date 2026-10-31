@@ -1,8 +1,7 @@
+from webfluid.core.constants import DEBUG, DEV_AUTO_INSTALL
 from functools import wraps
 from importlib import import_module
 import os
-
-from webfluid.core.constants import DEBUG, DEV_AUTO_INSTALL
 
 
 def require_extensions(*extensions):

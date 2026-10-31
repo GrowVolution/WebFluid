@@ -1,6 +1,6 @@
 from sqlalchemy import select
-from sqlalchemy.orm import contains_eager
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import contains_eager
 import asyncio, json
 
 from .caching import Cache
@@ -84,6 +84,15 @@ class TransactionService:
             row = result.first()
             return row.text if row else None
 
+    @classmethod
+    def _ensure_lock(cls, locale, domain):
+        if locale not in cls._locks:
+            cls._locks[locale] = {}
+
+        return cls._locks[locale].setdefault(
+            domain, asyncio.Lock()
+        )
+
     def get(self, key, num=1, ctx=None):
         if self._cache.is_uncached(key):
             return self._fetch(key, num, ctx)
@@ -130,15 +139,6 @@ class TransactionService:
                 by_locale.setdefault(r.locale, []).append((r.pf, r.ctx, r.text))
                 
         await self._cache.recache(key, by_locale, TransactionService._ensure_lock)
-
-    @classmethod
-    def _ensure_lock(cls, locale, domain):
-        if locale not in cls._locks:
-            cls._locks[locale] = {}
-
-        return cls._locks[locale].setdefault(
-            domain, asyncio.Lock()
-        )
 
     @classmethod
     async def kid(cls, domain, key):

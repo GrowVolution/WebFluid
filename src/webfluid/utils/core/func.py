@@ -1,4 +1,4 @@
-import inspect, asyncio
+import asyncio, inspect
 
 
 def required_arg_count(fn):

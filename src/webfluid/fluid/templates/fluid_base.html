@@ -20,6 +20,7 @@
 </head>
 
 <body>
+<a class="wf-skip-link" href="#wf-main">Skip to content</a>
 <header>
     <nav>
         {% block nav %}
@@ -35,7 +36,7 @@
                 <a href="/" class="nav-link" data-nav>Home</a>
 
                 <div class="nav-dropdown" data-dropdown>
-                    <button class="nav-dropdown-button" data-dropdown-btn>
+                    <button class="nav-dropdown-button" aria-expanded="false" data-dropdown-btn>
                         More
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-70"
                              fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,7 +52,7 @@
                 </div>
             </div>
 
-            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+            <button class="nav-toggle" id="navToggle" aria-controls="navMobile" aria-expanded="false" aria-label="Toggle navigation">
                 ☰
             </button>
         </div>
@@ -67,7 +68,7 @@
     </nav>
 </header>
 
-<main>
+<main id="wf-main">
     {% block content %}{% endblock %}
 </main>
 
@@ -97,6 +98,7 @@
 
         toggle?.addEventListener("click", () => {
             mobileOpen = !mobileOpen
+            toggle.setAttribute("aria-expanded", String(mobileOpen))
 
             if (mobileOpen) {
                 mobile.classList.remove("max-h-0")
@@ -115,10 +117,19 @@
             btn.addEventListener("click", (e) => {
                 e.stopPropagation()
                 menu.classList.toggle("hidden")
+                btn.setAttribute("aria-expanded", String(!menu.classList.contains("hidden")))
             })
 
             document.addEventListener("click", () => {
                 menu.classList.add("hidden")
+                btn.setAttribute("aria-expanded", "false")
+            })
+            document.addEventListener("keydown", event => {
+                if (event.key === "Escape" && !menu.classList.contains("hidden")) {
+                    menu.classList.add("hidden")
+                    btn.setAttribute("aria-expanded", "false")
+                    btn.focus()
+                }
             })
         })
 

@@ -1,9 +1,9 @@
+from webfluid.utils.agents import discover, index
 from pathlib import Path
 import sys
 
-from webfluid.utils.agents import discover, index
-
 ROOT = Path(__file__).resolve().parents[1]
+
 AGENTS = ROOT / "src" / "webfluid" / ".agents"
 
 

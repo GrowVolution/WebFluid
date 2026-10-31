@@ -1,6 +1,6 @@
 from .phase import Phase
-from webfluid.utils.core import safe_execute
 from webfluid.utils.cli import progress_bar
+from webfluid.utils.core import safe_execute
 from webfluid.utils.logging import factory as log_factory
 
 
@@ -22,4 +22,5 @@ class Lifecycle:
                 bar.update()
 
     async def run_startup(self): await self._run(self.startup)
+
     async def run_shutdown(self): await self._run(self.shutdown)

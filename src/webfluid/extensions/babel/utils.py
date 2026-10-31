@@ -1,10 +1,75 @@
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from babel import Locale, UnknownLocaleError, dates, numbers
+from datetime import datetime, timezone
 from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import json
 
 from webfluid.core.context import FluidContext
+
+
+def _try_locale(locale):
+    if not locale: return None
+    try: return load_locale(locale)
+    except (ValueError, TypeError, UnknownLocaleError): return None
+
+
+def _try_timezone(name):
+    if not name: return None
+    try: return ZoneInfo(name)
+    except (ValueError, ZoneInfoNotFoundError): return None
+
+
+def _request_locale():
+    from webfluid.core.ext import babel
+
+    ctx = FluidContext.try_current()
+    request = ctx.request if ctx is not None else None
+    if request is None:
+        return load_locale(babel.default_locale)
+
+    return (
+        _try_locale(request.query_params.get("lang"))
+        or _try_locale(request.cookies.get("lang"))
+        or _try_locale(parse_best_match(
+            request.headers.get("Accept-Language"),
+            babel.supported_locales
+        ))
+        or load_locale(babel.default_locale)
+    )
+
+
+def _request_timezone():
+    from webfluid.core.ext import babel
+
+    ctx = FluidContext.try_current()
+    request = ctx.request if ctx is not None else None
+    if request is None:
+        return ZoneInfo(babel.default_timezone)
+
+    return (
+        _try_timezone(request.cookies.get("tz"))
+        or _try_timezone(request.headers.get("X-Timezone"))
+        or ZoneInfo(babel.default_timezone)
+    )
+
+
+def _get_format(key, fmt=None):
+    from webfluid.core.ext import babel
+
+    if fmt is None:
+        fmt = babel.date_formats[key]
+
+    if fmt in ("short", "medium", "full", "long"):
+        return babel.date_formats.get("%s.%s" % (key, fmt)) or fmt
+    return fmt
+
+
+def _date_format(formatter, obj, fmt, rebase, **extra):
+    locale = get_locale()
+    extra = dict(extra) if extra else {}
+    if formatter is not dates.format_date and rebase:
+        extra["tzinfo"] = get_timezone()
+    return formatter(obj, fmt, locale=locale, **extra)
 
 
 def translation_resolver(path, locale_map):
@@ -59,58 +124,6 @@ def parse_best_match(accept_header, available):
     return None
 
 
-@lru_cache(maxsize=512)
-def load_locale(locale):
-    locale_key = locale.replace("-", "_")
-    return Locale.parse(locale_key)
-
-
-def _try_locale(locale):
-    if not locale: return None
-    try: return load_locale(locale)
-    except (ValueError, TypeError, UnknownLocaleError): return None
-
-
-def _try_timezone(name):
-    if not name: return None
-    try: return ZoneInfo(name)
-    except (ValueError, ZoneInfoNotFoundError): return None
-
-
-def _request_locale():
-    from webfluid.core.ext import babel
-
-    ctx = FluidContext.try_current()
-    request = ctx.request if ctx is not None else None
-    if request is None:
-        return load_locale(babel.default_locale)
-
-    return (
-        _try_locale(request.query_params.get("lang"))
-        or _try_locale(request.cookies.get("lang"))
-        or _try_locale(parse_best_match(
-            request.headers.get("Accept-Language"),
-            babel.supported_locales
-        ))
-        or load_locale(babel.default_locale)
-    )
-
-
-def _request_timezone():
-    from webfluid.core.ext import babel
-
-    ctx = FluidContext.try_current()
-    request = ctx.request if ctx is not None else None
-    if request is None:
-        return ZoneInfo(babel.default_timezone)
-
-    return (
-        _try_timezone(request.cookies.get("tz"))
-        or _try_timezone(request.headers.get("X-Timezone"))
-        or ZoneInfo(babel.default_timezone)
-    )
-
-
 def get_locale():
     from webfluid.core.ext import babel
 
@@ -134,17 +147,6 @@ def get_timezone():
 def format_message(message, **variables):
     if variables: return message % variables
     return message
-
-
-def _get_format(key, fmt=None):
-    from webfluid.core.ext import babel
-
-    if fmt is None:
-        fmt = babel.date_formats[key]
-
-    if fmt in ("short", "medium", "full", "long"):
-        return babel.date_formats.get("%s.%s" % (key, fmt)) or fmt
-    return fmt
 
 
 def to_user_timezone(dt):
@@ -194,14 +196,6 @@ def format_timedelta(
     )
 
 
-def _date_format(formatter, obj, fmt, rebase, **extra):
-    locale = get_locale()
-    extra = dict(extra) if extra else {}
-    if formatter is not dates.format_date and rebase:
-        extra["tzinfo"] = get_timezone()
-    return formatter(obj, fmt, locale=locale, **extra)
-
-
 def format_number(number):
     locale = get_locale()
     return numbers.format_decimal(number, locale=locale)
@@ -247,3 +241,9 @@ def fake_t(s, **args):
 def fake_tn(s, p, n, **args):
     args.setdefault("num", n)
     return (s if n == 1 else p) % args
+
+
+@lru_cache(maxsize=512)
+def load_locale(locale):
+    locale_key = locale.replace("-", "_")
+    return Locale.parse(locale_key)

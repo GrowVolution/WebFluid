@@ -14,7 +14,7 @@ of re-implementing.
 The framework is at its first release candidate (`1.0.0rc1`) and targets
 Python 3.14+.
 
-The shipped [framework contract](src/webfluid/CONTRACT.md) describes the integration
+The shipped [framework contract](src/webfluid/.agents/CONTRACT.md) describes the integration
 boundaries; the [agent skill](src/webfluid/.agents/SKILL.md) routes to detailed references.
 
 ---
@@ -189,7 +189,7 @@ Additive before it writes the same feature again.
 Every one of those files opens with an index of its sections and their line
 ranges, so an agent reads the part a task needs instead of the whole file.
 Additives, extensions and SDKs document themselves the same way — a
-`CONTRACT.md` and an `.agents/SKILL.md` for agents next to a `README.md` and a
+`.agents/` folder with a `CONTRACT.md` and a `SKILL.md` for agents next to a `README.md` and a
 `DOCS.md` for the people who answer for them — and `wf agents index` keeps
 every index in a project current. The same material is published
 for agents at <https://docs.webfluid.dev/llms.txt>.

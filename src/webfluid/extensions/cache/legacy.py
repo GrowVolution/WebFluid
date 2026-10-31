@@ -42,6 +42,9 @@ class LegacyCache(BaseCache):
         self._expiry.clear()
 
     async def aset(self, key, value, timeout=None): self.set(key, value, timeout)
+
     async def aget(self, key): return self.get(key)
+
     async def adelete(self, key): self.delete(key)
+
     async def aclear(self): self.clear()

@@ -18,4 +18,5 @@ class Lifecycle:
             await safe_execute(hook, True, *args)
 
     async def run_before(self, fluid): await self._run(self.before_enable, fluid)
+
     async def run_after(self): await self._run(self.after_enable)

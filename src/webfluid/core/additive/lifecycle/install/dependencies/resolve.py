@@ -1,8 +1,8 @@
 from pathlib import Path
 import typer
 
-from .pull import pull_dependency
 from ..requirements import required_additives
+from .pull import pull_dependency
 
 
 def resolve_dependencies(additive, seen):

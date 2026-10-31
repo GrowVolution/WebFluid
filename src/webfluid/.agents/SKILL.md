@@ -1,6 +1,6 @@
 ---
 name: webfluid
-description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, the `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one.
+description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, the `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one. Building or restructuring an Additive or an extension — above all one meant for Ocean — also needs its binding code style and package architecture in references/style.md.
 ---
 
 # Working with WebFluid
@@ -12,13 +12,13 @@ the task needs.
 
 - `47-68` **Orient before you write**
 - `69-88` **Reuse before you build**
-- `89-100` **Leave the human in charge**
-- `101-159` **The rules that keep generated code correct**
-- `160-257` **The shapes to generate**
-- `258-277` **Task → route**
-- `278-289` **Verify your work**
-- `290-323` **Pull deeper detail live**
-- `324-339` **References**
+- `89-103` **Leave the human in charge**
+- `104-167` **The rules that keep generated code correct**
+- `168-265` **The shapes to generate**
+- `266-287` **Task → route**
+- `288-300` **Verify your work**
+- `301-334` **Pull deeper detail live**
+- `335-351` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -55,7 +55,7 @@ Read these first — one tool call each, and they settle what your code may use:
 | `fluid/config.py`             | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
 | `fluid/__init__.py`           | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
 | `additives/*/manifest.json`   | Which feature modules exist, their ids, and what they require                      |
-| `additives/*/.agents/SKILL.md` | How to use that Additive; it points into its `CONTRACT.md` by line range          |
+| `additives/*/.agents/SKILL.md` | How to use that Additive; it points into `.agents/CONTRACT.md` by line range      |
 
 The `.gitignore` the scaffolder writes into a project excludes `app_configs/` and `additives/`.
 `git status` will not show your edits there — verify by reading files, not by diffing.
@@ -71,7 +71,7 @@ python -c "from webfluid import version; print(version())"
 Before you write a feature, check whether the ecosystem already ships it:
 
 1. **An installed Additive.** Each one carries `.agents/SKILL.md` (when and how to use it) and
-   `CONTRACT.md` (every route, event and query it offers, with payloads and error codes). Prefer its
+   `.agents/CONTRACT.md` (every route, event and query it offers, with payloads and error codes). Prefer its
    REST API and its id-scoped queries over re-implementing the same behaviour next to it.
 2. **Ocean, the package hub.** `wf ocean search <term>` finds a package; `wf ocean install -a <id>`
    adds an Additive, `-e <id>` an extension, and `--prefer-stable` falls back to the latest
@@ -88,7 +88,10 @@ gap is feedback for the maintainer, and it is how the shared solution improves.
 
 ## Leave the human in charge
 
-Someone has to be able to take responsibility for what you produce. Work so that they can:
+Someone has to be able to take responsibility for what you produce. The code comes from you; the
+architecture, the design decisions, the description of the product and the final responsibility
+come from a person. Write code that person can read, review and test without redundant effort, and
+work so that they can:
 
 - Keep one concern per change, and say in your answer which behaviour changed — not only which
   files. A reviewer reads the summary first.
@@ -156,6 +159,11 @@ Someone has to be able to take responsibility for what you produce. Work so that
     requires, never a package or app that builds on it. That holds for history too: a lower
     package's CHANGELOG describes a feature as its own, never as "moved here from" a consumer.
     Examples use neutral names (`my-app`, `shop`). Details in `references/additives.md`.
+17. **One code shape across the ecosystem.** Services are `<Domain>Service` classes exported from
+    `services/__init__.py`, Pydantic models live only in `schemas/`, exceptions only in
+    `exceptions.py`; every module orders its imports, variables, functions and classes the same way.
+    Read `references/style.md` before you create or restructure a package, and always before you
+    build an Additive or an extension for Ocean — it is what reviewers hold published packages to.
 
 ## The shapes to generate
 
@@ -165,7 +173,7 @@ The scaffolder produces this layout and every doc page assumes it. Match it.
 myapp/
 ├── main.py              # the entrypoint: calls prepare_fluid() under __main__
 ├── app_configs/app.ini  # secrets, EXT_*/WF_* switches, [additives] — gitignored
-├── additives/           # feature modules, each with manifest.json, CONTRACT.md, .agents/SKILL.md
+├── additives/           # feature modules, each with manifest.json and .agents/ (SKILL.md, CONTRACT.md)
 └── fluid/
     ├── __init__.py      # prepare_fluid(), includes the routers
     ├── config.py        # @register_config Config(MyConfig)
@@ -173,7 +181,7 @@ myapp/
     ├── app/             # HTML routes, default_response_class=HTMLResponse
     ├── models/          # db.Model subclasses — Alembic imports fluid.models by name
     ├── schemas/         # pydantic
-    ├── services/        # business logic, reusable from jobs and events
+    ├── services/        # business logic as <Domain>Service classes, reusable from jobs and events
     ├── events/          # signals, events, queries — registered from a hook
     ├── static/          # served at /static
     └── templates/       # searched before the framework's own
@@ -268,10 +276,12 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
 | Translate                    | Symbolic `SCREAMING_SNAKE` keys, JSON runtime store, `update_translations` before `mix()`  | `references/batteries.md`      |
 | Run code at startup          | `@app.startup_hook` in the factory (0 args)                                                | `references/runtime.md`        |
 | Reach the request anywhere   | `FluidContext.current()` / `try_current()`, `cached_or`                                    | `references/runtime.md`        |
-| Use an installed Additive    | Its `.agents/SKILL.md`, then the `CONTRACT.md` ranges it names                             | the Additive's own files       |
+| Use an installed Additive    | Its `.agents/SKILL.md`, then the `.agents/CONTRACT.md` ranges it names                     | the Additive's own files       |
 | Build a feature module       | `wf create additive <id>`; routes registered in `before_enable`                            | `references/additives.md`      |
+| Write or restructure a module | Services as classes, schemas and exceptions in their modules, the shared module layout    | `references/style.md`          |
 | Make two Additives talk      | Id-scoped events/queries via `additive.unique_name()` — **never an import**                | `references/additives.md`      |
-| Document an Additive         | `CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                                 | `references/additives.md`      |
+| Document an Additive         | `.agents/CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                         | `references/additives.md`      |
+| Prove which files are served | Subclass `webfluid.utils.integrity.IntegrityReference`, never a copy of its own            | `references/additives.md`      |
 | Ship a battery-style service | A `FluidExtension` distribution, not an Additive                                           | `references/additives.md`      |
 | Debug wrong behaviour        | Check the known-defect list first                                                          | `references/pitfalls.md`       |
 
@@ -284,8 +294,9 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
   (autogenerate misses renames and emits drop+add), then `wf migrate upgrade <app>`.
 - Log with `from webfluid.utils.logging import factory as log`. It is silent unless `IN_EXECUTION`
   is set, which only `wf run` does — a log line from a script or a test is dropped.
-- After editing a `CONTRACT.md` or anything under `.agents/`, run `wf agents index` so the line
-  ranges stay true; `wf agents index --check` fails when one is stale.
+- Everything addressed to agents lives in a package's `.agents/` folder — `SKILL.md`,
+  `CONTRACT.md` and any `references/`. After editing anything there, run `wf agents index` so the
+  line ranges stay true; `wf agents index --check` fails when one is stale.
 
 ## Pull deeper detail live
 
@@ -323,7 +334,7 @@ carry the exhaustive detail.
 
 ## References
 
-The package's [CONTRACT.md](../CONTRACT.md) defines its public integration boundaries.
+The package's [CONTRACT.md](CONTRACT.md) defines its public integration boundaries.
 
 Each reference opens with a line-range index of its own sections. Read those first 30 lines, then
 open only the ranges the task needs — these files run to several hundred lines each and loading one
@@ -336,4 +347,5 @@ whole to answer one question is wasted context.
 | `references/batteries.md`     | The eight `EXT_*` batteries — SQLAlchemy, Security, Babel, Events, Cache, Mail, JWT, Scheduling — plus Migrate |
 | `references/additives.md`     | Additives, base Additives, contracts, agent docs, packaging, and writing a `FluidExtension`                    |
 | `references/frontend.md`      | `WF_*` switches, template resolution, `fluid_base.html`, themes, htmx and Vite                                 |
+| `references/style.md`         | The binding code style and package architecture: services, schemas, exceptions, imports, module layout          |
 | `references/pitfalls.md`      | Known defects of the current release and the traps that produce silently wrong code                            |

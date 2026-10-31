@@ -5,6 +5,15 @@ from webfluid.extensions.security.models.user import Role, user_roles
 from webfluid.extensions.sqlalchemy import SQLAlchemy
 
 
+def _resolver_fn(two_fa_gate, roles):
+    async def wrapped(request: Request):
+        async for user in two_fa_gate.resolve(request):
+            if not await requirement_fulfilled(user, roles):
+                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
+            yield user
+    return wrapped
+
+
 async def requirement_fulfilled(user, roles):
     required = set(roles)
     if not required: return True
@@ -22,15 +31,6 @@ async def requirement_fulfilled(user, roles):
             scalars=False
         )
         return result.scalar() == len(required)
-
-
-def _resolver_fn(two_fa_gate, roles):
-    async def wrapped(request: Request):
-        async for user in two_fa_gate.resolve(request):
-            if not await requirement_fulfilled(user, roles):
-                raise HTTPException(status_code=403, detail="NOT_AUTHORIZED")
-            yield user
-    return wrapped
 
 
 class Gate:

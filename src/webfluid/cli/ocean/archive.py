@@ -1,4 +1,4 @@
-import io, re, tarfile, hashlib
+import hashlib, io, re, tarfile
 
 _JUNK_DIRS = {
     ".git", "__pycache__", "node_modules", ".venv", "venv",

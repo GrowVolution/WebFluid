@@ -13,6 +13,24 @@ class RedisCache(BaseCache):
         self._redis_uri = fluid.config["CACHE_REDIS_URI"]
         super().expand_fluid(fluid)
 
+    def set(self, key, value, timeout=None):
+        self.cache.set(key, value, ex=self._ttl(timeout))
+
+    def get(self, key): return self.cache.get(key)
+
+    def delete(self, key): self.cache.delete(key)
+
+    def clear(self): self.cache.flushdb()
+
+    async def aset(self, key, value, timeout=None):
+        await self.acache.set(key, value, ex=self._ttl(timeout))
+
+    async def aget(self, key): return await self.acache.get(key)
+
+    async def adelete(self, key): await self.acache.delete(key)
+
+    async def aclear(self): await self.acache.flushdb()
+
     @property
     def cache(self):
         if self._sync is None:
@@ -26,17 +44,3 @@ class RedisCache(BaseCache):
             from redis.asyncio import Redis
             self._async = Redis.from_url(self._redis_uri, decode_responses=True)
         return self._async
-
-    def set(self, key, value, timeout=None):
-        self.cache.set(key, value, ex=self._ttl(timeout))
-
-    def get(self, key): return self.cache.get(key)
-    def delete(self, key): self.cache.delete(key)
-    def clear(self): self.cache.flushdb()
-
-    async def aset(self, key, value, timeout=None):
-        await self.acache.set(key, value, ex=self._ttl(timeout))
-
-    async def aget(self, key): return await self.acache.get(key)
-    async def adelete(self, key): await self.acache.delete(key)
-    async def aclear(self): await self.acache.flushdb()

@@ -1,13 +1,13 @@
 from pathlib import Path
-import typer, shutil
+import shutil, typer
 
 from webfluid.core.constants import FRAMEWORK_STATIC
 from webfluid.core.identity import FRAMEWORK_ID
+from webfluid.exceptions import FrontendException
 from webfluid.surface import dist
 from webfluid.surface.src import htmx, alpine, vite, vite_dev, package_json
 from webfluid.surface.wf_node import load_node
 from webfluid.surface.wf_tailwind import load_tailwind
-from webfluid.exceptions import FrontendException
 
 _static_js = (Path(__file__).parent.parent / FRAMEWORK_STATIC.lstrip("/") / "js").resolve()
 

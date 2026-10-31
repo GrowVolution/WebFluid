@@ -1,11 +1,10 @@
 from .events import Events
-from .queries import Queries
 from .loop import LoopManager
+from .queries import Queries
 from .socket import SocketManager
-
-from webfluid.extensions.base import Delegated, FluidExtension
 from webfluid.core.constants import FRAMEWORK_STATIC
 from webfluid.core.context import FluidContext
+from webfluid.extensions.base import Delegated, FluidExtension
 from webfluid.utils.core import safe_execute
 
 

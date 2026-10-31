@@ -20,16 +20,25 @@ class FluidContext(BaseContext):
             self._data[arg.__name__] = arg
 
     def __getitem__(self, key): return self._data[key]
+
     def __setitem__(self, key, value): self._data[key] = value
+
     def __contains__(self, item): return item in self._data
+
     def __len__(self): return len(self._data)
+
     def __bool__(self): return True
+
     def __str__(self): return str(self._data)
 
     def keys(self): return self._data.keys()
+
     def values(self): return self._data.values()
+
     def items(self): return self._data.items()
+
     def get(self, key, default=None): return self._data.get(key, default)
+
     def pop(self, key, default=None): return self._data.pop(key, default)
 
     def cached(self, key, factory):

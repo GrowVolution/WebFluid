@@ -1,5 +1,5 @@
-from selectolax.lexbor import LexborHTMLParser
 from markupsafe import Markup
+from selectolax.lexbor import LexborHTMLParser
 
 from webfluid.core.freeze import Freezable
 from webfluid.utils.core import check_priority, build_sorted_tuple

@@ -4,7 +4,6 @@ from datetime import datetime
 
 from webfluid.core.ext import db
 
-
 user_roles = Table(
     "user_roles", db.Model.metadata,
 

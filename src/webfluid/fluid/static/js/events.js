@@ -13,26 +13,48 @@ export class EventManager {
     async _event_loop(event){
         if (!this._events[event]) return
 
-        let listener = request("listen", event)
+        const listen = () => request("listen", event, { timeout: 0 })
+        let listener = listen()
+        let attempt = 0
 
         while (!this._break_flag[event]) {
             try {
                 const response = await listener
                 if (this._break_flag[event]) break
-                listener = request("listen", event)
+                attempt = 0
+                listener = listen()
 
                 for (const handler of this._events[event].handlers) {
                     handler(response)
                 }
             } catch (error) {
-                if (error === "timeout" || error?.message === "timeout") {
-                    listener = request("listen", event)
+                if (this._break_flag[event]) break
+                const reason = String(error?.message ?? error)
+
+                if (reason === "timeout") {
+                    listener = listen()
+                    continue
+                }
+
+                if (reason === "socket closed" || reason.includes("not subscribed")) {
+                    await new Promise(resolve => setTimeout(resolve, Math.min(500 * 2 ** attempt++, 10000)))
+                    if (this._break_flag[event]) break
+                    if (!await this._resubscribe(event)) continue
+                    listener = listen()
                     continue
                 }
 
                 console.error("Error while listening:", error)
                 break
             }
+        }
+    }
+
+    async _resubscribe(event) {
+        try {
+            return !!await request("subscribe", event)
+        } catch (error) {
+            return String(error?.message ?? error).includes("already been subscribed")
         }
     }
 

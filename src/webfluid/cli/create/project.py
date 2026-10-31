@@ -1,5 +1,5 @@
 from pathlib import Path
-import typer, shutil
+import shutil, typer
 
 from .helpers import make_defaults, frontend_conf, create_frontend
 from webfluid.cli.create import templates

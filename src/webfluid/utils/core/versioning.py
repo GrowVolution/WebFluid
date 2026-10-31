@@ -2,22 +2,6 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version as _Version
 
 
-class Version(_Version):
-    def __init__(self, *parts):
-        if not parts: raise ValueError("Invalid version format.")
-
-        v_str = ".".join(str(part) for part in parts)
-        try: super().__init__(v_str)
-        except InvalidVersion:
-            raise ValueError(f"Invalid version format '{v_str}'.")
-
-    @property
-    def stage(self): return self.pre[0] if self.pre else ""
-
-    @property
-    def build(self): return self.pre[1] if self.pre else 0
-
-
 def check_required_version(requirement, version_type="framework", additive_version=None):
     version_type = version_type.lower()
     if version_type not in ("framework", "additive"):
@@ -40,3 +24,19 @@ def check_required_version(requirement, version_type="framework", additive_versi
         current = version()
 
     return current in specifier
+
+
+class Version(_Version):
+    def __init__(self, *parts):
+        if not parts: raise ValueError("Invalid version format.")
+
+        v_str = ".".join(str(part) for part in parts)
+        try: super().__init__(v_str)
+        except InvalidVersion:
+            raise ValueError(f"Invalid version format '{v_str}'.")
+
+    @property
+    def stage(self): return self.pre[0] if self.pre else ""
+
+    @property
+    def build(self): return self.pre[1] if self.pre else 0

@@ -1,15 +1,24 @@
 from fastapi import WebSocket
+from collections import deque
 from uuid import uuid4
 
 from .handler import SocketHandler
-
 from webfluid.core.context import FluidContext
+
+
+class Subscription:
+    __slots__ = ("listeners", "backlog")
+
+    def __init__(self, backlog):
+        self.listeners = []
+        self.backlog = deque(maxlen=backlog or None)
 
 
 class SocketManager:
     def __init__(self, fluid, events, queries):
         self._fluid = fluid
         self._handler = SocketHandler(self, events, queries)
+        self._backlog = fluid.config["EVENTS_SOCKET_BACKLOG"]
         self._websockets = {}
         self._subscriptions = {}
 
@@ -40,24 +49,35 @@ class SocketManager:
 
     def get_subscriptions(self, event, sid=None):
         if not self.has_subscriptions(event, sid): return None
-        if sid: return self._subscriptions[event].get(sid, [])
+        if sid: return self._subscriptions[event][sid]
         return self._subscriptions[event]
 
     def subscribe(self, event, sid):
         if not self.has_subscriptions(event):
             self._subscriptions[event] = {}
-        self._subscriptions[event][sid] = []
+        self._subscriptions[event][sid] = Subscription(self._backlog)
 
     def unsubscribe(self, event, sid):
         if self.has_subscriptions(event):
             self._subscriptions[event].pop(sid, None)
 
     def add_listener(self, event, sid, msg_id):
-        self._subscriptions[event][sid].append(msg_id)
+        self._subscriptions[event][sid].listeners.append(msg_id)
 
     def get_listeners(self, event, sid):
         if self.has_subscriptions(event, sid):
-            listeners = self._subscriptions[event][sid].copy()
-            self._subscriptions[event][sid].clear()
+            subscription = self._subscriptions[event][sid]
+            listeners = subscription.listeners.copy()
+            subscription.listeners.clear()
             return listeners
         return []
+
+    def hold(self, event, sid, data):
+        if self._backlog and self.has_subscriptions(event, sid):
+            self._subscriptions[event][sid].backlog.append(data)
+
+    def take(self, event, sid):
+        if not self.has_subscriptions(event, sid): return False, None
+        backlog = self._subscriptions[event][sid].backlog
+        if not backlog: return False, None
+        return True, backlog.popleft()

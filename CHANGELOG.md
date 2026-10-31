@@ -4,6 +4,16 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
+## Unreleased
+
+- The agent skill has a binding code style and package architecture,
+  `.agents/references/style.md`: services as `<Domain>Service` classes exported through `__all__`,
+  Pydantic models only in `schemas/`, exceptions only in `exceptions.py`, one import block shape,
+  one module and class layout, and how a module that grows becomes a package. The skill names it as
+  required reading before building an Additive or an extension for Ocean.
+- The framework's own modules follow it: imports grouped and ordered, variables, functions and
+  classes in the documented order. No behaviour changed.
+
 ## 1.0.0rc1
 
 The first release candidate. `1.0.0b3` closed the last of the known defects that
@@ -75,6 +85,30 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   with an `atexit` registration behind it for the paths that unwind but do not
   reach the lifecycle. POSIX behaviour is unchanged — `start_new_session` plus a
   process-group kill already covered everything but `SIGKILL`.
+- `/ws/events` lost every event published between two `listen` requests of a
+  subscribed socket. A `listen` is answered once, and the client can only send
+  the next one after the answer arrived; whatever the channel published in that
+  round trip found no listener and was dropped. Two signals in a row — a
+  doorbell rung for two accounts at once, say — reached each socket only once,
+  so the second recipient never heard its own. Each subscription now keeps a
+  backlog of the events that found no waiting listener, at most
+  `EVENTS_SOCKET_BACKLOG` (default 32, `0` turns it off, the oldest are dropped
+  first), and the next `listen` is answered from it at once.
+- `events.js` stopped listening for good after the socket reconnected. A
+  restarted server drops every subscription, the next `listen` was refused, and
+  `EventManager` logged the error and ended its loop, so the page received
+  nothing until it was reloaded. Its `listen` requests also timed out after
+  15 seconds, which left a stale listener on the server for the moment the
+  replacement was in flight. `listen` now waits without a timeout, and a loop
+  that loses its socket or its subscription subscribes again with a backoff of
+  up to ten seconds.
+- The Vite dev server of `wf run -d` could stop at any time — a watcher error on a
+  locked file is enough — and the frontend failed without a word, because its
+  output goes nowhere. With `EXT_SCHEDULING` a watchdog job now checks the process
+  every five seconds and restarts it with a warning; after five exits in a row
+  within fifteen seconds of starting it gives up and says how to see the error.
+  Without `EXT_SCHEDULING` the start-up warns once that the dev server runs
+  unsupervised.
 - `wf create additive` generated an Additive that could not be enabled. Its
   `before_enable` did `from .api import v1` and `additive.api.include_router(v1)`,
   but the generated `api/__init__.py` exports `health` and `setup_v1` — `v1` there
@@ -263,11 +297,11 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 ### Added
 
 - `wf agents index [PATHS…]` keeps the agent documentation of a project, an
-  Additive or an extension navigable. It finds every `CONTRACT.md` and every
-  Markdown file under an `.agents/` directory below the current directory —
+  Additive or an extension navigable. It finds every Markdown file under an
+  `.agents/` directory below the current directory —
   skipping `node_modules`, `build`, `.git` and the like — and writes the
   `<!-- index -->` block of section line ranges each file opens with. A block of
-  the form `<!-- index ../CONTRACT.md -->` … `<!-- /index -->` is filled with the
+  the form `<!-- index CONTRACT.md -->` … `<!-- /index -->` is filled with the
   ranges of the file it names instead, which is how an Additive's
   `.agents/SKILL.md` points into its contract without ranges going stale. The
   command preserves each file's line endings, changes nothing in fenced code, and
@@ -275,6 +309,22 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   so it can guard a CI pipeline. The implementation is
   `webfluid.utils.agents` (`index`, `discover`); `scripts/agent_docs_index.py`
   now uses it for the framework's own skill.
+- `webfluid.utils.integrity` checks the files an Additive serves against an
+  integrity reference — a git repository of published versions with a
+  `generate.py` and a `manifest.json` (format 2, or the single-artifact format
+  1). `IntegrityReference` is subclassed once per Additive and set up with its
+  `Artifact`s; a run clones or fast-forwards the reference, executes its
+  generator once with `sys.executable -I` and a timeout, recomputes every hash
+  itself (text with CRLF counted as LF, `binary=True` artifacts byte for byte)
+  and answers one integrity record per artifact with the provenance
+  `reference-match`, `reference-mismatch` or `reference-unavailable`. A failing,
+  stale or non-reproducible run is reported as unavailable, never as fresh; its
+  error codes travel in `webfluid.exceptions.IntegrityGenerationError`. Additives
+  that each carried their own copy of this check can drop it.
+- `EVENTS_SOCKET_BACKLOG` (default 32) sizes the per-subscription backlog of
+  `/ws/events`, and `createWS(path).request(type, data, { timeout })` takes a
+  timeout per request (`0` waits indefinitely), falling back to the socket's
+  `options.timeout`.
 - `FluidExtension.raise_unexpanded()` raises the `FrameworkException` an
   extension raises when it is used before `expand_fluid` ran, with the message
   taken from the class attribute `_unexpanded` (default
@@ -322,6 +372,16 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   an extension or an SDK names only what it requires, never what builds on it
   — not even in its CHANGELOG — and `references/additives.md` shows the neutral
   wording for each case.
+- **Everything addressed to agents lives in `.agents/`.** The framework contract
+  moves from `webfluid/CONTRACT.md` to `webfluid/.agents/CONTRACT.md`, next to
+  `SKILL.md` and `references/`, and the same layout is the convention for every
+  Additive, extension and SDK: the package root keeps what people read, its
+  `.agents/` folder holds the skill, the contract and any references.
+  `wf agents index` discovers only `.agents/` files, and a skill links its
+  contract with `<!-- index CONTRACT.md -->`. **Upgrade:** move a package's
+  `CONTRACT.md` into its `.agents/` folder, change `<!-- index ../CONTRACT.md -->`
+  to `<!-- index CONTRACT.md -->`, point links in `README.md` and `DOCS.md` at
+  `.agents/CONTRACT.md`, and run `wf agents index`.
 - **The app factory moves from `main.py` into the app package.** `wf create
   project` writes `prepare_fluid()` into `fluid/__init__.py` and leaves `main.py`
   as the two-line entrypoint that imports and calls it under `__main__`. The
@@ -411,6 +471,9 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   catches.
 - `User`, `Role` and `Permission` in `webfluid.extensions.security.models.user`
   declare `__table_args__`.
+- `webfluid.utils.integrity` is a new stub module (`IntegrityReference`,
+  `Artifact`), and `webfluid.exceptions` declares `IntegrityGenerationError`
+  with its `code` and `detail`.
 - `FluidExtension` gains `_unexpanded` and `raise_unexpanded()`, and
   `webfluid.utils.additives.loading` gains `_validate_package`.
 - `BaseCache` gains `_ttl()`, and `Translations._update_tasks` holds
@@ -437,7 +500,7 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   `scripts/agent_docs_index.py` for the framework's own files) regenerates every
   index in place and is idempotent; run it after editing any of those files.
 - The additives reference gains *Documenting an Additive for people and agents*:
-  which of `README.md`, `CHANGELOG.md`, `CONTRACT.md` and `.agents/SKILL.md`
+  which of `README.md`, `CHANGELOG.md`, `.agents/CONTRACT.md` and `.agents/SKILL.md`
   serves which reader, that a contract describes an Additive only through what
   it provides and requires, and how a skill links into its contract by range.
   The packaging checklist asks for all three files and a current index; the
@@ -532,7 +595,11 @@ of its consumer task, and `fake_tn` for its plural variable. Nine more cover the
 scaffolded app factory and entrypoint, both migration environments rendering
 from the seam with no placeholder left, the three ways `project_root` resolves,
 and a `--skip-frontend` project scaffolded end to end for the files it must
-contain.
+contain. Two pin the event socket's backlog — events published between two
+`listen` requests arrive in order, and the backlog keeps only the newest — and
+six the Vite watchdog: a running server left alone, a stopped one restarted
+with a warning, one that keeps dying given up, none restarted while the app
+stops, the warning without `EXT_SCHEDULING` and the job with it.
 
 ### Known limitations
 

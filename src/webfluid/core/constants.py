@@ -1,9 +1,6 @@
 import os
 
-from webfluid.core.identity import (
-    FRAMEWORK_ID, ENV_PREFIX,
-    HUB_NAME, HUB_API_URL, HUB_AUTH_URL
-)
+from webfluid.core.identity import FRAMEWORK_ID, ENV_PREFIX, HUB_NAME, HUB_API_URL, HUB_AUTH_URL
 from webfluid.utils.core import enabled
 
 APP_STATIC = "/static"

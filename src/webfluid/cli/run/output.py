@@ -1,8 +1,8 @@
-from pathlib import Path
-from datetime import datetime, UTC
-from threading import Thread
 from codecs import getincrementaldecoder
-import typer, time
+from datetime import datetime, UTC
+from pathlib import Path
+from threading import Thread
+import time, typer
 
 from .helpers import read_key, console_encoding
 

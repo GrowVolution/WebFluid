@@ -1,4 +1,4 @@
-import typer, subprocess, sys, os, signal
+import os, signal, subprocess, sys, typer
 
 
 class Lifecycle:

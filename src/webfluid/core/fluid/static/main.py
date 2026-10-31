@@ -1,9 +1,7 @@
 from fastapi.staticfiles import StaticFiles as _StaticFiles
 
 from webfluid.core.constants import APP_STATIC, FRAMEWORK_STATIC
-from webfluid.core.identity import (
-    FRAMEWORK_ROOT, STATIC_MOUNT, STATIC_GLOBAL
-)
+from webfluid.core.identity import FRAMEWORK_ROOT, STATIC_MOUNT, STATIC_GLOBAL
 
 _STATIC = FRAMEWORK_STATIC.lstrip("/")
 

@@ -1,11 +1,10 @@
 from .config import JWTConfig
-from .rotate import add_job as add_key_rotation_job
-from .encode import Encoder
 from .decode import Decoder
-
-from webfluid.extensions.base import Delegated, FluidExtension
+from .encode import Encoder
+from .rotate import add_job as add_key_rotation_job
 from webfluid.core.constants import EXT_SCHEDULING, EXT_CACHE
 from webfluid.exceptions import FrameworkException
+from webfluid.extensions.base import Delegated, FluidExtension
 
 
 class JWTManager(FluidExtension):

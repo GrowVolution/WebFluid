@@ -1,24 +1,22 @@
-from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from contextvars import ContextVar
 from functools import wraps
-import traceback, sys, logging, typer, os
+from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
+import logging, os, sys, traceback, typer
 
-from webfluid.core.context import BaseContext
 from webfluid.core.constants import EXECUTION
-from webfluid.core.identity import (
-    FRAMEWORK_NAME, ENV_PREFIX, MAIN_LOGGER, ADDITIVE_LOGGER
-)
+from webfluid.core.context import BaseContext
+from webfluid.core.identity import FRAMEWORK_NAME, ENV_PREFIX, MAIN_LOGGER, ADDITIVE_LOGGER
 from webfluid.utils.core import async_result
 
 
 class _LogContext(BaseContext):
     _ctx = ContextVar("utils.logging")
+
     def __init__(self, logger_name):
         self.logger = logger_name
 
 
 class _Formatter(logging.Formatter):
-
     FORMATS = {
         DEBUG: {"fg": typer.colors.CYAN},
         INFO: {"fg": typer.colors.GREEN},
@@ -78,8 +76,11 @@ class LogFactory:
         self.logger.log(category, message)
 
     def debug(self, message): self.log(message, DEBUG)
+
     def warning(self, message): self.log(message, WARNING)
+
     def error(self, message): self.log(message, ERROR)
+
     def critical(self, message): self.log(message, CRITICAL)
 
     def exception(self, exc, message=None):

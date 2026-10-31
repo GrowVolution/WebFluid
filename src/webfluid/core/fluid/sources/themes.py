@@ -1,8 +1,8 @@
 from markupsafe import Markup
 
 from webfluid.core.constants import THEMES, FRAMEWORK_STATIC
-from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.core.context import FluidContext
+from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.exceptions import FrameworkException
 
 

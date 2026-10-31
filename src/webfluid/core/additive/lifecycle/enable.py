@@ -1,5 +1,5 @@
-from webfluid.utils.additives import require_extensions
 from webfluid.exceptions import AdditiveException
+from webfluid.utils.additives import require_extensions
 
 
 def _enable(additive, fluid):

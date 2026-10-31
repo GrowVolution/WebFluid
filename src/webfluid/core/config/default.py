@@ -2,14 +2,28 @@ import os
 
 from webfluid.core.constants import DEBUG
 from webfluid.core.identity import FRAMEWORK_ID, FRAMEWORK_NAME
-from webfluid.extensions.babel.constants import (
-    DEFAULT_DATE_FORMATS, DEFAULT_LOCALE, DEFAULT_TIMEZONE
-)
+from webfluid.extensions.babel.constants import DEFAULT_DATE_FORMATS, DEFAULT_LOCALE, DEFAULT_TIMEZONE
 
 _redis = os.getenv("REDIS_URI", "redis://localhost:6379")
 
 
 class DefaultConfig:
+    STATIC_MAX_AGE = 0 if DEBUG else 31536000
+    EVENTS_EVENT_QUEUE_SIZE = 5
+    EVENTS_SOCKET_BACKLOG = 32
+    SECURITY_TOKEN_MAX_AGE = 3600
+    SECURITY_HASHER_TIME_COST = 3
+    SECURITY_HASHER_MEMORY_COST = 65536
+    SECURITY_HASHER_PARALLELISM = 4
+    SECURITY_HASHER_THREADS = 4
+    SECURITY_PASSWORD_MIN_LENGTH = 8
+    JWT_ROTARY_INTERVAL = 15
+    JWT_SECRET_LENGTH = 128
+    JWT_EXPIRY_DAYS = 30
+    MAIL_PORT = 587
+    MAIL_TIMEOUT = 10
+    CACHE_DEFAULT_TIMEOUT = 300
+
     APP_CONFIG = {
         "title": f"{FRAMEWORK_NAME} Application",
         "version": "1.0.0"
@@ -29,9 +43,6 @@ class DefaultConfig:
 
     PROXY_FIX = False
     PROXY_TRUSTED_HOSTS = "127.0.0.1"
-
-    STATIC_MAX_AGE = 0 if DEBUG else 31536000
-
     RATELIMIT_ENABLED = True
     RATELIMIT_STORAGE_URI = f"{_redis}/1" if "REDIS_URI" in os.environ else "memory://"
     RATELIMIT_DEFAULT = ["500/day", "100/hour"]
@@ -51,19 +62,11 @@ class DefaultConfig:
     BABEL_CONFIGURE_JINJA = True
     BABEL_CONFIGURE_SOCKET = True
     BABEL_DATABASE_BIND = None
-
-    EVENTS_EVENT_QUEUE_SIZE = 5
     EVENTS_CONFIGURE_SOCKET = True
 
     SECURITY_SECRET = os.getenv("SECURITY_SECRET")
-    SECURITY_TOKEN_MAX_AGE = 3600
     SECURITY_CSRF_COOKIE_NAME = "csrf_token"
     SECURITY_CSRF_COOKIE_SECURE = True
-    SECURITY_HASHER_TIME_COST = 3
-    SECURITY_HASHER_MEMORY_COST = 65536
-    SECURITY_HASHER_PARALLELISM = 4
-    SECURITY_HASHER_THREADS = 4
-    SECURITY_PASSWORD_MIN_LENGTH = 8
     SECURITY_PASSWORD_REQUIREMENTS = {
         "lower": 1,
         "upper": 1,
@@ -72,10 +75,6 @@ class DefaultConfig:
     }
     SECURITY_OAUTH_CLIENTS = {}
     SECURITY_MODELS_DB_BIND = None
-
-    JWT_ROTARY_INTERVAL = 15
-    JWT_SECRET_LENGTH = 128
-    JWT_EXPIRY_DAYS = 30
     JWT_ALGORITHM = "HS256"
     JWT_ISSUER = FRAMEWORK_NAME
     JWT_AUDIENCES = {
@@ -83,14 +82,11 @@ class DefaultConfig:
     }
 
     MAIL_SERVER = "localhost"
-    MAIL_PORT = 587
     MAIL_USE_TLS = False
     MAIL_USE_STARTTLS = True
-    MAIL_TIMEOUT = 10
     MAIL_USERNAME = os.getenv("MAIL_USERNAME")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = MAIL_USERNAME if MAIL_USERNAME else "noreply@example.com"
 
     CACHE_TYPE = "redis"
     CACHE_REDIS_URI = f"{_redis}/2"
-    CACHE_DEFAULT_TIMEOUT = 300

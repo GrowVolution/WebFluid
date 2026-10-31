@@ -1,6 +1,6 @@
 from pathlib import Path
 from shutil import get_terminal_size
-import typer, os
+import os, typer
 
 from webfluid.cli import questions
 from webfluid.core.identity import CLI_NAME
@@ -27,6 +27,16 @@ def run(
             False,
             "--interactive", "-i",
             help="Run the application in interactive mode."
+        ),
+        admin: bool = typer.Option(
+            False,
+            "--admin", "-a",
+            help="Run the application with an admin dashboard on its port + 1000 or [--admin-port/-ap]."
+        ),
+        admin_port: int = typer.Option(
+            None,
+            "--admin-port", "-ap",
+            help="The admin dashboards port."
         ),
         debug: bool = typer.Option(
             False,
@@ -68,6 +78,9 @@ def run(
             fg=typer.colors.RED
         )
         raise typer.Exit(1)
+
+    if admin and not admin_port:
+        admin_port = port + 1000
 
     size = get_terminal_size()
 

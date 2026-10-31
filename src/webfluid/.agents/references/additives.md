@@ -4,24 +4,25 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `27-41` **Which one**
-- `42-491` **Additives**
-  - `68-136` The manifest
-    - `101-136` `requires.packages` — only what nothing else already brings
-  - `137-176` The additive object
-  - `177-199` Handlers and rendering
-  - `200-251` Local lifecycle hooks
-  - `252-271` Enabling
-  - `272-287` The four rules
-  - `288-335` Contracts: events and queries
-    - `324-335` Contract design rules
-  - `336-380` Base Additives
-  - `381-409` `install()` and `configure()`
-  - `410-471` Documenting an Additive for people and agents
-    - `446-471` References point down, never up
-  - `472-491` Packaging checklist
-- `492-581` **Extensions (`FluidExtension`)**
-  - `557-581` What `expand_fluid` may do
+- `28-42` **Which one**
+- `43-544` **Additives**
+  - `69-137` The manifest
+    - `102-137` `requires.packages` — only what nothing else already brings
+  - `138-177` The additive object
+  - `178-200` Handlers and rendering
+  - `201-252` Local lifecycle hooks
+  - `253-272` Enabling
+  - `273-288` The four rules
+  - `289-336` Contracts: events and queries
+    - `325-336` Contract design rules
+  - `337-381` Base Additives
+  - `382-410` `install()` and `configure()`
+  - `411-460` Integrity references for served files
+  - `461-524` Documenting an Additive for people and agents
+    - `499-524` References point down, never up
+  - `525-544` Packaging checklist
+- `545-634` **Extensions (`FluidExtension`)**
+  - `610-634` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -407,6 +408,56 @@ setup = {
 except for `auto`, which needs `value`. Answers land in a config section named after the id. A base
 is configured before its child.
 
+## Integrity references for served files
+
+An Additive that serves files whose bytes matter — browser cryptography, a download checker, a
+vendored WebAssembly module — can prove which published version it serves with
+`webfluid.utils.integrity`. The published versions live in a git repository of their own, the
+**integrity reference**: one folder per artifact, a `generate.py` and the `manifest.json` it writes.
+
+```python
+from webfluid.utils.integrity import IntegrityReference, Artifact
+
+
+class Integrity(IntegrityReference):
+    pass
+
+
+Integrity.setup(
+    additive.id, fluid.config["PORTAL_INTEGRITY_REPO"], fluid.config["PORTAL_INTEGRITY_PATH"],
+    [Artifact("portal_crypto", static / "js/crypto.js", f"{additive.prefix}/static/js/crypto.js",
+              "Browser cryptography of the portal Additive"),
+     Artifact("portal_wasm", static / "vendor/core.wasm", f"{additive.prefix}/static/vendor/core.wasm",
+              "Core WebAssembly module", kind="wasm", binary=True, version="1.2.0")],
+    Path(__file__).parent, update=True, timeout=60
+)
+```
+
+Subclass once per Additive: the state (repository, artifacts, the last five runs) lives on the
+class. `path` is relative to `root` unless absolute. A run (`compute(run)`) clones the repository
+into `path` when it is missing, fast-forwards a clean checkout from `origin/<branch>` while `update`
+is on, executes its `generate.py` once with `sys.executable -I` and `timeout` seconds, and then
+recomputes every hash itself from the files the manifest names. It accepts manifest format 2 —
+`{ format: 2, algorithm, normalization, artifacts: { "<id>": { path, latest, versions: [{ version,
+file, sha256, size }] } } }` — and the single-artifact format 1. Text artifacts are hashed with CRLF
+counted as LF, artifacts declared `binary=True` byte for byte. A generator that fails, times out,
+writes no fresh manifest or names a hash the run cannot reproduce makes the reference
+`unavailable`, with the error code (`GENERATOR_FAILED`, `GENERATOR_TIMEOUT`, `GENERATOR_STALE`,
+`MANIFEST_INVALID`, `NOT_REPRODUCIBLE`, `REFERENCE_MISSING`, and `REFERENCE_UNCONFIGURED` for an
+empty repository URL); old hashes are never reported as fresh. `IntegrityGenerationError` in
+`webfluid.exceptions` carries these codes.
+
+| Call | Answers |
+|------|---------|
+| `await provide(data)` | One integrity record per artifact for run `data["run"]`: `hash`, `size`, `served_version`, `latest_version`, `reference` (`source: "git"`, `url`, `commit`, `manifest`, `hash`), `provenance.status` `reference-match`, `reference-mismatch` or `reference-unavailable`, and `context`. A run id is computed once. |
+| `await ensure_fresh(interval)` | The last run when it is younger than `interval` seconds, otherwise a new one — for a scheduled job. |
+| `served_versions()` | `{ artifact: version or None }` from the last run, without starting one. |
+| `artifact_status(id)` · `await status()` | The served hash and versions of one artifact, or all of them with `reference`, `checked_at`, `repository` and `manifest` (the raw GitHub URL of `manifest.json`, `None` for other hosts). |
+
+An Additive that contributes these records to an integrity collector query registers `provide`
+as its handler; the Additive decides whether such a collector is enabled. The repository itself is the
+Additive's: a public one, with `.gitattributes` pinning the text artifacts to LF.
+
 ## Documenting an Additive for people and agents
 
 An Additive is reused by people who decide whether to install it and by agents who wire it into an
@@ -417,15 +468,17 @@ application. Each audience gets its own file, and none of them repeats another:
 | `README.md`        | people   | The landing page: why the Additive exists, what it gives a project, install, license               |
 | `DOCS.md`          | people   | The guide a person reads before answering for the Additive: concepts, flows, every setting and what it changes, security model, operation, troubleshooting |
 | `CHANGELOG.md`     | people   | What changed per version, in plain language, with what an upgrade requires                          |
-| `CONTRACT.md`      | agents   | The complete integration surface: routes, signals, queries provided and consumed, config, errors    |
+| `.agents/CONTRACT.md` | agents | The complete integration surface: routes, signals, queries provided and consumed, config, errors  |
 | `.agents/SKILL.md` | agents   | When to use the Additive, the rules that keep an integration correct, recipes, and where to look    |
 
-`DOCS.md` explains; it does not enumerate. It may name a route, a signal or an error code to make a
-flow understandable, and points into `CONTRACT.md` for the exact shapes rather than copying them, so
-the two never drift apart. An SDK carries the same set next to its own `pubspec.yaml` or
-`pyproject.toml`.
+Everything addressed to agents lives in `.agents/` — the skill, the contract and, where a package
+needs them, `references/` — so an agent finds its whole share of a package in one folder and the
+package root holds only what people read. `DOCS.md` explains; it does not enumerate. It may name a
+route, a signal or an error code to make a flow understandable, and links to `.agents/CONTRACT.md`
+for the exact shapes rather than copying them, so the two never drift apart. An SDK carries the
+same set next to its own `pubspec.yaml` or `pyproject.toml`.
 
-`CONTRACT.md` is the reference an agent loads in parts, so it states payloads, answers and error
+`.agents/CONTRACT.md` is the reference an agent loads in parts, so it states payloads, answers and error
 codes exactly and describes an Additive **only through what it provides and what it requires** —
 never through the applications that happen to use it. `.agents/SKILL.md` stays short: frontmatter
 with a `name` and a `description` that says when to load it, then the decisions an agent gets wrong
@@ -434,7 +487,7 @@ without it. It does not copy the contract; it links into it by line range:
 ```markdown
 ## Contract map
 
-<!-- index ../CONTRACT.md -->
+<!-- index CONTRACT.md -->
 <!-- /index -->
 ```
 
@@ -482,7 +535,7 @@ package they all require, so that no package has to answer a query of one built 
       installs
 - [ ] `.gitignore` present — it decides what ships
 - [ ] `extract/` holds only what the host should own
-- [ ] `README.md`, `DOCS.md`, `CONTRACT.md` and `.agents/SKILL.md` present, indexes current
+- [ ] `README.md`, `DOCS.md`, `.agents/CONTRACT.md` and `.agents/SKILL.md` present, indexes current
       (`wf agents index --check`)
 - [ ] No Markdown names a package or app that depends on this one
 - [ ] A license

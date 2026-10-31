@@ -48,7 +48,7 @@ export function createWS(path, options = {}) {
 
             const q = queue.splice(0)
             for (const item of q) {
-                sendRequest(item.type, item.data)
+                sendRequest(item.type, item.data, item.options)
                     .then(item.resolve)
                     .catch(item.reject)
             }
@@ -89,10 +89,12 @@ export function createWS(path, options = {}) {
         }
     }
 
-    function sendRequest(type, data) {
+    function sendRequest(type, data, options = {}) {
+        const limit = options.timeout ?? timeout
+
         return new Promise((resolve, reject) => {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                queue.push({ type, data, resolve, reject })
+                queue.push({ type, data, options, resolve, reject })
                 return
             }
 
@@ -106,13 +108,13 @@ export function createWS(path, options = {}) {
 
             let timer = null
 
-            if (timeout) {
+            if (limit) {
                 timer = setTimeout(() => {
                     if (pending.has(id)) {
                         pending.delete(id)
                         reject("timeout")
                     }
-                }, timeout)
+                }, limit)
             }
 
             pending.set(id, {

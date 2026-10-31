@@ -1,24 +1,13 @@
-from .translation import Translator
-from .socket import Socket
 from .cli import CLIExtension
-
-from webfluid.extensions.base import Delegated, FluidExtension
-from webfluid.extensions.babel.utils import (
-    format_currency,
-    format_date,
-    format_datetime,
-    format_decimal,
-    format_number,
-    format_percent,
-    format_scientific,
-    format_time,
-    format_timedelta
-)
-from webfluid.core.constants import (
-    FRAMEWORK_STATIC, EXECUTION,
-    EXT_SQLALCHEMY
-)
+from .socket import Socket
+from .translation import Translator
+from webfluid.core.constants import FRAMEWORK_STATIC, EXECUTION, EXT_SQLALCHEMY
 from webfluid.exceptions import FrameworkException
+from webfluid.extensions.babel.utils import (
+    format_currency, format_date, format_datetime, format_decimal, format_number, format_percent, format_scientific,
+    format_time, format_timedelta
+)
+from webfluid.extensions.base import Delegated, FluidExtension
 
 
 class Babel(FluidExtension):

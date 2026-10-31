@@ -6,15 +6,6 @@ class Freezable:
 
     def __init__(self): self._frozen = None
 
-    @property
-    def is_frozen(self): return self._frozen is not None
-
-    @property
-    def frozen(self):
-        if self._frozen is None:
-            raise RuntimeError(f"{self.label} must be frozen before use.")
-        return self._frozen
-
     def guard(self):
         if self._frozen is not None:
             raise RuntimeError(
@@ -24,4 +15,13 @@ class Freezable:
     def freeze(self, value):
         self.guard()
         self._frozen = value
+        return self._frozen
+
+    @property
+    def is_frozen(self): return self._frozen is not None
+
+    @property
+    def frozen(self):
+        if self._frozen is None:
+            raise RuntimeError(f"{self.label} must be frozen before use.")
         return self._frozen

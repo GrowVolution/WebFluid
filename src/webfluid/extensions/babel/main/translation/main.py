@@ -1,6 +1,6 @@
 from .domains import Domains
-from .translations import Translations
 from .selection import Selector
+from .translations import Translations
 from webfluid.core.identity import FRAMEWORK_ID
 from webfluid.extensions.babel.speaklater import LazyString
 from webfluid.extensions.babel.utils import format_message
@@ -11,6 +11,24 @@ class Translator:
         self.domains = Domains(default_domain)
         self.translations = Translations(disable_update)
         self.selector = Selector()
+
+    @property
+    def _fallback_escalation(self):
+        current = self.domains.current_domain
+        domains = [current]
+
+        default = self.domains.default_domain
+        if domains[0] != default:
+            domains.append(default)
+
+        store = self.domains.store
+        if "__fallback__" in store:
+            domains.append(store["__fallback__"])
+
+        if FRAMEWORK_ID in store:
+            domains.append(store[FRAMEWORK_ID])
+
+        return domains
 
     def gettext(self, string, **variables):
         for domain in self._fallback_escalation:
@@ -111,21 +129,3 @@ class Translator:
 
     def lazy_npgettext(self, context, singular, plural, num, **variables):
         return LazyString(self.npgettext, context, singular, plural, num, **variables)
-
-    @property
-    def _fallback_escalation(self):
-        current = self.domains.current_domain
-        domains = [current]
-
-        default = self.domains.default_domain
-        if domains[0] != default:
-            domains.append(default)
-
-        store = self.domains.store
-        if "__fallback__" in store:
-            domains.append(store["__fallback__"])
-
-        if FRAMEWORK_ID in store:
-            domains.append(store[FRAMEWORK_ID])
-
-        return domains

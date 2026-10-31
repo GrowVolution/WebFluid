@@ -1,5 +1,5 @@
 from pathlib import Path
-import ast, re, shutil, subprocess, keyword, typer, questionary
+import ast, keyword, questionary, re, shutil, subprocess, typer
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,6 +30,7 @@ VOCABULARY = (
     "Fluid", "FluidContext", "FluidExtension", "FluidVersion",
     "Additive", "Ocean", "OceanError"
 )
+app = typer.Typer(name="rebrand", add_completion=False)
 
 
 def text(message, **kwargs):
@@ -307,9 +308,6 @@ def preview(old, new, package, new_package, files, moves):
                 bold=True)
     for src, dst in moves:
         typer.echo(f"  {src.relative_to(ROOT)} -> {dst.relative_to(ROOT)}")
-
-
-app = typer.Typer(name="rebrand", add_completion=False)
 
 
 @app.command()

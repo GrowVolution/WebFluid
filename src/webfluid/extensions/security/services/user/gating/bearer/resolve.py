@@ -1,8 +1,8 @@
 from sqlalchemy import select
 
 from webfluid.core.constants import EXT_JWT
-from webfluid.extensions.sqlalchemy import SQLAlchemy
 from webfluid.extensions.security.models.user import User
+from webfluid.extensions.sqlalchemy import SQLAlchemy
 
 
 async def resolve_bearer(request, grant):

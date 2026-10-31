@@ -1,7 +1,7 @@
 from starlette.routing import NoMatchFound
 
-from webfluid.core.context.fluid import FluidContext
 from webfluid.core.constants import PROCESSING
+from webfluid.core.context.fluid import FluidContext
 from webfluid.core.processing.context.url_for import offline_url
 
 

@@ -1,6 +1,6 @@
 from webfluid.core.identity import FRAMEWORK_ID
-from webfluid.utils.core import enabled, try_import
 from webfluid.utils.additives import installed_additives
+from webfluid.utils.core import enabled, try_import
 
 
 def init_configs(fluid):

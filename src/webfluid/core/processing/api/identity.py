@@ -5,12 +5,6 @@ from webfluid import version
 from webfluid.core.identity import FRAMEWORK_ID, IDENTITY_ROUTE
 
 
-class FrameworkIdentity(BaseModel):
-    id: str
-    version: str
-    timestamp: str
-
-
 def add_route(fluid):
     @fluid.get(IDENTITY_ROUTE, response_model=FrameworkIdentity)
     def identity():
@@ -19,3 +13,9 @@ def add_route(fluid):
             "version": str(version()),
             "timestamp": datetime.now(UTC).isoformat()
         }
+
+
+class FrameworkIdentity(BaseModel):
+    id: str
+    version: str
+    timestamp: str

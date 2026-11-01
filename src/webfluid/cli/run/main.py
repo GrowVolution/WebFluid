@@ -28,16 +28,16 @@ def run(
             "--interactive", "-i",
             help="Run the application in interactive mode."
         ),
-        admin: bool = typer.Option(
-            False,
-            "--admin", "-a",
-            help="Run the application with an admin dashboard on its port + 1000 or [--admin-port/-ap]."
-        ),
-        admin_port: int = typer.Option(
-            None,
-            "--admin-port", "-ap",
-            help="The admin dashboards port."
-        ),
+        # admin: bool = typer.Option(
+        #     False,
+        #     "--admin", "-a",
+        #     help="Run the application with an admin dashboard on its port + 1000 or [--admin-port/-ap]."
+        # ),
+        # admin_port: int = typer.Option(
+        #     None,
+        #     "--admin-port", "-ap",
+        #     help="The admin dashboards port."
+        # ),
         debug: bool = typer.Option(
             False,
             "--debug", "-d",
@@ -79,8 +79,9 @@ def run(
         )
         raise typer.Exit(1)
 
-    if admin and not admin_port:
-        admin_port = port + 1000
+    # TODO(1.1): Add admin dashboard implementation.
+    # if admin and not admin_port:
+    #     admin_port = port + 1000
 
     size = get_terminal_size()
 
@@ -101,10 +102,11 @@ def run(
     from .lifecycle import Lifecycle
     from .output import LogService
 
-    lifecycle = Lifecycle()
+    lifecycle = Lifecycle(env, project_root)
 
     with LogService(name) as log_service:
-        lifecycle.start(env, project_root, log_service)
+        lifecycle.attach_log_service(log_service)
+        lifecycle.start()
 
         if interactive:
             while True:
@@ -118,9 +120,9 @@ def run(
                     os.system("cls" if os.name == "nt" else "clear")
                     continue
 
-                if opt == 0: lifecycle.restart(env, project_root, log_service)
+                if opt == 0: lifecycle.restart()
                 if opt == 1: lifecycle.stop()
-                if opt == 2: lifecycle.start(env, project_root, log_service)
+                if opt == 2: lifecycle.start()
 
                 if opt == 3: log_service.join_log(lifecycle)
                 if opt == 4: log_service.clear_logs()

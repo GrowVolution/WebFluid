@@ -3,13 +3,13 @@ import asyncio, json, pytest, uvicorn, websockets
 
 @pytest.fixture
 def events_app(make_fluid):
-    from webfluid.extensions.events.main import EventManager
+    from webfluid.extensions.events.main import EventBus
 
     fluid = make_fluid()
-    manager = EventManager()
-    manager.expand_fluid(fluid)
+    bus = EventBus()
+    bus.expand_fluid(fluid)
 
-    return fluid, manager
+    return fluid, bus
 
 
 async def serve(app, port):
@@ -51,8 +51,8 @@ def _request(msg_id, query, data=None):
 
 @pytest.mark.asyncio
 async def test_events_socket_stays_open_under_uvicorn(events_app):
-    fluid, manager = events_app
-    manager.create_signal("ping")
+    fluid, bus = events_app
+    bus.create_signal("ping")
 
     reply = await exchange(
         fluid, 8471, '{"id": 1, "type": "subscribe", "data": "ping"}'
@@ -76,9 +76,9 @@ async def test_unknown_request_is_answered(events_app):
 async def test_query_sees_the_connection_as_request(events_app):
     from webfluid.core.context import FluidContext
 
-    fluid, manager = events_app
+    fluid, bus = events_app
 
-    @manager.query("connection", internal=False)
+    @bus.query("connection", internal=False)
     async def describe(_):
         request = FluidContext.current().request
         return {
@@ -98,12 +98,12 @@ async def test_query_sees_the_connection_as_request(events_app):
 
 @pytest.mark.asyncio
 async def test_failing_query_keeps_the_socket_open(events_app):
-    fluid, manager = events_app
+    fluid, bus = events_app
 
-    @manager.query("boom", internal=False)
+    @bus.query("boom", internal=False)
     async def boom(_): raise RuntimeError("nope")
 
-    @manager.query("fine", internal=False)
+    @bus.query("fine", internal=False)
     async def fine(_): return "ok"
 
     failed, recovered = await exchange(
@@ -116,9 +116,9 @@ async def test_failing_query_keeps_the_socket_open(events_app):
 
 @pytest.mark.asyncio
 async def test_internal_query_is_not_reachable(events_app):
-    fluid, manager = events_app
+    fluid, bus = events_app
 
-    @manager.query("secret")
+    @bus.query("secret")
     async def secret(_): return "leaked"
 
     reply = await exchange(fluid, 8475, _request(6, "secret"))
@@ -145,8 +145,8 @@ async def test_a_malformed_message_is_answered(events_app, port, message, expect
 
 @pytest.mark.asyncio
 async def test_a_malformed_message_keeps_the_socket_open(events_app):
-    fluid, manager = events_app
-    manager.create_signal("ping")
+    fluid, bus = events_app
+    bus.create_signal("ping")
 
     broken, recovered = await exchange(
         fluid, 8482, '5', '{"id": 7, "type": "subscribe", "data": "ping"}'
@@ -177,8 +177,8 @@ async def test_a_binary_frame_is_answered(events_app):
 def test_leaving_drops_the_subscriptions(events_app):
     from webfluid.extensions.events.socket.main import SocketManager
 
-    fluid, manager = events_app
-    sockets = SocketManager(fluid, manager._events, manager._queries)
+    fluid, bus = events_app
+    sockets = SocketManager(fluid, bus._events, bus._queries)
 
     first = sockets.join(object())
     second = sockets.join(object())
@@ -197,15 +197,15 @@ def test_unsubscribing_without_a_subscription_is_an_error(events_app):
     from webfluid.extensions.events.socket.handler.unsubscribe import unsubscribe
     from webfluid.extensions.events.socket.main import SocketManager
 
-    fluid, manager = events_app
-    manager.create_signal("ping")
-    sockets = SocketManager(fluid, manager._events, manager._queries)
+    fluid, bus = events_app
+    bus.create_signal("ping")
+    sockets = SocketManager(fluid, bus._events, bus._queries)
 
     mine, theirs = sockets.join(object()), sockets.join(object())
     sockets.subscribe("ping", theirs)
 
     response = unsubscribe(
-        sockets, manager._events, mine,
+        sockets, bus._events, mine,
         { "id": 1, "data": "ping" }, { "id": 1 }
     )
 
@@ -215,8 +215,8 @@ def test_unsubscribing_without_a_subscription_is_an_error(events_app):
 
 @pytest.mark.asyncio
 async def test_events_between_two_listens_wait_for_the_next_listen(events_app):
-    fluid, manager = events_app
-    manager.create_signal("ping")
+    fluid, bus = events_app
+    bus.create_signal("ping")
 
     await fluid._lifecycle.run_startup()
     server, task = await serve(fluid, 8484)
@@ -230,7 +230,7 @@ async def test_events_between_two_listens_wait_for_the_next_listen(events_app):
             await asyncio.wait_for(ws.recv(), timeout=3)
             await ws.send(listen(2))
             await asyncio.sleep(0.05)
-            for value in ("a", "b", "c"): manager.trigger("ping", value)
+            for value in ("a", "b", "c"): bus.trigger("ping", value)
 
             replies = [json.loads(await asyncio.wait_for(ws.recv(), timeout=3))]
             for msg_id in (3, 4):
@@ -251,16 +251,16 @@ def test_the_backlog_keeps_only_the_newest_events(events_app):
     from webfluid.extensions.events.socket.handler.listen import add_listener
     from webfluid.extensions.events.socket.main import SocketManager
 
-    fluid, manager = events_app
-    manager.create_signal("ping")
+    fluid, bus = events_app
+    bus.create_signal("ping")
     fluid.config["EVENTS_SOCKET_BACKLOG"] = 2
-    sockets = SocketManager(fluid, manager._events, manager._queries)
+    sockets = SocketManager(fluid, bus._events, bus._queries)
 
     sid = sockets.join(object())
     sockets.subscribe("ping", sid)
     for value in (1, 2, 3): sockets.hold("ping", sid, value)
 
-    answers = [add_listener(sockets, manager._events, sid, { "id": n, "data": "ping" }, { "id": n })
+    answers = [add_listener(sockets, bus._events, sid, { "id": n, "data": "ping" }, { "id": n })
                for n in (10, 11, 12)]
 
     assert answers[:2] == [{ "id": 10, "data": 2 }, { "id": 11, "data": 3 }]

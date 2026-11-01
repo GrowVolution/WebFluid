@@ -1,7 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from webfluid.extensions import (
-    Babel, Cache, EventManager, JWTManager, Mail, Security, SQLAlchemy
+    Babel, Cache, EventBus, JWTManager, Mail, Security, SQLAlchemy
 )
 
 __all__ = [
@@ -13,7 +13,7 @@ scheduler: AsyncIOScheduler
 db: SQLAlchemy
 babel: Babel
 security: Security
-events: EventManager
+events: EventBus
 cache: Cache
 mail: Mail
 jwt: JWTManager

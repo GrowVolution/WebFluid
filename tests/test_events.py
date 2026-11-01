@@ -3,6 +3,7 @@ import asyncio, pytest
 from webfluid.exceptions import FrameworkException
 from webfluid.extensions.events.events import Events
 from webfluid.extensions.events.loop import LoopManager
+from webfluid.extensions.events.queries import Queries
 
 
 def decorator(fn):
@@ -88,22 +89,39 @@ def test_the_consumer_loop_does_not_inherit_the_registering_context(events):
     assert seen == [None]
 
 
-def test_the_manager_answers_whether_a_contract_exists(make_fluid):
-    from webfluid.extensions.events.main import EventManager
+def test_the_bus_answers_whether_a_contract_exists(make_fluid):
+    from webfluid.extensions.events.main import EventBus
 
-    manager = EventManager(make_fluid())
+    bus = EventBus(make_fluid())
 
-    manager.create_signal("public_signal", internal=False)
-    manager.query("answerable")(lambda data: None)
+    bus.create_signal("public_signal", internal=False)
+    bus.query("answerable")(lambda data: None)
 
-    assert manager.has_event("public_signal") is True
-    assert manager.has_event("never_registered") is False
-    assert manager.has_query("answerable") is True
-    assert manager.has_query("never_registered") is False
+    assert bus.has_event("public_signal") is True
+    assert bus.has_event("never_registered") is False
+    assert bus.has_query("answerable") is True
+    assert bus.has_query("never_registered") is False
 
 
-def test_the_manager_refuses_introspection_before_it_is_expanded():
-    from webfluid.extensions.events.main import EventManager
+def test_the_bus_refuses_introspection_before_it_is_expanded():
+    from webfluid.extensions.events.main import EventBus
 
     with pytest.raises(FrameworkException):
-        EventManager().has_query("anything")
+        EventBus().has_query("anything")
+
+
+@pytest.mark.asyncio
+async def test_collectors_can_isolate_failures_without_changing_default_query_errors():
+    queries = Queries(decorator)
+
+    @queries.query("collector", singleton=False)
+    async def broken(data): raise RuntimeError("contributor failed")
+
+    @queries.query("collector", singleton=False)
+    async def healthy(data): return {"value": data}
+
+    results = await queries.request("collector", 42, return_exceptions=True)
+    assert isinstance(results[0], RuntimeError)
+    assert results[1] == {"value": 42}
+    with pytest.raises(RuntimeError, match="contributor failed"):
+        await queries.request("collector", 42)

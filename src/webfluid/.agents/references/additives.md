@@ -280,7 +280,7 @@ Additive — one broken Additive does not stop the app.
 3. **Prefix everything with the id** — config keys (`<ID>_*` manually), cache keys, event and query
    names (`additive.unique_name()`).
 4. **Reach batteries through `webfluid.core.ext`**, exactly as the main app does. An Additive shares
-   the runtime: same database, same cache, same event manager, no wiring.
+   the runtime: same database, same cache, same EventBus, no wiring.
 
 Importing the main app's modules (`fluid.models`, `fluid.services`) is a different case — it couples
 the Additive to *this* project, which is fine for a project-local Additive and fatal for a

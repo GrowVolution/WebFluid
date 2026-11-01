@@ -35,11 +35,9 @@ sys.stdout.buffer.write(b"shutting down")
 
 
 class Running:
-    def __init__(self, service, lifecycle, env, root, written):
+    def __init__(self, service, lifecycle, written):
         self.service = service
         self.lifecycle = lifecycle
-        self.env = env
-        self.root = root
         self.written = written
 
     def close(self):
@@ -76,11 +74,12 @@ def app(tmp_path, monkeypatch):
         env = { **os.environ, "PYTHONIOENCODING": "utf-8" }
 
         service = stack.enter_context(LogService("tests.app"))
-        lifecycle = Lifecycle()
-        lifecycle.start(env, tmp_path, service)
+        lifecycle = Lifecycle(env, tmp_path)
+        lifecycle.attach_log_service(service)
+        lifecycle.start()
 
         started.append(lifecycle)
-        return Running(service, lifecycle, env, tmp_path, written)
+        return Running(service, lifecycle, written)
 
     yield factory
 
@@ -150,11 +149,33 @@ def test_restarting_replaces_the_process(app):
     running = app(RUNNING)
     first = running.lifecycle.proc
 
-    running.lifecycle.restart(running.env, running.root, running.service)
+    running.lifecycle.restart()
 
     assert running.lifecycle.proc is not first
     assert first.poll() is not None
     assert running.lifecycle.proc.poll() is None
+
+
+def test_the_lifecycle_refuses_to_run_without_a_log_service(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    handlers = signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM)
+
+    try:
+        lifecycle = Lifecycle(dict(os.environ), tmp_path)
+
+        for control in (lifecycle.start, lifecycle.stop, lifecycle.restart):
+            with pytest.raises(RuntimeError, match="has not been attached"): control()
+
+        assert lifecycle.proc is None
+
+        with LogService("tests.app") as service:
+            lifecycle.attach_log_service(service)
+
+            with pytest.raises(RuntimeError, match="has already been attached"):
+                lifecycle.attach_log_service(service)
+    finally:
+        signal.signal(signal.SIGINT, handlers[0])
+        signal.signal(signal.SIGTERM, handlers[1])
 
 
 def test_console_encoding_falls_back_without_a_stream(monkeypatch):
@@ -288,7 +309,9 @@ def test_run_exports_the_console_environment(tmp_path, monkeypatch):
 
     class Lifecycle:
         terminate = False
-        def start(self, env, project_root, log_service): started.update(env)
+        def __init__(self, env, project_root): self.env, self.service = env, None
+        def attach_log_service(self, log_service): self.service = log_service
+        def start(self): started.update(self.env, service=self.service)
         def stop(self): pass
 
     class Service:
@@ -314,6 +337,7 @@ def test_run_exports_the_console_environment(tmp_path, monkeypatch):
     assert started["PYTHONUNBUFFERED"] == "1"
     assert started["PYTHONIOENCODING"].endswith(":backslashreplace")
     assert (started["COLUMNS"], started["LINES"]) == ("132", "50")
+    assert isinstance(started["service"], Service)
 
 
 def test_run_refuses_an_incomplete_project(tmp_path, monkeypatch):

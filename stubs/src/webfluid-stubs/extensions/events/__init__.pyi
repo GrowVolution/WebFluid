@@ -1,3 +1,3 @@
-from webfluid.extensions.events.main import EventManager as EventManager
+from webfluid.extensions.events.main import EventBus as EventBus
 
-__all__ = ["EventManager"]
+__all__ = ["EventBus"]

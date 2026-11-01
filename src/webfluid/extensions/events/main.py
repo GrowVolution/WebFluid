@@ -21,7 +21,7 @@ def _context_decorator(fluid):
     return decorator
 
 
-class EventManager(FluidExtension):
+class EventBus(FluidExtension):
     create_signal = Delegated("_events.create_signal")
     event = Delegated("_events.event")
     trigger = Delegated("_events.trigger")

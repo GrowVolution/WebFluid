@@ -2,7 +2,7 @@
 __all__ = [
     "FluidExtension",
 
-    "SQLAlchemy", "Babel", "Security", "EventManager",
+    "SQLAlchemy", "Babel", "Security", "EventBus",
     "Mail", "Cache", "JWTManager",
 
     "babel", "cache", "sqlalchemy", "security"
@@ -26,9 +26,9 @@ def __getattr__(name):
         from .security.main import Security
         return Security
 
-    if name == "EventManager":
-        from .events.main import EventManager
-        return EventManager
+    if name == "EventBus":
+        from .events.main import EventBus
+        return EventBus
 
     if name == "Mail":
         from .mailman.main import Mail

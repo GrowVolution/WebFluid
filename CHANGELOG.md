@@ -6,6 +6,21 @@ else is internal and may change in any release.
 
 ## Unreleased
 
+- Rename the central communication extension to `EventBus` in Python, its typing
+  stubs and the browser API (`window.wf.ext.events.EventBus`). The shared
+  `webfluid.core.ext.events` instance and the event/query protocol keep their names.
+  Browser consumers must use the new constructor and rebuild their frontend assets.
+- Collectors can opt into `events.request(..., return_exceptions=True)` to isolate a failing
+  contributor. Default query error propagation is unchanged.
+- `wf run`'s process control (`webfluid.cli.run.lifecycle.Lifecycle`) takes the environment and the
+  project root when it is created and the log service once through `attach_log_service`. `start`,
+  `stop` and `restart` take no arguments any more and refuse with a `RuntimeError` until a log
+  service is attached; a second attachment is refused as well. The typing stub follows, and
+  `Lifecycle.proc` is typed as the byte pipe it is. `wf run` itself behaves as before.
+- The skip link of `fluid_base.html` sits in its own `skip_link` block. Its class, `.wf-skip-link`, lives
+  in the framework stylesheet; a site that ships its own CSS showed the link as a visible line above
+  the navigation. **Upgrade:** override `{% block skip_link %}{% endblock %}` in such a site, or style
+  `.wf-skip-link` there.
 - The agent skill has a binding code style and package architecture,
   `.agents/references/style.md`: services as `<Domain>Service` classes exported through `__all__`,
   Pydantic models only in `schemas/`, exceptions only in `exceptions.py`, one import block shape,
@@ -96,7 +111,7 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   first), and the next `listen` is answered from it at once.
 - `events.js` stopped listening for good after the socket reconnected. A
   restarted server drops every subscription, the next `listen` was refused, and
-  `EventManager` logged the error and ended its loop, so the page received
+  `EventBus` logged the error and ended its loop, so the page received
   nothing until it was reloaded. Its `listen` requests also timed out after
   15 seconds, which left a stale listener on the server for the moment the
   replacement was in flight. `listen` now waits without a timeout, and a loop
@@ -337,7 +352,7 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 - `events.has_event(name)` and `events.has_query(name)` answer whether a
   contract is registered, without going through the registries themselves. The
   agent documentation has named this pair as the way an Additive addresses an
-  optional dependency since `1.0.0b3`, but `EventManager` delegated neither, so
+  optional dependency since `1.0.0b3`, but `EventBus` delegated neither, so
   the documented call raised `AttributeError`. Nothing else about the registries
   becomes public: `is_singleton`, `is_internal`, `broadcaster` and `handlers`
   stay internal plumbing, and the documentation no longer lists them.

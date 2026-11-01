@@ -9,15 +9,15 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `79-102` Overriding framework templates
   - `103-115` Adding a loader
 - `116-133` **The shared context (`WF_PROCESSING`)**
-- `134-175` **`fluid_base.html`**
-  - `164-175` Rules for generated templates
-- `176-206` **Tailwind and themes**
-- `207-221` **Page sources**
-- `222-241` **Static files**
-- `242-313` **`APP_FRONTEND`**
-  - `266-274` htmx
-  - `275-313` Vite
-- `314-326` **The bundled toolchain**
+- `134-178` **`fluid_base.html`**
+  - `165-178` Rules for generated templates
+- `179-209` **Tailwind and themes**
+- `210-224` **Page sources**
+- `225-244` **Static files**
+- `245-316` **`APP_FRONTEND`**
+  - `269-277` htmx
+  - `278-316` Vite
+- `317-329` **The bundled toolchain**
 <!-- /index -->
 
 ## Template resolution
@@ -133,14 +133,15 @@ pages, the unhandled-exception handler, `GET /wf-identity` and `POST /url-for`.
 
 ## `fluid_base.html`
 
-| Block     | Purpose                                                  |
-|-----------|----------------------------------------------------------|
-| `title`   | Document title. Default `WebFluid App`                   |
-| `head`    | Extra `<head>` content — this is where `frontend()` goes |
-| `nav`     | The whole `<nav>` body                                   |
-| `content` | The page. Almost always the one you fill                 |
-| `footer`  | The whole footer body                                    |
-| `scripts` | The trailing script block                                |
+| Block       | Purpose                                                                   |
+|-------------|---------------------------------------------------------------------------|
+| `title`     | Document title. Default `WebFluid App`                                    |
+| `skip_link` | Keyboard skip link to `#wf-main`, hidden by `.wf-skip-link` until focused |
+| `head`      | Extra `<head>` content — this is where `frontend()` goes                  |
+| `nav`       | The whole `<nav>` body                                                    |
+| `content`   | The page. Almost always the one you fill                                  |
+| `footer`    | The whole footer body                                                     |
+| `scripts`   | The trailing script block                                                 |
 
 ```html
 {% extends "fluid_base.html" %}
@@ -168,6 +169,8 @@ and `src()`.
 - **Guard the optional globals** in templates that may render off-request or in an app with a
   different feature set: `{{ frontend() if frontend else "" }}`, `{{ theme if theme else "" }}`.
   `fluid_base.html` does exactly this.
+- **Empty `skip_link`** when the site ships its own stylesheet without `.wf-skip-link`; otherwise the
+  link renders as a visible line above the navigation.
 - **Name templates after the route**, mirroring the path: `fluid/templates/admin/users.html` for
   `/admin/users`. Deep nesting is free.
 - To replace the base layout wholesale, create `fluid/templates/fluid_base.html` — your app's

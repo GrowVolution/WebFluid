@@ -1,3 +1,3 @@
-from .main import EventManager
+from .main import EventBus
 
-__all__ = ["EventManager"]
+__all__ = ["EventBus"]

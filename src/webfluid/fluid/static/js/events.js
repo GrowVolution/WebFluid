@@ -3,7 +3,7 @@ import { createWS } from "./base.js"
 const { request } = createWS("/ws/events")
 
 
-export class EventManager {
+export class EventBus {
     constructor() {
         this._events = {}
         this._break_flag = {}
@@ -137,4 +137,4 @@ export class EventManager {
 }
 
 
-window.wf.ext.events = { EventManager, eventRequest: request }
+window.wf.ext.events = { EventBus, eventRequest: request }

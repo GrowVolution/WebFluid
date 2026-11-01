@@ -30,7 +30,7 @@ class Queries:
             return fn
         return decorator
 
-    async def request(self, query, data=None):
+    async def request(self, query, data=None, *, return_exceptions=False):
         if query not in self._queries:
             raise ValueError(f"Query '{query}' does not exist.")
 
@@ -38,7 +38,7 @@ class Queries:
             safe_execute(fn, True, query, data)
             for fn in self._queries[query]["handlers"]
         ]
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
         return results[0] if self._queries[query]["singleton"] else results
 
     def has_query(self, query):

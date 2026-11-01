@@ -23,14 +23,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `409-422` Domains
   - `423-442` Locale and timezone
   - `443-455` Formatting
-- `456-584` **Events — `EXT_EVENTS`**
-  - `524-533` Delivery semantics
-  - `534-584` On the client
-- `585-636` **Cache — `EXT_CACHE`**
-- `637-683` **Mail — `EXT_MAIL`**
-  - `662-683` Batching
-- `684-723` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `724-755` **Scheduling — `EXT_SCHEDULING`**
+- `456-588` **Events — `EXT_EVENTS`**
+  - `528-537` Delivery semantics
+  - `538-588` On the client
+- `589-640` **Cache — `EXT_CACHE`**
+- `641-687` **Mail — `EXT_MAIL`**
+  - `666-687` Batching
+- `688-727` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `728-759` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -520,6 +520,10 @@ because nothing will ever drain it.
   triggering request; put what it needs in the payload.
 - Queries: `singleton=True` (default) means exactly one handler and `request` returns its result;
   `singleton=False` gathers all handlers and returns a **list**.
+  A collector may opt into `await events.request(name, data, return_exceptions=True)` to receive
+  failed request-context contributions as exception entries alongside successful answers. Check
+  and log each entry before using it. The default still raises; permission and execution queries
+  must retain that default. Off-request handlers retain their existing log-and-`None` behavior.
 
 ### Delivery semantics
 
@@ -536,13 +540,13 @@ the database plus a query for that.
 Only **public** (`internal=False`) events *and queries* cross to the browser:
 
 ```js
-const events = new window.wf.ext.events.EventManager()
+const events = new window.wf.ext.events.EventBus()
 await events.subscribe("model:created")
 events.registerHandler("model:created", (data) => { ... })
 const count = await events.request("model:count")
 ```
 
-`events.js` opens **one** socket at module load and every `EventManager` shares it, so a page may
+`events.js` opens **one** socket at module load and every `EventBus` shares it, so a page may
 construct as many managers as it likes — but must not open a second connection to `/ws/events`.
 `window.wf.ext.events.eventRequest(type, data)` is that same socket's raw request if you want the
 promise to reject rather than resolve `undefined` on failure. Reach for `window.wf.createWS(path)`
@@ -550,9 +554,9 @@ only for a websocket route of your own.
 
 Requests made before the socket is open are queued and sent on connect, and each one rejects after
 `options.timeout` (15 s) or the `timeout` passed to `request(type, data, { timeout })` — `0` waits
-indefinitely, which is what `EventManager` uses for `listen`. Other rejections become a logged
+indefinitely, which is what `EventBus` uses for `listen`. Other rejections become a logged
 `undefined`. A query that raises answers `{"error": ...}` and the connection stays up. When the
-socket reconnects, every `EventManager` loop subscribes again on its own (with a backoff of up to
+socket reconnects, every `EventBus` loop subscribes again on its own (with a backoff of up to
 ten seconds); events published while the socket was down are gone.
 
 Driving a whole view off the bus instead of a REST route is a normal thing to do: one query per

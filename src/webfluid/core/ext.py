@@ -23,8 +23,8 @@ def __getattr__(name):
         instance = Security()
 
     elif name == "events":
-        from webfluid.extensions import EventManager
-        instance = EventManager()
+        from webfluid.extensions import EventBus
+        instance = EventBus()
 
     elif name == "cache":
         from webfluid.extensions import Cache

@@ -136,10 +136,10 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 | `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                               |
 | Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX |
 | Events published between two `listen` requests of a socket are lost  | Each subscription keeps a backlog (`EVENTS_SOCKET_BACKLOG`) that answers the next `listen` |
-| `EventManager` stops for good after the socket reconnects             | Its loops subscribe again with a backoff; `listen` no longer times out                   |
+| `EventBus` stops for good after the socket reconnects             | Its loops subscribe again with a backoff; `listen` no longer times out                   |
 | A crashed Vite dev server goes unnoticed                              | With `EXT_SCHEDULING` a watchdog restarts it with a warning; without, start-up warns once |
 | An Additive's enable hook can fail silently                           | `before_enable` and `after_enable` propagate; a failing hook fails that Additive's registration, loudly |
-| `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventManager`; the other registry methods stay internal                     |
+| `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventBus`; the other registry methods stay internal                     |
 | An unreadable password hash answers 500 out of the sign-in handler    | Every argon2 verification failure answers `False`                                                  |
 | A requirement with an empty `roles` / `permissions` list answers 500  | Refused as malformed (`ValueError`), checked before the admin shortcut; anonymous callers get `False` |
 | The request logger answers 500 when the scope carries no client       | An unknown peer is logged as `unknown`                                                             |

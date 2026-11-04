@@ -43,6 +43,9 @@ class DefaultConfig:
 
     PROXY_FIX = False
     PROXY_TRUSTED_HOSTS = "127.0.0.1"
+    REQUEST_LOG_CLIENT = False
+    REQUEST_LOG_USER_AGENT = False
+    REQUEST_LOG_PATH = DEBUG
     RATELIMIT_ENABLED = True
     RATELIMIT_STORAGE_URI = f"{_redis}/1" if "REDIS_URI" in os.environ else "memory://"
     RATELIMIT_DEFAULT = ["500/day", "100/hour"]

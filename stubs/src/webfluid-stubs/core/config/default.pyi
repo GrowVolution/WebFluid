@@ -18,6 +18,9 @@ class DefaultConfig:
 
     PROXY_FIX: bool
     PROXY_TRUSTED_HOSTS: str
+    REQUEST_LOG_CLIENT: bool
+    REQUEST_LOG_USER_AGENT: bool
+    REQUEST_LOG_PATH: bool
 
     STATIC_MAX_AGE: int
 

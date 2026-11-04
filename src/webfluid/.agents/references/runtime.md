@@ -4,24 +4,25 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `27-43` **`mix()` — what owns the process**
-- `44-121` **Hooks**
-  - `67-83` What the framework registers itself
-  - `84-93` Where startup work belongs
-  - `94-121` Graceful shutdown
-- `122-189` **`FluidContext`**
-  - `145-155` The scratchpad
-  - `156-173` `cached_or` — memoise per request
-  - `174-189` Other contexts
-- `190-242` **Request hooks**
-  - `221-242` The cost of `after_request`
-- `243-257` **Reverse URLs**
-- `258-271` **Themes**
-- `272-295` **Rate limiting**
-- `296-314` **Proxies**
-- `315-344` **Logging**
-- `345-370` **Useful helpers**
-- `371-385` **Exceptions**
+- `28-44` **`mix()` — what owns the process**
+- `45-132` **Hooks**
+  - `68-84` What the framework registers itself
+  - `85-94` Where startup work belongs
+  - `95-132` Graceful shutdown
+- `133-200` **`FluidContext`**
+  - `156-166` The scratchpad
+  - `167-184` `cached_or` — memoise per request
+  - `185-200` Other contexts
+- `201-253` **Request hooks**
+  - `232-253` The cost of `after_request`
+- `254-268` **Reverse URLs**
+- `269-282` **Themes**
+- `283-306` **Rate limiting**
+- `307-325` **Proxies**
+- `326-371` **Logging**
+  - `356-371` Request logging
+- `372-397` **Useful helpers**
+- `398-412` **Exceptions**
 <!-- /index -->
 
 ## `mix()` — what owns the process
@@ -108,6 +109,16 @@ returning and the shutdown phase running. The handler exists to absorb that.
 
 Under `wf run` the CLI process forwards the signal to the child and gives it 10 seconds before
 killing it. That grace period is the budget for the whole shutdown phase — keep hooks short.
+
+Open connections get 5 of those seconds (`timeout_graceful_shutdown`). A streaming response, a
+long poll or a client that went away without closing its socket (a phone on the LAN) is then
+cancelled — logged as `Cancel N running task(s), timeout graceful shutdown exceeded` — so the
+shutdown hooks always run. Without that bound one such connection held `serve()` open until the
+kill, and nothing after "shutting down..." was printed. Endpoints that stream must tolerate
+cancellation at shutdown.
+
+The CLI echoes the child's output while it stops, also from the interactive menu, and a muted
+child is still read so it can never block on a full pipe.
 
 Node processes the framework starts — the Vite dev server, a frontend build — do **not** depend on
 that path. On Windows they are put in a job object the kernel tears down when the app process dies;
@@ -341,6 +352,22 @@ Additive `Router` wraps every endpoint in `factory.additive_context(fn)`.
 Rules: log messages, not data dumps. Use `log.exception(e, context)` in an `except` block, never
 `log.error(str(e))` — the traceback is the part that tells you where it happened. Never log secrets,
 tokens, passwords or session contents. Prefer the factory over `logging.getLogger(__name__)`.
+
+### Request logging
+
+The framework's request logger and its 500 handler record the method only. Three settings in
+`fluid/config.py` opt into more, one field each:
+
+| Setting                  | Default                                  | Adds                                 |
+|--------------------------|------------------------------------------|--------------------------------------|
+| `REQUEST_LOG_PATH`       | `DEBUG` — on under `wf run -d`, else off | the path, also to the 500 log context |
+| `REQUEST_LOG_CLIENT`     | `False`                                  | `from <client address>`              |
+| `REQUEST_LOG_USER_AGENT` | `False`                                  | `(<user agent>)`                     |
+
+A path can carry a token (`/reset/<token>`), so a deployment keeps `REQUEST_LOG_PATH` off unless it
+needs it. Each field is cut to 256 characters with non-printable characters replaced by `?`; query
+strings are never logged. The settings cover the framework's own logger, not log lines an
+application writes, exception traces or the access log of an external server.
 
 ## Useful helpers
 

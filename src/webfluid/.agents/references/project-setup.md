@@ -19,7 +19,7 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `312-321` Reading config
 - `322-343` **One project, many apps**
 - `344-373` **`wf run` and deployment**
-- `374-402` **Ocean**
+- `374-414` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -383,6 +383,18 @@ wf ocean install -a portal -ps            # --prefer-stable: stable, else the la
 wf ocean publish                          # from the package directory
 ```
 
+Without a pin, `install` picks the newest release the hub marks as `available` to the caller — a
+license whose update period ended still installs the releases it covers, and the command names the
+date newer ones need a renewal from.
+
+Every download is checked against the hub's integrity record of that release before anything is
+extracted: the archive's SHA-256, then its `wf-content-v1` digest — SHA-256 over the sorted file
+paths and file hashes, leaving out only the license documents the hub writes into each download
+(`EULA.md`, `OMLA.md`, `DLA.md`, `license.json`). A mismatch, or a record that wants any other file
+left out, installs nothing. A hub without a record installs with a warning that the download is
+unverified. The command prints the digest and the release's artifact id, which independent peers of
+the hub record as well.
+
 The bundle id is the first column of `wf ocean search`'s bundle table; leading zeros are optional.
 `-b` is exactly equivalent to naming every package the bundle contains, so bundles and single
 packages mix freely — a package requested twice is installed once, with a duplication warning, and
@@ -399,4 +411,4 @@ ensure `WF_ADDITIVES = 1`, and re-run the migration cycle if it brings models.
 The archive is the working directory minus `.git`, `__pycache__`, `node_modules`, editor folders,
 compiled files **and** everything `.gitignore` excludes (nested files included, negations honoured).
 Check that file before publishing: a gitignored secret is not shipped, an untracked build artefact
-is.
+is. `publish` refuses a package that has one of the four license documents above at its root.

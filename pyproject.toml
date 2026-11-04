@@ -34,15 +34,15 @@ dependencies = [
     "python-multipart",
     "apscheduler",
     "aiosmtplib",
-    "gitpython",
+    "gitpython>=3.2.1",
     "frozendict",
     "selectolax",
     "pytz",
 
     "argon2_cffi",
     "itsdangerous",
-    "authlib",
-    "pyjwt",
+    "authlib>=1.9.1",
+    "pyjwt>=2.15.0",
 
     "typer",
     "tqdm",

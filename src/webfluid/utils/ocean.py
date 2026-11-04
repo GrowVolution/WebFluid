@@ -1,5 +1,5 @@
 from pathlib import Path
-import httpx, io, tarfile
+import hashlib, httpx, io, tarfile
 
 from webfluid.core.constants import HUB_API, HUB_AUTH
 from webfluid.core.identity import CLI_NAME, HUB_NAME, HUB_TOKEN_FILE
@@ -8,6 +8,8 @@ from webfluid.exceptions import OceanError
 _login = f"You need to log in first. Run '{CLI_NAME} {HUB_NAME.lower()} login'."
 
 TOKEN_FILE = Path.home() / HUB_TOKEN_FILE
+RESERVED_FILES = ("EULA.md", "OMLA.md", "DLA.md", "license.json")
+CONTENT_ALGORITHM = "wf-content-v1"
 ERROR_MESSAGES = {
     "NOT_AUTHORIZED": "You are not authorized to perform this action.",
     "UNAUTHORIZED": "You are not authorized. Please log in.",
@@ -31,9 +33,13 @@ ERROR_MESSAGES = {
     "PACKAGE_EXISTS": "A package with this id already exists.",
     "RELEASE_EXISTS": "This release version already exists.",
     "WITHDRAWAL_WAIVER_REQUIRED": "You must waive your right of withdrawal before downloading this package.",
+    "RELEASE_NOT_COVERED": "This release was published after your license's update period. Renew the license first.",
     "PRICE_REQUIRED": "Extensions must have a price.",
     "STRIPE_NOT_ONBOARDED": "The selected maintainer is not onboarded for payments.",
     "CHECKSUM_MISMATCH": "Upload integrity check failed.",
+    "MISSING_CHECKSUM": "The upload carried no checksum.",
+    "RESERVED_FILE": f"The archive contains a file the {HUB_NAME} reserves for license documents "
+                     f"({', '.join(RESERVED_FILES)}).",
     "EMPTY_BODY": "The package archive is empty.",
     "MISSING_MANIFEST": "The additive is missing a manifest.json.",
     "MISSING_PYPROJECT": "The extension is missing a pyproject.toml.",
@@ -41,6 +47,9 @@ ERROR_MESSAGES = {
     "ID_MISMATCH": "The package id does not match the existing package.",
     "CLONE_FAILED": "The repository could not be cloned.",
     "NOT_ENROLLED": "You are not enrolled as a publisher.",
+    "UNKNOWN_ORGA": "The organisation could not be found.",
+    "UNKNOWN_LICENSE": "The license could not be found.",
+    "NOT_ORG_MAINTAINED": "This package is not maintained by an organisation.",
     "UNKNOWN_ERROR": "An unknown error occurred."
 }
 
@@ -81,6 +90,18 @@ def extract_archive(data, target):
     target.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         tar.extractall(target, filter="data")
+
+
+def content_digest(data, exclude=RESERVED_FILES):
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        files = sorted(
+            (member.name.encode("utf-8", "surrogateescape"), hashlib.sha256(tar.extractfile(member).read()).digest())
+            for member in tar.getmembers() if member.isfile() and member.name not in exclude
+        )
+    hasher = hashlib.sha256()
+    for name, digest in files:
+        hasher.update(name + b"\0" + digest)
+    return hasher.hexdigest()
 
 
 class Ocean:
@@ -146,6 +167,9 @@ class Ocean:
         return self._request(
             "GET", f"/download/{ptype}/{package_id}/{version}"
         )
+
+    def integrity(self, ptype, package_id, version):
+        return self._request("GET", f"/download/{ptype}/{package_id}/{version}/integrity")
 
     def waive(self, ptype, package_id):
         return self._request("POST", f"/download/{ptype}/{package_id}/waiver")

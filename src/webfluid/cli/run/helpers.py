@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, time
 
 from webfluid.utils.core import parse_config, read_config
 
@@ -25,19 +25,25 @@ def env_from_config(config_file, debug):
     return env
 
 
-def read_key():
+def read_key(timeout=None):
     if os.name == "nt":
         import msvcrt
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while not msvcrt.kbhit():
+            if deadline is not None and time.monotonic() >= deadline: return None
+            time.sleep(0.02)
+
         c = msvcrt.getch()
         if c in (b"\x00", b"\xe0"): msvcrt.getch()
         return c.decode(errors="replace")
 
-    import termios, tty
+    import select, termios, tty
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
 
     try:
-        tty.setraw(fd)
+        tty.setcbreak(fd)
+        if not select.select([fd], [], [], timeout)[0]: return None
         key = sys.stdin.read(1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)

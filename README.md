@@ -236,7 +236,7 @@ commands:
 | `wf create additive <id>`             | Scaffold a new additive inside a project.                            |
 | `wf create app <name>`                | Generate an app configuration (`.ini`).                              |
 | `wf run <app>`                        | Run an app configuration, with optional interactive and debug modes. |
-| `wf ocean search / install / publish` | Browse, install, and publish packages on Ocean.                      |
+| `wf ocean search / install / publish` | Browse, install (integrity-checked), and publish packages on Ocean.  |
 | `wf ocean login / logout`             | Authenticate against Ocean.                                          |
 | `wf node …` / `wf tailwind …`         | Drive the bundled frontend tooling.                                  |
 
@@ -305,3 +305,17 @@ WebFluid is released under the **MIT License**.
 It sits within a larger ecosystem where different components carry different
 licenses. The authoritative overview is the
 [Ocean Licensing page](https://ocean.webfluid.dev/licensing).
+
+## Privacy and security defaults
+
+The request logger records the method only. Paths are added under `wf run -d`, or wherever
+`REQUEST_LOG_PATH` is switched on; client addresses and user agents only with `REQUEST_LOG_CLIENT`
+and `REQUEST_LOG_USER_AGENT`. These are non-secret application settings, and query strings are never
+logged. Log lines an application writes itself are its own responsibility. OAuth and CSRF responses
+are not cacheable, proxy forwarding strips hop-by-hop headers, and an integrity reference that
+cannot refresh reports unavailable. See [CHANGELOG.md](CHANGELOG.md) and the
+[runtime reference](src/webfluid/.agents/references/runtime.md).
+
+Security dependency floors are recorded in `pyproject.toml`; `constraints.txt` also bounds the
+verified transitive versions. Use `pip install -c constraints.txt -e .` when installing this checkout.
+The container build applies the same constraints. New frontend projects start on Vite `^8.3.5`.

@@ -1,6 +1,7 @@
-from webfluid.exceptions import ManifestError
 from pathlib import Path
 import json
+
+from webfluid.exceptions import ManifestError
 
 _additives = {
     "additives": {},

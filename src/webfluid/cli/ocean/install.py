@@ -1,12 +1,14 @@
 from importlib import import_module
 from pathlib import Path
-import subprocess, sys, typer
+import hashlib, subprocess, sys, typer
 
 from webfluid.cli import questions
 from webfluid.cli.ocean.output import bundle_id
 from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.exceptions import OceanError
-from webfluid.utils.ocean import Ocean, extract_archive, humanize_error
+from webfluid.utils.ocean import (
+    CONTENT_ALGORITHM, RESERVED_FILES, Ocean, content_digest, extract_archive, humanize_error
+)
 
 _channels = {
     "": "stable", "a": "alpha", "b": "beta",
@@ -93,14 +95,22 @@ def _select_version(pid, meta, pinned, channel, prefer_stable=False):
             return None
         return pinned
 
-    chosen = _latest_in_channel(versions, "" if prefer_stable else channel)
+    covered = [release["version"] for release in meta.get("releases", []) if release.get("available", True)]
+    chosen = _latest_in_channel(covered, "" if prefer_stable else channel)
     if chosen is None and prefer_stable:
-        chosen = _latest_in_channel(versions, channel or "any")
+        chosen = _latest_in_channel(covered, channel or "any")
 
     if chosen is None:
         typer.secho(
-            f"[{pid}] No {_wanted(channel, prefer_stable)} available.",
+            f"[{pid}] No {_wanted(channel, prefer_stable)} available"
+            f"{' within your license' if len(covered) < len(versions) else ''}.",
             fg=typer.colors.RED
+        )
+    elif len(covered) < len(versions):
+        typer.secho(
+            f"[{pid}] Newer releases are not covered by your license "
+            f"(updates until {(meta.get('updates_until') or '')[:10]}). Renew it on the {HUB_NAME} to install them.",
+            fg=typer.colors.YELLOW
         )
     return chosen
 
@@ -213,6 +223,46 @@ def _env_has_package(name):
         return False
 
 
+def _verify(ocean, ptype, pid, version, data):
+    try: meta = ocean.integrity(ptype, pid, version)
+    except OceanError as e:
+        typer.secho(
+            f"[{pid}] The {HUB_NAME} sent no integrity record ({humanize_error(e.detail)}); "
+            "the download is unverified.",
+            fg=typer.colors.YELLOW
+        )
+        return True
+
+    if hashlib.sha256(data).hexdigest() != meta.get("hash"):
+        typer.secho(f"[{pid}] The download does not match the {HUB_NAME}'s record. Nothing was installed.",
+                    fg=typer.colors.RED)
+        return False
+
+    requested = meta.get("exclude") or []
+    if any(name not in RESERVED_FILES for name in requested):
+        typer.secho(f"[{pid}] The {HUB_NAME}'s integrity record leaves out package files. Nothing was installed.",
+                    fg=typer.colors.RED)
+        return False
+
+    content = meta.get("content") or {}
+    if content.get("algorithm") != CONTENT_ALGORITHM:
+        typer.secho(f"[{pid}] Transfer verified; the content digest '{content.get('algorithm')}' is unknown to "
+                    f"this {CLI_NAME} version.", fg=typer.colors.YELLOW)
+        return True
+
+    digest = content_digest(data, requested)
+    if digest != content.get("digest"):
+        typer.secho(f"[{pid}] The content does not match its {CONTENT_ALGORITHM} digest. Nothing was installed.",
+                    fg=typer.colors.RED)
+        return False
+
+    for name in meta.get("uncovered") or []:
+        typer.secho(f"[{pid}] {name} ships with the release but is not covered by its digest.",
+                    fg=typer.colors.YELLOW)
+    typer.secho(f"[{pid}] Content verified: {CONTENT_ALGORITHM} {digest} ({meta.get('artifact')})")
+    return True
+
+
 def _pip_install_editable(target):
     typer.secho(f"[{target.name}] Installing extension (pip install -e)...",
                 bold=True)
@@ -284,13 +334,15 @@ def _install_package(ocean, ptype, pid, pinned, channel, prefer_stable, target):
 
     try: data = ocean.download(ptype, pid, version)
     except OceanError as e:
-        if e.status in (401, 403):
+        if e.status in (401, 403) and e.detail != "RELEASE_NOT_COVERED":
             typer.secho(f"[{pid}] Access denied. Login and ownership required.",
                         fg=typer.colors.RED)
         else:
             typer.secho(f"[{pid}] Download failed: {humanize_error(e.detail)}",
                         fg=typer.colors.RED)
         return False
+
+    if not _verify(ocean, ptype, pid, version, data): return False
 
     extract_archive(data, target)
     typer.secho(f"[{pid}] Installed {ptype[:-1]} {version} -> {target}",

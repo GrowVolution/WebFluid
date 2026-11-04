@@ -3,12 +3,13 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi import Request, Depends
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
+import json
 
 _script = """<script>
     window.opener.postMessage({{
         status: "ok",
-        provider: "{provider}",
-    }}, "{base_url}")
+        provider: {provider},
+    }}, {base_url})
 
     window.close()
 </script>"""
@@ -17,7 +18,12 @@ _script = """<script>
 def _local_path(target):
     if not isinstance(target, str) or not target.startswith("/"): return "/"
     if target[1:2] in ("/", "\\"): return "/"
+    if "\\" in target or any(ord(char) < 0x20 or ord(char) == 0x7f for char in target): return "/"
     return target
+
+
+def _script_value(value):
+    return json.dumps(str(value)).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
 class OAuthService:
@@ -85,8 +91,8 @@ class OAuthService:
     def authorize_response(request, provider, device, csrf=None):
         if device == "desktop":
             response = HTMLResponse(_script.format(
-                provider=provider,
-                base_url=str(request.base_url).rstrip("/")
+                provider=_script_value(provider),
+                base_url=_script_value(str(request.base_url).rstrip("/"))
             ))
 
         else:
@@ -94,6 +100,8 @@ class OAuthService:
                 _local_path(request.session.pop("redirect_path", "/"))
             )
 
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
         if csrf is not None:
             for header in csrf.raw_headers:
                 if header[0].lower() == b"set-cookie":

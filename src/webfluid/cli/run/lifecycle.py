@@ -49,6 +49,7 @@ class Lifecycle:
             start_new_session=os.name != "nt",
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
+        self._log_service.follow(self)
 
     @_require_log_service
     def stop(self):
@@ -58,6 +59,7 @@ class Lifecycle:
 
         if self.proc.poll() is None:
             typer.secho("Stopping application...", fg=typer.colors.RED)
+            self._log_service.streaming = True
             if os.name == "nt":
                 os.kill(self.proc.pid, signal.CTRL_BREAK_EVENT)
             else:
@@ -68,6 +70,7 @@ class Lifecycle:
                 self.proc.kill()
                 self.proc.wait()
 
+            self._log_service.drain()
             self.proc = None
 
     @property

@@ -1,5 +1,5 @@
 from pathlib import Path
-import shutil, typer
+import json, shutil, typer
 
 from .helpers import make_defaults, frontend_conf, create_frontend
 from webfluid.cli.create import templates
@@ -47,10 +47,11 @@ def project(
         )
 
     def write_config(conf):
-        conf_list = str(conf).strip("{}").split(", ")
-        conf_str = ("{\n\t\t"
-                    f"{',\n\t\t'.join(conf_list)}"
-                    "\n\t}")
+        entries = ",\n".join(
+            f"        {json.dumps(key)}: {json.dumps(value) if isinstance(value, str) else repr(value)}"
+            for key, value in conf.items()
+        )
+        conf_str = "{\n" + entries + "\n    }"
         (app_dir / "config.py").write_text(
             templates.app_config_py.format(
                 name=name,

@@ -137,4 +137,7 @@ export class EventBus {
 }
 
 
-window.wf.ext.events = { EventBus, eventRequest: request }
+// TODO(1.1): drop the pre-rc1 alias EventManager once 1.1 may break public names.
+export { EventBus as EventManager }
+
+window.wf.ext.events = { EventBus, EventManager: EventBus, eventRequest: request }

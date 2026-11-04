@@ -12,7 +12,9 @@ def install_error_handler(fluid):
     @fluid.exception_handler(Exception)
     async def exception_handler(request, exc):
         if isinstance(exc, (RequestValidationError, HTTPException)): raise
-        log_factory.exception(exc, f"{request.method} {request.url.path}")
+        context = request.method
+        if fluid.config["REQUEST_LOG_PATH"]: context += f" {request.url.path[:256]!r}"
+        log_factory.exception(exc, context)
 
         if "text/html" not in request.headers.get("accept", ""):
             content = { "error": "Internal Server Error" }

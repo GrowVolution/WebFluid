@@ -5,18 +5,25 @@ import asyncio, httpx, websockets
 _proxy_client = None
 
 _DROPPED_RESPONSE_HEADERS = frozenset({
-    "content-encoding", "content-length", "transfer-encoding", "connection"
+    "content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive",
+    "proxy-authenticate", "proxy-authorization", "te", "trailer", "upgrade"
 })
 _DROPPED_REQUEST_HEADERS = frozenset({
     "host", "content-length", "transfer-encoding",
-    "connection", "keep-alive", "upgrade", "expect"
+    "connection", "keep-alive", "upgrade", "expect", "proxy-authenticate", "proxy-authorization", "te", "trailer"
 })
 
 
+def _connection_headers(headers):
+    return {name.strip().lower() for key, value in headers.raw if key.lower() == b"connection"
+            for name in value.decode("latin-1").split(",")}
+
+
 def forwarded_headers(headers):
+    dropped = _DROPPED_REQUEST_HEADERS | _connection_headers(headers)
     return httpx.Headers([
         (key, value) for key, value in headers.items()
-        if key.lower() not in _DROPPED_REQUEST_HEADERS
+        if key.lower() not in dropped
     ])
 
 
@@ -47,10 +54,11 @@ def get_proxy(base_url, prefix="", pass_prefix=False, proxy_plugin=None):
                 content=resp.content,
                 status_code=resp.status_code
             )
+            dropped = _DROPPED_RESPONSE_HEADERS | _connection_headers(resp.headers)
             response.raw_headers = [
                 (key.encode(), value.encode())
                 for key, value in resp.headers.multi_items()
-                if key.lower() not in _DROPPED_RESPONSE_HEADERS
+                if key.lower() not in dropped
             ] + [(b"content-length", str(len(resp.content)).encode())]
             return response
 

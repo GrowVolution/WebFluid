@@ -4,11 +4,12 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `17-29` **Application boundary**
-- `30-40` **Extension boundary**
-- `41-55` **Module boundary**
-- `56-69` **Failure and compatibility boundary**
-- `70-74` **Documentation maintenance**
+- `18-30` **Application boundary**
+- `31-41` **Extension boundary**
+- `42-61` **Module boundary**
+- `62-75` **Failure and compatibility boundary**
+- `76-81` **Documentation maintenance**
+- `82-90` **Privacy and security boundary**
 <!-- /index -->
 
 The integration boundaries of WebFluid `1.0.0rc1`, for Python 3.14+.
@@ -49,6 +50,11 @@ Each reusable package carries its own `.agents/CONTRACT.md` and `.agents/SKILL.m
 setup and operation for people. Contracts state what the package provides and consumes;
 they must not require documentation from an application that happens to use the package.
 
+A contract is generic. It serves every consumer alike and names none of them: no route, payload
+field, configuration key, translation key or special case exists for one package built on top.
+A consumer that needs more extends the lower contract generically — a neutral name, an extension
+point, a collector — instead of duplicating it, and keeps its own feature semantics above.
+
 See [Additives](references/additives.md) for manifests, enable hooks, routing,
 events, documentation and packaging, and [frontend](references/frontend.md)
 for templates, static assets and frontend builds.
@@ -72,3 +78,13 @@ only optional work may be deferred. See [known limitations](references/pitfalls.
 Start with [.agents/SKILL.md](SKILL.md) for task-oriented guidance. Every reference
 has a line-range index. Run `wf agents index` after edits and `wf agents index --check`
 before release to verify these ranges.
+
+## Privacy and security boundary
+
+The request logger and the 500 handler record the method only. `REQUEST_LOG_PATH` (default `DEBUG`),
+`REQUEST_LOG_CLIENT` and `REQUEST_LOG_USER_AGENT` (both `False`) opt into one more field each; query
+strings are never logged. OAuth popups interpolate HTML-safe JSON, redirects stay on local paths
+without backslashes or control characters, and OAuth and CSRF responses carry
+`Cache-Control: no-store`. Proxies drop connection-nominated and hop-by-hop headers in both
+directions. An integrity reference that cannot refresh reports `unavailable`, never old hashes as
+fresh. See [runtime](references/runtime.md) for the logging settings.

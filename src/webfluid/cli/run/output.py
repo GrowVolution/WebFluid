@@ -41,7 +41,7 @@ class LogService:
             text = decode(chunk)
             if self.streaming: typer.echo(text, nl=False)
 
-    def _pump_log(self, lifecycle):
+    def follow(self, lifecycle):
         if self._pump is not None and self._pump.is_alive(): return
 
         self._pump = Thread(target=self._stream_log, daemon=True, args=(lifecycle,))
@@ -59,7 +59,7 @@ class LogService:
         if proc is None: return
 
         self.streaming = True
-        self._pump_log(lifecycle)
+        self.follow(lifecycle)
 
         while proc.poll() is None:
             time.sleep(0.05)
@@ -74,10 +74,10 @@ class LogService:
         time.sleep(1)
 
         self.streaming = True
-        self._pump_log(lifecycle)
+        self.follow(lifecycle)
 
-        while proc.poll() is None:
-            if read_key() == '\x1b': break
+        while proc.poll() is None and not lifecycle.terminate:
+            if read_key(0.1) == '\x1b': break
 
         self.streaming = False
 

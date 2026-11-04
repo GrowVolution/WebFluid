@@ -4,25 +4,26 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `28-42` **Which one**
-- `43-544` **Additives**
-  - `69-137` The manifest
-    - `102-137` `requires.packages` — only what nothing else already brings
-  - `138-177` The additive object
-  - `178-200` Handlers and rendering
-  - `201-252` Local lifecycle hooks
-  - `253-272` Enabling
-  - `273-288` The four rules
-  - `289-336` Contracts: events and queries
-    - `325-336` Contract design rules
-  - `337-381` Base Additives
-  - `382-410` `install()` and `configure()`
-  - `411-460` Integrity references for served files
-  - `461-524` Documenting an Additive for people and agents
-    - `499-524` References point down, never up
-  - `525-544` Packaging checklist
-- `545-634` **Extensions (`FluidExtension`)**
-  - `610-634` What `expand_fluid` may do
+- `29-43` **Which one**
+- `44-581` **Additives**
+  - `70-138` The manifest
+    - `103-138` `requires.packages` — only what nothing else already brings
+  - `139-178` The additive object
+  - `179-201` Handlers and rendering
+  - `202-253` Local lifecycle hooks
+  - `254-273` Enabling
+  - `274-289` The four rules
+  - `290-343` Contracts: events and queries
+    - `326-343` Contract design rules
+  - `344-388` Base Additives
+  - `389-417` `install()` and `configure()`
+  - `418-469` Integrity references for served files
+  - `470-533` Documenting an Additive for people and agents
+    - `508-533` References point down, never up
+  - `534-560` Testing an Additive
+  - `561-581` Packaging checklist
+- `582-671` **Extensions (`FluidExtension`)**
+  - `647-671` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -324,6 +325,12 @@ ever crosses the boundary.
 
 ### Contract design rules
 
+- **Design for every consumer, never for one.** A contract names no package built on it and holds
+  nothing only one of them needs: no route, payload field, config key, translation key, error code
+  or special case for a particular consumer. When a consumer needs more, extend the lower contract
+  generically — a neutral concept, an extension point, a collector — and keep the feature's own
+  semantics in the consumer. Relaxing or extending a lower contract this way is better than
+  duplicating it above; a breaking change gets an upgrade note in the lower CHANGELOG.
 - **Version contract names when you change their shape.** `portal_entry_count` stays,
   `portal_entry_count_v2` is added. A consumer pinned to an older version must keep working, and
   there is no type checking across the boundary.
@@ -443,9 +450,11 @@ file, sha256, size }] } } }` — and the single-artifact format 1. Text artifact
 counted as LF, artifacts declared `binary=True` byte for byte. A generator that fails, times out,
 writes no fresh manifest or names a hash the run cannot reproduce makes the reference
 `unavailable`, with the error code (`GENERATOR_FAILED`, `GENERATOR_TIMEOUT`, `GENERATOR_STALE`,
-`MANIFEST_INVALID`, `NOT_REPRODUCIBLE`, `REFERENCE_MISSING`, and `REFERENCE_UNCONFIGURED` for an
-empty repository URL); old hashes are never reported as fresh. `IntegrityGenerationError` in
-`webfluid.exceptions` carries these codes.
+`MANIFEST_INVALID`, `NOT_REPRODUCIBLE`, `REFERENCE_MISSING`, `REFERENCE_UPDATE_FAILED`,
+`FAST_FORWARD_FAILED`, and `REFERENCE_UNCONFIGURED` for an empty repository URL); old hashes are
+never reported as fresh, not even after a failed fetch or fast-forward. Async record and status
+hashing runs off the event loop. `IntegrityGenerationError` in `webfluid.exceptions` carries these
+codes.
 
 | Call | Answers |
 |------|---------|
@@ -522,6 +531,33 @@ The rule reaches into code where a package answers another package's collector: 
 collectors of packages you require. A collector every contributor should reach belongs to the lowest
 package they all require, so that no package has to answer a query of one built on top of it.
 
+## Testing an Additive
+
+An Additive's tests live in its `tests/` directory and run on their own — `python -m pytest` from
+inside `tests/` — with nothing but the framework, the Additive and the Additives its manifest
+requires. They follow the same boundaries as the code:
+
+1. **The harness builds a throwaway project.** `conftest.py` writes `main.py` with
+   `prepare_fluid()`, a `fluid/config.py` with `@register_config(10)` and the test settings
+   (`RATELIMIT_ENABLED = False`, `SESSION_COOKIE_SECURE = False`, …), and copies the Additive plus
+   every Additive in its `requires.additives`, transitively, into `additives/`. In an installed
+   project those are its siblings, which is where the harness looks; frontends become
+   `{ "type": "none" }`.
+2. **Switches go into the environment before the project is imported:** `EXT_*`, `WF_ADDITIVES`, the
+   Additive ids and the secrets their config gates require, all with test values.
+3. **Tables exist before the Additives enable.** Import the `models` package of every copied
+   Additive — the one layout rule all of them share — and create the tables before and after
+   `run_startup()`, because an enable hook may already read its tables and some models only register
+   while their Additive enables. Then drive the app with `httpx.ASGITransport`.
+4. **Another Additive is reached through its contract.** Tests import their own Additive
+   (`from additives.<id>.services import …`), never another one; they call its routes and its
+   events and queries the way the code does. An optional contract is tested only when its producer
+   is present, so the suite still runs without it.
+5. **Fixtures use neutral names** (`shop`, `my-app`) — never the name of a package built on top.
+
+The `.gitignore` decides what is published: tracked tests ship with the Additive, and anyone who
+installed it can run them in their own project.
+
 ## Packaging checklist
 
 - [ ] `manifest.json` — correct `id`, real `version`, `requires.wf` set, dependencies declared
@@ -537,7 +573,8 @@ package they all require, so that no package has to answer a query of one built 
 - [ ] `extract/` holds only what the host should own
 - [ ] `README.md`, `DOCS.md`, `.agents/CONTRACT.md` and `.agents/SKILL.md` present, indexes current
       (`wf agents index --check`)
-- [ ] No Markdown names a package or app that depends on this one
+- [ ] No Markdown, code or test names a package or app that depends on this one
+- [ ] `tests/` runs on its own from inside the directory and imports no other Additive
 - [ ] A license
 
 ---

@@ -26,7 +26,8 @@ class Server:
             port=port,
             loop="asyncio",
             log_config=None,
-            access_log=False
+            access_log=False,
+            timeout_graceful_shutdown=5
         )
 
         self._absorb_signals()

@@ -66,7 +66,7 @@ class TokenService:
         request.session["csrf_token"] = raw
 
         response = JSONResponse(
-            content={ "status": "ok" }
+            content={ "status": "ok" }, headers={ "Cache-Control": "no-store" }
         )
         response.set_cookie(
             key=self._csrf_cookie,

@@ -30,6 +30,11 @@ def __getattr__(name):
         from .events.main import EventBus
         return EventBus
 
+    # TODO(1.1): drop the pre-rc1 alias EventManager once 1.1 may break public names.
+    if name == "EventManager":
+        from .events.main import EventBus
+        return EventBus
+
     if name == "Mail":
         from .mailman.main import Mail
         return Mail

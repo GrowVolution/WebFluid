@@ -1,6 +1,6 @@
 from starlette.requests import Request
 from uuid import uuid4
-import jwt, os, pytest
+import hashlib, jwt, os, pytest
 
 from webfluid.extensions.jwt.config import JWTConfig
 from webfluid.extensions.jwt.decode import _kid
@@ -277,12 +277,85 @@ def test_a_package_id_that_is_not_a_directory_name_is_refused(pid):
     assert install._usable_id(pid) is False
 
 
-@pytest.mark.parametrize("pid", ["users", "users-admin", "stripe_connect"])
+@pytest.mark.parametrize("pid", ["portal", "portal-admin", "payment_connect"])
 def test_a_plain_package_id_stays_usable(pid):
     from importlib import import_module
     install = import_module("webfluid.cli.ocean.install")
 
     assert install._usable_id(pid) is True
+
+
+def test_install_picks_the_newest_release_the_license_covers():
+    from importlib import import_module
+    install = import_module("webfluid.cli.ocean.install")
+    meta = {"updates_until": "2027-01-01T00:00:00Z", "releases": [
+        {"version": "1.2.0", "available": False}, {"version": "1.1.0", "available": True}, {"version": "1.0.0"}
+    ]}
+
+    assert install._select_version("demo", meta, None, "") == "1.1.0"
+    assert install._select_version("demo", meta, "1.2.0", "") == "1.2.0"
+    assert install._select_version("demo", {"releases": [{"version": "1.0.0", "available": False}]}, None, "") is None
+
+
+def _release(files):
+    from webfluid.cli.ocean.archive import _pack
+    return _pack(list(files.items()))
+
+
+class _Hub:
+    def __init__(self, record):
+        self.record = record
+
+    def integrity(self, *_):
+        if isinstance(self.record, Exception): raise self.record
+        return self.record
+
+
+def _record(data, **changes):
+    from webfluid.utils.ocean import CONTENT_ALGORITHM, RESERVED_FILES, content_digest
+    record = {"hash": hashlib.sha256(data).hexdigest(), "exclude": list(RESERVED_FILES), "uncovered": [],
+              "artifact": "release:demo", "content": {"algorithm": CONTENT_ALGORITHM, "digest": content_digest(data)}}
+    record.update(changes)
+    return record
+
+
+def test_the_content_digest_ignores_the_injected_license_documents():
+    from webfluid.utils.ocean import content_digest
+    plain = _release({"manifest.json": b"{}", "app/index.py": b"pass"})
+    licensed = _release({"manifest.json": b"{}", "app/index.py": b"pass", "EULA.md": b"terms", "license.json": b"{}"})
+
+    assert content_digest(plain) == content_digest(licensed)
+    assert content_digest(plain) != content_digest(_release({"manifest.json": b"{}", "app/index.py": b"fail"}))
+
+
+def test_install_accepts_a_download_that_matches_its_record():
+    from importlib import import_module
+    install = import_module("webfluid.cli.ocean.install")
+    data = _release({"manifest.json": b"{}", "EULA.md": b"terms"})
+
+    assert install._verify(_Hub(_record(data)), "additives", "demo", "1.0", data) is True
+
+
+@pytest.mark.parametrize("changes", [
+    {"hash": "0" * 64},
+    {"content": {"algorithm": "wf-content-v1", "digest": "0" * 64}},
+    {"exclude": ["EULA.md", "app/index.py"]}
+])
+def test_install_refuses_a_download_its_record_does_not_confirm(changes):
+    from importlib import import_module
+    install = import_module("webfluid.cli.ocean.install")
+    data = _release({"manifest.json": b"{}", "app/index.py": b"pass"})
+
+    assert install._verify(_Hub(_record(data, **changes)), "additives", "demo", "1.0", data) is False
+
+
+def test_install_continues_unverified_when_the_hub_has_no_record():
+    from importlib import import_module
+    from webfluid.exceptions import OceanError
+    install = import_module("webfluid.cli.ocean.install")
+    data = _release({"manifest.json": b"{}"})
+
+    assert install._verify(_Hub(OceanError(404, "Not Found")), "additives", "demo", "1.0", data) is True
 
 
 @pytest.fixture

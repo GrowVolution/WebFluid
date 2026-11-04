@@ -152,3 +152,36 @@ async def test_a_failing_startup_phase_still_shuts_down():
         await asyncio.wait_for(server._start(), timeout=5)
 
     assert lifecycle.calls == ["shutdown"]
+
+
+@pytest.mark.asyncio
+async def test_an_open_stream_cannot_hold_back_the_shutdown_phase(monkeypatch):
+    import socket
+    from webfluid.core.fluid.server import Server
+
+    async def stream(scope, receive, send):
+        if scope["type"] != "http": return
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        while True:
+            await send({"type": "http.response.body", "body": b".", "more_body": True})
+            await asyncio.sleep(0.1)
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    monkeypatch.setenv("SERVER_PORT", str(port))
+
+    lifecycle = Recorder()
+    server = Server(stream, lifecycle)
+    task = asyncio.create_task(server._start())
+    while server._server is None or not server._server.started: await asyncio.sleep(0.05)
+
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    writer.write(b"GET / HTTP/1.1\r\nHost: test\r\n\r\n")
+    await reader.read(1)
+
+    server._server.should_exit = True
+    await asyncio.wait_for(task, timeout=9)
+    writer.close()
+
+    assert lifecycle.calls == ["startup", "shutdown"]

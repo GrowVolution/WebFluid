@@ -28,7 +28,7 @@ package_json = """{{
       "dev": "vite dev"
     }},
     "devDependencies": {{
-      "vite": "^8.0.0"
+      "vite": "^8.3.5"
     }}
 }}"""
 

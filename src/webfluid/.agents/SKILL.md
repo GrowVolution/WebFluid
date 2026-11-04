@@ -13,12 +13,12 @@ the task needs.
 - `47-68` **Orient before you write**
 - `69-88` **Reuse before you build**
 - `89-103` **Leave the human in charge**
-- `104-167` **The rules that keep generated code correct**
-- `168-265` **The shapes to generate**
-- `266-287` **Task → route**
-- `288-300` **Verify your work**
-- `301-334` **Pull deeper detail live**
-- `335-351` **References**
+- `104-170` **The rules that keep generated code correct**
+- `171-268` **The shapes to generate**
+- `269-291` **Task → route**
+- `292-304` **Verify your work**
+- `305-338` **Pull deeper detail live**
+- `339-355` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -154,11 +154,14 @@ work so that they can:
 15. **Pin the version.** Everything in a package's `__all__` follows semver; everything else is
     internal and may move between releases. Do not import from undocumented module paths such as
     `webfluid.core.fluid.main`.
-16. **A package's documentation only looks down.** The Markdown of an Additive, an extension or an
-    SDK — README, DOCS, CHANGELOG, CONTRACT, SKILL, references — names only what that package
-    requires, never a package or app that builds on it. That holds for history too: a lower
-    package's CHANGELOG describes a feature as its own, never as "moved here from" a consumer.
-    Examples use neutral names (`my-app`, `shop`). Details in `references/additives.md`.
+16. **A package only looks down.** The code, the tests and the Markdown of an Additive, an
+    extension or an SDK — README, DOCS, CHANGELOG, CONTRACT, SKILL, references — name only what that
+    package requires, never a package or app that builds on it, and its contract serves every
+    consumer alike: no route, payload field, config key, translation key or special case exists for
+    one of them. A consumer that needs more extends the lower contract generically instead of
+    duplicating it. That holds for history too: a lower package's CHANGELOG describes a feature as
+    its own, never as "moved here from" a consumer. Examples and test fixtures use neutral names
+    (`my-app`, `shop`). Details in `references/additives.md`.
 17. **One code shape across the ecosystem.** Services are `<Domain>Service` classes exported from
     `services/__init__.py`, Pydantic models live only in `schemas/`, exceptions only in
     `exceptions.py`; every module orders its imports, variables, functions and classes the same way.
@@ -281,6 +284,7 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
 | Write or restructure a module | Services as classes, schemas and exceptions in their modules, the shared module layout    | `references/style.md`          |
 | Make two Additives talk      | Id-scoped events/queries via `additive.unique_name()` — **never an import**                | `references/additives.md`      |
 | Document an Additive         | `.agents/CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                         | `references/additives.md`      |
+| Test an Additive             | `tests/` builds a throwaway project with it and its requirements; no other Additive imported | `references/additives.md`      |
 | Prove which files are served | Subclass `webfluid.utils.integrity.IntegrityReference`, never a copy of its own            | `references/additives.md`      |
 | Ship a battery-style service | A `FluidExtension` distribution, not an Additive                                           | `references/additives.md`      |
 | Debug wrong behaviour        | Check the known-defect list first                                                          | `references/pitfalls.md`       |

@@ -4,36 +4,11 @@ All notable changes to WebFluid are documented here. The project follows
 semantic versioning for everything listed in a package's `__all__`; anything
 else is internal and may change in any release.
 
-## Unreleased
-
-- Rename the central communication extension to `EventBus` in Python, its typing
-  stubs and the browser API (`window.wf.ext.events.EventBus`). The shared
-  `webfluid.core.ext.events` instance and the event/query protocol keep their names.
-  Browser consumers must use the new constructor and rebuild their frontend assets.
-- Collectors can opt into `events.request(..., return_exceptions=True)` to isolate a failing
-  contributor. Default query error propagation is unchanged.
-- `wf run`'s process control (`webfluid.cli.run.lifecycle.Lifecycle`) takes the environment and the
-  project root when it is created and the log service once through `attach_log_service`. `start`,
-  `stop` and `restart` take no arguments any more and refuse with a `RuntimeError` until a log
-  service is attached; a second attachment is refused as well. The typing stub follows, and
-  `Lifecycle.proc` is typed as the byte pipe it is. `wf run` itself behaves as before.
-- The skip link of `fluid_base.html` sits in its own `skip_link` block. Its class, `.wf-skip-link`, lives
-  in the framework stylesheet; a site that ships its own CSS showed the link as a visible line above
-  the navigation. **Upgrade:** override `{% block skip_link %}{% endblock %}` in such a site, or style
-  `.wf-skip-link` there.
-- The agent skill has a binding code style and package architecture,
-  `.agents/references/style.md`: services as `<Domain>Service` classes exported through `__all__`,
-  Pydantic models only in `schemas/`, exceptions only in `exceptions.py`, one import block shape,
-  one module and class layout, and how a module that grows becomes a package. The skill names it as
-  required reading before building an Additive or an extension for Ocean.
-- The framework's own modules follow it: imports grouped and ordered, variables, functions and
-  classes in the documented order. No behaviour changed.
-
 ## 1.0.0rc1
 
 The first release candidate. `1.0.0b3` closed the last of the known defects that
-could be closed inside a stabilisation release; this one changes nothing about
-the framework's own surface and exists to let the `1.0.0` surface sit still for a
+could be closed inside a stabilisation release; this one keeps the framework's
+public surface compatible and exists to let the `1.0.0` surface sit still for a
 while before it is frozen. Thirty behaviour fixes — nine of them defects the
 `1.0.0b3` documentation lists as known issues, two of those security fixes, and
 three more security fixes found while auditing this release candidate — small
@@ -58,6 +33,34 @@ mounted. Run migrations before serving traffic and propagate security-critical i
 errors; defer only optional work. *Fixed* has the details. A project generated before this release keeps running
 unchanged; only `wf migrate` wants its app factory moved, as described under
 *Changed*.
+
+### Security and privacy
+
+- Dependency floors: Authlib 1.9.1, GitPython 3.2.1, PyJWT 2.15.0; constrained transitive security
+  updates are supplied in `constraints.txt` and applied by the image build. The generated frontend
+  workspace requires Vite `^8.3.5`.
+- The request logger and the 500 handler record the method only. `REQUEST_LOG_PATH` adds the path
+  and defaults to `DEBUG` — on under `wf run -d`, off in a deployment, because a path can carry a
+  token. `REQUEST_LOG_CLIENT` and `REQUEST_LOG_USER_AGENT` add the client address and the user agent
+  and default to `False`. Logged fields are cut to 256 characters with control characters replaced;
+  query strings are never logged.
+- OAuth popup values are JSON-encoded and HTML-safe; local redirects reject backslashes and control
+  characters. OAuth and CSRF responses forbid caching; OAuth responses suppress referrers.
+- HTTP proxies remove connection-nominated and other hop-by-hop headers in both directions.
+- An integrity reference that cannot refresh is unavailable, never freshly verified from an old
+  checkout. Async artifact reporting hashes files outside the event loop.
+- `wf ocean install` checks every download against the hub's integrity record of the release before
+  it extracts anything: the archive's SHA-256 and its `wf-content-v1` content digest, which leaves
+  out only the license documents the hub writes into each download (`EULA.md`, `OMLA.md`, `DLA.md`,
+  `license.json`). A mismatch, or a record asking to leave out any other file, installs nothing; a
+  hub without a record installs with a warning. The command prints the digest and the artifact id
+  independent peers record for the release.
+- `wf ocean publish` refuses a package that carries one of those four license documents at its root
+  before it uploads anything, instead of waiting for the hub's `RESERVED_FILE`. The CLI explains
+  `RESERVED_FILE`, `MISSING_CHECKSUM`, `UNKNOWN_ORGA`, `UNKNOWN_LICENSE` and `NOT_ORG_MAINTAINED` in
+  plain words.
+- The planned 1.1 changes to universal rate-limit enforcement and synchronous endpoint dispatch
+  remain deferred; this release does not change their current contracts.
 
 ### Fixed
 
@@ -308,6 +311,15 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 - The Ocean token file was created with the process umask, which on a POSIX
   system means every local account could read the bearer token of the logged-in
   maintainer. It is created and kept at mode `600`.
+- Stopping the server no longer hangs on open connections. A streaming response, a long poll or a
+  device on the network that disappeared kept the server waiting until `wf run` killed it after
+  10 seconds, so the shutdown hooks never ran and "Server stopped." never appeared. Open
+  connections now get 5 seconds, then they are cancelled and the shutdown hooks run.
+- `wf run -i` shows the application's shutdown output when it stops, and leaving the joined log
+  no longer waits for a key press after Ctrl+C. The application's output is read from the moment
+  it starts, so a muted application in the menu can no longer stall on a full pipe.
+  `LogService._pump_log` is now `LogService.follow`, and `read_key` takes an optional timeout and
+  returns `None` when no key arrives.
 
 ### Added
 
@@ -360,6 +372,12 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   `wf create project` adds to the generated factory when the project keeps the
   HTML router. The scaffolder and its test now read the same string instead of
   each carrying their own copy of it.
+- `wf ocean install` without a pinned version installs the newest release the caller's license
+  covers when the hub marks releases with `available`, and says that newer releases need a renewed
+  license. A pinned release outside the license reports `RELEASE_NOT_COVERED` instead of a generic
+  access error. Hubs that send no `available` flag behave as before.
+- Collectors can opt into `events.request(..., return_exceptions=True)` to isolate a failing
+  contributor. Default query error propagation is unchanged.
 
 ### Changed
 
@@ -463,6 +481,27 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   The startup phase also moves inside the `try` whose `finally` runs the
   shutdown phase, so a startup that fails outside a hook's own error handling
   still closes what earlier hooks opened.
+- Rename the central communication extension to `EventBus` in Python, its typing
+  stubs and the browser API (`window.wf.ext.events.EventBus`). The shared
+  `webfluid.core.ext.events` instance and the event/query protocol keep their names.
+  `EventManager` stays importable as an alias in Python, the typing stubs and the browser API
+  (`window.wf.ext.events.EventManager`) until 1.1, so existing code keeps working.
+- `wf run`'s process control (`webfluid.cli.run.lifecycle.Lifecycle`) takes the environment and the
+  project root when it is created and the log service once through `attach_log_service`. `start`,
+  `stop` and `restart` take no arguments any more and refuse with a `RuntimeError` until a log
+  service is attached; a second attachment is refused as well. The typing stub follows, and
+  `Lifecycle.proc` is typed as the byte pipe it is. `wf run` itself behaves as before.
+- The skip link of `fluid_base.html` sits in its own `skip_link` block. Its class, `.wf-skip-link`, lives
+  in the framework stylesheet; a site that ships its own CSS showed the link as a visible line above
+  the navigation. **Upgrade:** override `{% block skip_link %}{% endblock %}` in such a site, or style
+  `.wf-skip-link` there.
+- `wf create project` writes `APP_FRONTEND` into `fluid/config.py` with four-space indentation
+  and double quotes, like every other line it generates, instead of tabs and Python's `repr`.
+- The framework's identity and `url-for` request models live in `core.processing.api.schemas`,
+  next to the handlers that use them. Both stay reachable under their old module names.
+- The framework's own modules follow the code style of `.agents/references/style.md`: imports
+  grouped and ordered, variables, functions and classes in the documented order. No behaviour
+  changed.
 
 ### Typing
 
@@ -582,6 +621,16 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   troubleshooting. `README.md` stays the landing page, `CONTRACT.md` stays the
   exact surface, and `DOCS.md` points into the contract instead of copying it.
   The look-down rule and the packaging checklist cover it.
+- The agent skill has a binding code style and package architecture,
+  `.agents/references/style.md`: services as `<Domain>Service` classes exported through `__all__`,
+  Pydantic models only in `schemas/`, exceptions only in `exceptions.py`, one import block shape,
+  one module and class layout, and how a module that grows becomes a package. The skill names it as
+  required reading before building an Additive or an extension for Ocean.
+- The skill's rule 16 covers code and tests as well as Markdown: a package's contract serves every
+  consumer alike and names none of them, and a consumer that needs more extends the lower
+  contract generically. `references/additives.md` adds the matching contract design rule and
+  *Testing an Additive*: a throwaway-project harness, tables before and after startup, other
+  Additives reached only through their contracts, neutral fixture names.
 
 ### Tests
 

@@ -1,7 +1,7 @@
 from contextlib import ExitStack
 from threading import Thread
 from tqdm import tqdm
-import logging, os, signal, sys, pytest
+import logging, os, signal, sys, time, pytest
 
 from webfluid.cli.run.helpers import console_encoding, env_from_config
 from webfluid.cli.run.lifecycle import Lifecycle
@@ -25,6 +25,18 @@ sys.stdout.buffer.write(("\\u2713" * 4000).encode())
 
 RUNNING = "import time; time.sleep(30)"
 
+FLOOD = """
+import sys
+sys.stdout.buffer.write(b"x" * 400_000)
+"""
+
+GRACEFUL = """
+import pathlib, sys, time
+pathlib.Path("ready").touch()
+while not pathlib.Path("stop").exists(): time.sleep(0.02)
+sys.stdout.write("shutdown hooks")
+"""
+
 SHUTDOWN = """
 import sys, time
 sys.stdout.buffer.write(b"running")
@@ -46,7 +58,7 @@ class Running:
 
     def pump(self, echo=True):
         self.service.streaming = echo
-        self.service._pump_log(self.lifecycle)
+        self.service.follow(self.lifecycle)
         thread = self.service._pump
         self.service.drain(15)
 
@@ -153,6 +165,41 @@ def test_restarting_replaces_the_process(app):
 
     assert running.lifecycle.proc is not first
     assert first.poll() is not None
+    assert running.lifecycle.proc.poll() is None
+
+
+def test_a_muted_app_never_blocks_on_a_full_pipe(app):
+    running = app(FLOOD)
+
+    running.lifecycle.proc.wait(10)
+
+    assert running.lifecycle.proc.poll() == 0
+    assert running.close() == ""
+
+
+def test_stopping_shows_the_shutdown_output_of_a_muted_app(app, tmp_path, monkeypatch):
+    running = app(GRACEFUL)
+    deadline = time.monotonic() + 15
+    while not (tmp_path / "ready").exists() and time.monotonic() < deadline: time.sleep(0.05)
+
+    signalled = lambda *_: (tmp_path / "stop").touch()
+    monkeypatch.setattr("webfluid.cli.run.lifecycle.os.kill", signalled)
+    monkeypatch.setattr(running.lifecycle.proc, "send_signal", signalled)
+    running.lifecycle.stop()
+
+    assert "".join(running.written) == "shutdown hooks"
+
+
+def test_joining_the_log_ends_on_a_signal_without_a_key(app, monkeypatch):
+    running = app(RUNNING)
+    monkeypatch.setattr("webfluid.cli.run.output.read_key", lambda timeout=None: None)
+    running.lifecycle.terminate = True
+
+    thread = Thread(target=running.service.join_log, args=(running.lifecycle,), daemon=True)
+    thread.start()
+    thread.join(5)
+
+    assert not thread.is_alive()
     assert running.lifecycle.proc.poll() is None
 
 

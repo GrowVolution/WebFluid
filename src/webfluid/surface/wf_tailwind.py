@@ -1,11 +1,11 @@
-import os, platform, typer, subprocess
+import os, platform, subprocess, typer
 
 from webfluid.core.constants import EXECUTION
 from webfluid.core.identity import CLI_NAME
+from webfluid.exceptions import TailwindError
 from webfluid.surface import dist
 from webfluid.surface.src import tailwind_cli
 from webfluid.utils.cli import download_file
-from webfluid.exceptions import TailwindError
 
 
 def _get_cli_data():

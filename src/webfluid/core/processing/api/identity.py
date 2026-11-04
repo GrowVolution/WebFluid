@@ -1,6 +1,6 @@
-from pydantic import BaseModel
 from datetime import datetime, UTC
 
+from .schemas import FrameworkIdentity
 from webfluid import version
 from webfluid.core.identity import FRAMEWORK_ID, IDENTITY_ROUTE
 
@@ -13,9 +13,3 @@ def add_route(fluid):
             "version": str(version()),
             "timestamp": datetime.now(UTC).isoformat()
         }
-
-
-class FrameworkIdentity(BaseModel):
-    id: str
-    version: str
-    timestamp: str

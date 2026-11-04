@@ -2,10 +2,10 @@ from pathlib import Path
 import json, tomllib, typer
 
 from webfluid.cli import questions
-from webfluid.cli.ocean.archive import build_archive, sha256_hex
+from webfluid.cli.ocean.archive import build_archive, selected_files, sha256_hex
 from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.exceptions import OceanError
-from webfluid.utils.ocean import Ocean, humanize_error
+from webfluid.utils.ocean import RESERVED_FILES, Ocean, humanize_error
 
 
 def _detect_package(root):
@@ -135,6 +135,15 @@ def publish():
             "No package id assigned. Set an id in your "
             f"{'manifest.json' if ptype == 'additives' else 'pyproject.toml'} "
             "before publishing.",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(1)
+
+    reserved = [rel for rel in selected_files(project_root) if rel in RESERVED_FILES]
+    if reserved:
+        typer.secho(
+            f"{', '.join(reserved)}: the {HUB_NAME} writes these license documents into every download. "
+            "Remove or rename them before publishing.",
             fg=typer.colors.RED
         )
         raise typer.Exit(1)

@@ -100,5 +100,5 @@ def test_a_project_without_a_frontend_is_complete(tmp_path, monkeypatch):
         ast.parse((root / path).read_text(encoding="utf-8"))
 
     config = (app_dir / "config.py").read_text(encoding="utf-8")
-    assert "'type': 'none'" in config
+    assert '    APP_FRONTEND = {\n        "type": "none"\n    }\n' in config and "\t" not in config
     assert '"title": "site"' in config

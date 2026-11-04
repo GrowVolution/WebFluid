@@ -1,11 +1,11 @@
-import os, platform, typer, subprocess
+import os, platform, subprocess, typer
 
 from webfluid.core.constants import EXECUTION
 from webfluid.core.identity import CLI_NAME
+from webfluid.exceptions import NodeError
 from webfluid.surface import dist
 from webfluid.surface.src import node_standalone
 from webfluid.utils.cli import download_file
-from webfluid.exceptions import NodeError
 
 
 def _sys_node():

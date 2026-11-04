@@ -170,12 +170,14 @@ class IntegrityReference:
             loop = asyncio.get_running_loop()
             try:
                 state = await loop.run_in_executor(None, cls.refresh)
+                if state.get("error"): raise GenerationError(state["error"])
                 generated = await loop.run_in_executor(None, cls.generate)
                 reference = { "status": "ok", **state, **generated }
             except GenerationError as exc:
                 reference = { "status": "unavailable", "error": exc.code, "detail": exc.detail[:200] }
                 if exc.code != "REFERENCE_UNCONFIGURED":
-                    log_factory.warning(cls._log(f"The integrity reference is unavailable: {exc.code} {exc.detail[:200]}"))
+                    log_factory.warning(cls._log(f"The integrity reference is unavailable: {exc.code} "
+                                                 f"{exc.detail[:200]}"))
             except Exception as exc:
                 reference = { "status": "unavailable", "error": "REFERENCE_FAILED" }
                 log_factory.exception(exc, cls._log("Computing the integrity reference failed."))
@@ -203,7 +205,7 @@ class IntegrityReference:
 
     @classmethod
     async def record(cls, run: str, artifact: Artifact) -> dict:
-        value, size = artifact.digest()
+        value, size = await asyncio.to_thread(artifact.digest)
         reference = await cls.compute(run)
         entry, served_version = cls._matched(reference, artifact.artifact, value)
         versions = entry.get("versions") or {}
@@ -261,5 +263,6 @@ class IntegrityReference:
             "checked_at": latest.get("checked_at"),
             "repository": cls.repository or None,
             "manifest": cls.manifest_url(),
-            "artifacts": [cls.artifact_status(artifact) for artifact in cls.artifacts]
+            "artifacts": await asyncio.gather(*(asyncio.to_thread(cls.artifact_status, artifact)
+                                                for artifact in cls.artifacts))
         }

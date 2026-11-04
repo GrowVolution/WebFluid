@@ -12,8 +12,8 @@ def _shown(path):
 
 
 def index(
-    paths: list[Path] = typer.Argument(None,
-                                       help="Files to index. Default: every Markdown file inside a .agents folder below the current directory."),
+    paths: list[Path] = typer.Argument(None, help="Files to index. Default: every Markdown file inside "
+                                                  "a .agents folder below the current directory."),
     check: bool = typer.Option(False, "--check", help="Change nothing; exit with 1 when an index is out of date.")
 ):
     targets = paths or docs.discover(Path.cwd())

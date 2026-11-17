@@ -59,11 +59,30 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   before it uploads anything, instead of waiting for the hub's `RESERVED_FILE`. The CLI explains
   `RESERVED_FILE`, `MISSING_CHECKSUM`, `UNKNOWN_ORGA`, `UNKNOWN_LICENSE` and `NOT_ORG_MAINTAINED` in
   plain words.
+- **`wf ocean publish` selects files the way git does and never ships secrets or links.** The
+  `.gitignore` files of the package — the root one and every nested one, `flutter_sdk/.gitignore`
+  included — are applied with git's own rules: patterns relative to their file, deeper files
+  overriding parents, negations, `**`, bracket expressions, escapes and trailing-space handling, and no
+  re-inclusion below an excluded directory. Symbolic links are never followed or packed. Files that
+  look like secrets or local data (`.env`, `.env.*` except the example files, `*.pem`, `*.key`,
+  `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, SSH private keys, `.netrc`, `.pypirc`, `_my_config.py`,
+  `*.db`, `*.sqlite*`, and any file holding a PEM private key or a service-account key) are left out
+  with a notice even when no ignore rule names them. The selection is tested against
+  `git ls-files --others --exclude-standard`.
 - The planned 1.1 changes to universal rate-limit enforcement and synchronous endpoint dispatch
   remain deferred; this release does not change their current contracts.
 
 ### Fixed
 
+- **A mail with attachments was one `multipart/alternative` message.**
+  `Mail` attached files next to the plain-text and HTML parts, so clients
+  treated the attachments as further alternatives of the body and showed only
+  one of them or hid the files. A message with attachments is now
+  `multipart/mixed`: the text and HTML parts stay together in a nested
+  `multipart/alternative`, the files follow. Messages without attachments keep
+  their structure. An attachment's `type` may now be a full MIME type
+  (`application/pdf`) as well as, as before, a subtype of `application`
+  (`pdf`); a full type used to go out as `application/application/pdf`.
 - Wheel and source builds exclude the local Node toolchain cache under
   `surface/dist` and Python bytecode, so files bundled with npm are not shipped
   as WebFluid modules. CI verifies these exclusions and the shipped contract and
@@ -323,6 +342,22 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 ### Added
 
+- **`server:running` announces a server that accepts connections.** With
+  `EXT_EVENTS` the event bus declares the internal signal
+  `server:running` (`EventBus.SERVER_RUNNING`) when it expands, and the server
+  triggers it once per serve: after every startup hook — Additive registration,
+  scheduler start, frontend preparation — has run and uvicorn reports that it is
+  listening. The payload is `{"host", "port", "pid", "started_at"}`
+  (`started_at` an ISO 8601 UTC timestamp). Subscribe with
+  `events.event("server:running")` from an enable hook. Subscribers run on the
+  bus's own consumer loop inside a `FluidContext` without a request, so a
+  subscriber may call the application through `httpx.ASGITransport` or over the
+  socket without blocking the start; a failing subscriber is logged and neither
+  stops the server nor the other subscribers. The event fires in every process
+  that serves the application, again after each restart, and never when the
+  server fails to start; work that must happen once per deployment needs its
+  own idempotency, such as a unique row. A failed announcement is logged, not
+  raised.
 - `wf agents index [PATHS…]` keeps the agent documentation of a project, an
   Additive or an extension navigable. It finds every Markdown file under an
   `.agents/` directory below the current directory —
@@ -381,6 +416,25 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 ### Changed
 
+- **`wf ocean publish` uploads new releases of a published package.** When the package id exists
+  on the hub and the caller may publish it, the command offers the local version as a new release
+  (`POST …/packages/{ptype}/{id}/releases/upload`) instead of failing with `PACKAGE_EXISTS`;
+  `--security` marks it as a security release. A version that exists already is refused locally.
+  After the first publication of a paid package the command says that the release is reviewed before
+  it is offered. The CLI explains the registry's archive, review, moderation and download codes
+  (`INVALID_ARCHIVE`, `INVALID_GIT_URL`, `RELEASE_TOO_LARGE`, `REVIEW_PENDING`, `PACKAGE_BLOCKED`,
+  `MAINTAINER_RESTRICTED`, `WITHDRAWAL_PENDING`, `WAIVER_INCOMPLETE`, …) in plain words.
+  `webfluid.utils.ocean.Ocean` gains `package(ptype, id)` and `release(ptype, id, data, checksum,
+  security=False)`.
+- **`wf ocean install` asks for the declarations the registry names.** Before
+  the first paid download the CLI fetches the statements of the purchase's
+  waiver policy and the registry's notice (`GET …/waiver`), shows the notice,
+  asks for each statement and sends the confirmed ids (`POST …/waiver` with
+  `accepted`); it stops when a required statement is declined. While a withdrawal of the purchase is
+  open, the install skips with a notice exactly what the registry pauses — a release the hub does not
+  mark `available`, or any download that would still need a declaration — and installs releases the
+  previous license keeps covering. `webfluid.utils.ocean.Ocean`
+  gains `waiver(ptype, package_id)`, and `waive()` takes the accepted ids.
 - **The framework's extension points are abstract base classes.**
   `FluidExtension` derives from `ABC` and declares `expand_fluid` abstract;
   `BaseCache` declares `set`, `get`, `delete`, `clear` and their `a*` twins

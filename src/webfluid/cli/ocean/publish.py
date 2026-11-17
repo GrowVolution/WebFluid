@@ -2,7 +2,7 @@ from pathlib import Path
 import json, tomllib, typer
 
 from webfluid.cli import questions
-from webfluid.cli.ocean.archive import build_archive, selected_files, sha256_hex
+from webfluid.cli.ocean.archive import build_archive, scan, sha256_hex
 from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.exceptions import OceanError
 from webfluid.utils.ocean import RESERVED_FILES, Ocean, humanize_error
@@ -112,7 +112,71 @@ def _select_license(ocean, ptype, package_id):
                     fg=typer.colors.RED)
 
 
-def publish():
+def _detect_version(root, ptype):
+    try:
+        if ptype == "additives":
+            return str(json.loads((root / "manifest.json").read_text(encoding="utf-8")).get("version") or "") or None
+        project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8")).get("project", {})
+        return str(project.get("version") or "") or None
+    except (OSError, json.JSONDecodeError, tomllib.TOMLDecodeError):
+        return None
+
+
+def _existing(ocean, ptype, package_id):
+    try: return ocean.package(ptype, package_id)
+    except OceanError as e:
+        if e.status == 404: return None
+        typer.secho(f"Could not look up '{package_id}': {humanize_error(e.detail)}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+
+
+def _report_skipped(sensitive, links):
+    if sensitive:
+        typer.secho(
+            f"Left out {len(sensitive)} file(s) that look like secrets or local data: {', '.join(sensitive)}. "
+            "Add them to .gitignore to silence this notice.",
+            fg=typer.colors.YELLOW
+        )
+    if links:
+        typer.secho(f"Left out symbolic links, which are never followed: {', '.join(links)}.",
+                    fg=typer.colors.YELLOW)
+
+
+def _review_notice(package):
+    if package.get("review_status") in ("pending", "changes_requested"):
+        typer.secho(
+            f"The first release of a paid package is reviewed by the {HUB_NAME} before it is offered. "
+            "You will be notified about the decision.",
+            fg=typer.colors.YELLOW
+        )
+
+
+def _release(ocean, ptype, package_id, package, data, checksum, version, security):
+    if "publish" not in (package.get("actions") or []):
+        typer.secho(f"'{package_id}' exists and you may not publish releases of it.", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    known = {release.get("version") for release in package.get("releases") or []}
+    if version and version in known:
+        typer.secho(f"Version {version} of '{package_id}' exists already. Raise the version first.",
+                    fg=typer.colors.RED)
+        raise typer.Exit(1)
+    if not questions.ocean_confirm_release(package_id, version or "?", security).ask():
+        typer.secho("Aborted.", fg=typer.colors.YELLOW)
+        raise typer.Exit()
+    try: updated = ocean.release(ptype, package_id, data, checksum, security=security)
+    except OceanError as e:
+        typer.secho(f"Release failed: {humanize_error(e.detail)}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    typer.secho(f"Released '{package_id}'" + (f" {version}." if version else "."), fg=typer.colors.GREEN, bold=True)
+    _review_notice(updated)
+
+
+def publish(
+        security: bool = typer.Option(
+            False, "--security",
+            help="Mark a new release of an existing package as a security update."
+        )
+):
     project_root = Path.cwd()
     ocean = Ocean()
     if not ocean.authenticated:
@@ -139,7 +203,8 @@ def publish():
         )
         raise typer.Exit(1)
 
-    reserved = [rel for rel in selected_files(project_root) if rel in RESERVED_FILES]
+    selected, sensitive, links = scan(project_root)
+    reserved = [rel for rel in selected if rel in RESERVED_FILES]
     if reserved:
         typer.secho(
             f"{', '.join(reserved)}: the {HUB_NAME} writes these license documents into every download. "
@@ -147,6 +212,18 @@ def publish():
             fg=typer.colors.RED
         )
         raise typer.Exit(1)
+    _report_skipped(sensitive, links)
+
+    existing = _existing(ocean, ptype, package_id)
+    if existing is not None:
+        typer.secho("Building package archive...", bold=True)
+        data = build_archive(project_root, selected)
+        _release(ocean, ptype, package_id, existing, data, sha256_hex(data),
+                 _detect_version(project_root, ptype), security)
+        return
+    if security:
+        typer.secho("--security only applies to new releases of a published package; ignoring it.",
+                    fg=typer.colors.YELLOW)
 
     typer.secho(f"Publishing {ptype[:-1]} '{package_id}'...", bold=True)
 
@@ -162,7 +239,7 @@ def publish():
     price = _choose_price(ptype)
 
     typer.secho("Building package archive...", bold=True)
-    data = build_archive(project_root)
+    data = build_archive(project_root, selected)
     checksum = sha256_hex(data)
 
     try: pkg = ocean.publish(ptype, data, checksum, orga=orga, price=price)
@@ -172,6 +249,7 @@ def publish():
         raise typer.Exit(1)
 
     typer.secho(f"Published '{pkg['id']}'.", fg=typer.colors.GREEN, bold=True)
+    _review_notice(pkg)
 
     if pkg.get("license_missing"):
         _select_license(ocean, ptype, pkg["id"])

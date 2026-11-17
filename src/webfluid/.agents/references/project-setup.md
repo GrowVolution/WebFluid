@@ -19,7 +19,7 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `312-321` Reading config
 - `322-343` **One project, many apps**
 - `344-373` **`wf run` and deployment**
-- `374-414` **Ocean**
+- `374-419` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -380,8 +380,13 @@ wf ocean install -a portal==1.2.0         # pinned; --alpha/--beta/--rc switch t
 wf ocean install -b 000123 -a portal      # a bundle expands to the packages it contains
 wf ocean install -a portal -p             # --pre: the latest prerelease, whatever its channel
 wf ocean install -a portal -ps            # --prefer-stable: stable, else the latest prerelease
-wf ocean publish                          # from the package directory
+wf ocean publish                          # from the package directory; a new release if it is published
+wf ocean publish --security               # mark that new release as a security update
 ```
+
+`publish` packs what git would add: every `.gitignore` of the package applies with git's rules, symbolic
+links are never followed, and files that look like secrets or local data (`.env`, private keys,
+keystores, `_my_config.py`, databases) are left out with a notice.
 
 Without a pin, `install` picks the newest release the hub marks as `available` to the caller — a
 license whose update period ended still installs the releases it covers, and the command names the

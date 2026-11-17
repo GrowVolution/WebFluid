@@ -15,14 +15,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `150-189` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
   - `155-166` Security fixes — assume the old behaviour is what an attacker still tries
   - `167-189` Correctness fixes
-- `190-301` **Traps that are not bugs**
-  - `194-210` Configuration
-  - `211-229` Templates and rendering
-  - `230-248` Database
-  - `249-261` Events and cache
-  - `262-269` Mail
-  - `270-288` Additives
-  - `289-301` Process model
+- `190-305` **Traps that are not bugs**
+  - `194-214` Configuration
+  - `215-233` Templates and rendering
+  - `234-252` Database
+  - `253-265` Events and cache
+  - `266-273` Mail
+  - `274-292` Additives
+  - `293-305` Process model
 <!-- /index -->
 
 Treat the first section as part of the API. Generating code that trips one of these produces a
@@ -207,6 +207,10 @@ These are correct behaviour that reliably produces wrong code when assumed away.
   to drop it.
 - **`app_configs/` and `additives/` are gitignored.** `git status` shows nothing after you edit an
   Additive in place. Verify those changes by reading files or compiling them, not by diffing.
+- **`REDIS_URI` is a base URI.** The framework appends `/1` for `RATELIMIT_STORAGE_URI` and `/2` for
+  `CACHE_REDIS_URI`, so a `REDIS_URI` that already names a database (`redis://host:6379/0`) becomes
+  `…/0/2` and Redis refuses it (`DB index is out of range`). Leave the database out of `REDIS_URI`, or
+  set `CACHE_REDIS_URI` and `RATELIMIT_STORAGE_URI` yourself — also to keep two apps on one Redis apart.
 
 ### Templates and rendering
 

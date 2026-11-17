@@ -5,11 +5,11 @@ Read this file in parts. Each range is `first-last` as the file stands now — o
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
 - `18-30` **Application boundary**
-- `31-41` **Extension boundary**
-- `42-61` **Module boundary**
-- `62-75` **Failure and compatibility boundary**
-- `76-81` **Documentation maintenance**
-- `82-90` **Privacy and security boundary**
+- `31-46` **Extension boundary**
+- `47-66` **Module boundary**
+- `67-80` **Failure and compatibility boundary**
+- `81-86` **Documentation maintenance**
+- `87-95` **Privacy and security boundary**
 <!-- /index -->
 
 The integration boundaries of WebFluid `1.0.0rc1`, for Python 3.14+.
@@ -34,6 +34,11 @@ Import shared services from `webfluid.core.ext`: `db`, `security`, `events`, `ca
 `jwt`, `babel`, `mail`, `scheduler`. Enable each required extension in the app configuration;
 importing a service does not enable it. Use asynchronous operations in async handlers and
 pass `model=` to database executors to select the model's bind.
+
+With `events` enabled the bus declares the internal signal `server:running`; the server triggers it
+once per serve, after the startup phase and once uvicorn listens, with `{"host", "port", "pid",
+"started_at"}`. It fires per process and after every restart; subscribers that must act once per
+deployment make their work idempotent themselves. See [runtime](references/runtime.md).
 
 See [batteries](references/batteries.md) for service APIs, transactions and settings.
 Custom framework integrations implement `FluidExtension.expand_fluid` and declare their

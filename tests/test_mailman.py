@@ -130,3 +130,23 @@ def test_a_detached_send_does_not_raise_into_its_thread(smtp, monkeypatch):
     for thread in set(threading.enumerate()) - before: thread.join(timeout=5)
 
     assert failures == []
+
+
+@pytest.mark.parametrize("kind", ["pdf", "application/pdf"])
+def test_attachments_wrap_the_alternative_body_in_a_mixed_message(kind):
+    from webfluid.extensions.mailman.message import make_message
+    message = make_message("noreply@example.org", "a@example.org", "Subject", {"plain": "Hi", "html": "<p>Hi</p>"},
+                           [{"bytes": b"%PDF-1.4", "type": kind, "filename": "contract.pdf"}])
+    assert message.get_content_type() == "multipart/mixed"
+    body, attachment = message.get_payload()
+    assert body.get_content_type() == "multipart/alternative"
+    assert [part.get_content_type() for part in body.get_payload()] == ["text/plain", "text/html"]
+    assert attachment.get_content_type() == "application/pdf"
+    assert attachment.get_filename() == "contract.pdf"
+    assert attachment.get_payload(decode=True) == b"%PDF-1.4"
+
+
+def test_a_message_without_attachments_stays_alternative():
+    from webfluid.extensions.mailman.message import make_message
+    message = make_message("noreply@example.org", "a@example.org", "Subject", {"plain": "Hi", "html": "<p>Hi</p>"})
+    assert message.get_content_type() == "multipart/alternative"

@@ -37,12 +37,13 @@ def confirm_overwrite_invalid():
     )
 
 
-def confirm_waiver(package_id):
-    return confirm(
-        f"Installing '{package_id}' starts delivery of paid digital content "
-        "and waives your right of withdrawal. Do you want to continue?",
-        default=False
-    )
+def confirm_waiver(statement):
+    return confirm(statement, default=False)
+
+
+def confirm_release(package_id, version, security):
+    kind = "security release" if security else "release"
+    return confirm(f"'{package_id}' is published already. Upload version {version} as a new {kind}?", default=True)
 
 
 def price(required):

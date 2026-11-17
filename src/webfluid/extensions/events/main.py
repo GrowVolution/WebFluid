@@ -22,6 +22,8 @@ def _context_decorator(fluid):
 
 
 class EventBus(FluidExtension):
+    SERVER_RUNNING = "server:running"
+
     create_signal = Delegated("_events.create_signal")
     event = Delegated("_events.event")
     trigger = Delegated("_events.trigger")
@@ -53,4 +55,5 @@ class EventBus(FluidExtension):
 
         loop_manager = LoopManager(self._events, socket_manager)
         self._events.create_loop = loop_manager.create_loop
+        self._events.create_signal(self.SERVER_RUNNING, internal=True)
         fluid.startup_hook(self._events.create_pending_loops)

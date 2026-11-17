@@ -279,6 +279,11 @@ def _pip_install_editable(target):
     return True
 
 
+def _available(meta, version):
+    return next((release.get("available", True) for release in meta.get("releases") or []
+                 if release.get("version") == version), False)
+
+
 def _install_package(ocean, ptype, pid, pinned, channel, prefer_stable, target):
     if target.exists() and any(target.iterdir()):
         typer.secho(f"[{pid}] Directory '{target}' already exists. Skipping.",
@@ -312,18 +317,36 @@ def _install_package(ocean, ptype, pid, pinned, channel, prefer_stable, target):
             )
         return False
 
-    if meta.get("waiver_required"):
+    if meta.get("withdrawal_pending") and (meta.get("waiver_required") or not _available(meta, version)):
         typer.secho(
-            f"[{pid}] This is paid digital content. Downloading it now starts "
-            "delivery and requires waiving your right of withdrawal.",
+            f"[{pid}] A withdrawal of this purchase is being processed; this download is paused until it is closed.",
             fg=typer.colors.YELLOW
         )
-        if not questions.ocean_confirm_waiver(pid).ask():
-            typer.secho(f"[{pid}] Withdrawal waiver declined. Skipping.",
-                        fg=typer.colors.YELLOW)
-            return False
+        return False
+
+    if meta.get("waiver_required"):
         try:
-            ocean.waive(ptype, pid)
+            prompt = ocean.waiver(ptype, pid)
+        except OceanError as e:
+            typer.secho(f"[{pid}] Could not load the download confirmation: {humanize_error(e.detail)}",
+                        fg=typer.colors.RED)
+            return False
+        typer.secho(
+            f"[{pid}] This is paid digital content. Downloading it starts delivery. "
+            "Please read the contract terms sent with your purchase confirmation first.",
+            fg=typer.colors.YELLOW
+        )
+        if prompt.get("hint"):
+            typer.echo(f"[{pid}] {prompt['hint']}")
+        accepted = []
+        for statement in prompt.get("statements") or []:
+            if questions.ocean_confirm_waiver(statement.get("text") or "").ask():
+                accepted.append(statement.get("id"))
+            elif statement.get("required", True):
+                typer.secho(f"[{pid}] Download confirmation declined. Skipping.", fg=typer.colors.YELLOW)
+                return False
+        try:
+            ocean.waive(ptype, pid, accepted)
         except OceanError as e:
             typer.secho(
                 f"[{pid}] Could not record withdrawal waiver: "

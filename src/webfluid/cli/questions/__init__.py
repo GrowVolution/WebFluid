@@ -15,7 +15,7 @@ __all__ = [
     "host", "port", "debug_mode", "menu",
 
     "ocean_token", "ocean_license_query", "ocean_confirm_overwrite",
-    "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver",
+    "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver", "ocean_confirm_release",
     "ocean_price", "ocean_maintainer", "ocean_license_choice"
 ]
 
@@ -49,7 +49,7 @@ def __getattr__(name):
 
     if name in {
         "ocean_token", "ocean_license_query", "ocean_confirm_overwrite",
-        "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver",
+        "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver", "ocean_confirm_release",
         "ocean_price", "ocean_maintainer", "ocean_license_choice"
     }:
         from . import ocean

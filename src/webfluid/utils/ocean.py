@@ -50,6 +50,23 @@ ERROR_MESSAGES = {
     "UNKNOWN_ORGA": "The organisation could not be found.",
     "UNKNOWN_LICENSE": "The license could not be found.",
     "NOT_ORG_MAINTAINED": "This package is not maintained by an organisation.",
+    "INVALID_ARCHIVE": "The package archive is not a plain tar of regular files with safe relative paths.",
+    "INVALID_GIT_URL": "The repository link must be a public https URL without credentials.",
+    "RELEASE_TOO_LARGE": "The package archive exceeds the size limit of this registry.",
+    "REVIEW_PENDING": "The first release is still under review; further releases wait for the decision.",
+    "PACKAGE_UNDER_REVIEW": "This package is under review and cannot be downloaded yet.",
+    "PACKAGE_BLOCKED": "This package is blocked by the platform.",
+    "PACKAGE_QUARANTINED": "This package is quarantined by the platform.",
+    "RELEASE_BLOCKED": "This release is blocked by the platform.",
+    "MAINTAINER_RESTRICTED": "Your maintainer account is restricted or suspended; only security releases of "
+                             "existing packages are accepted.",
+    "MAINTAINER_DISCONTINUED": "This maintainer profile is discontinued.",
+    "PATCH_RELEASES_ONLY": "A discontinued maintainer may only publish patch or security releases.",
+    "NO_LICENSEES": "Nobody holds rights to this discontinued paid package, so no release is accepted.",
+    "PLATFORM_ADMIN": "The platform administrator account cannot publish packages.",
+    "WITHDRAWAL_PENDING": "A withdrawal of this purchase is being processed; downloads are paused.",
+    "WAIVER_INCOMPLETE": "Every required download confirmation must be accepted.",
+    "WAIVER_CHANGED": "The download confirmation changed meanwhile. Please try again.",
     "UNKNOWN_ERROR": "An unknown error occurred."
 }
 
@@ -171,8 +188,11 @@ class Ocean:
     def integrity(self, ptype, package_id, version):
         return self._request("GET", f"/download/{ptype}/{package_id}/{version}/integrity")
 
-    def waive(self, ptype, package_id):
-        return self._request("POST", f"/download/{ptype}/{package_id}/waiver")
+    def waiver(self, ptype, package_id):
+        return self._request("GET", f"/download/{ptype}/{package_id}/waiver")
+
+    def waive(self, ptype, package_id, accepted=()):
+        return self._request("POST", f"/download/{ptype}/{package_id}/waiver", json={"accepted": list(accepted)})
 
     def login_check(self):
         return self._request("GET", "/cli/auth")
@@ -192,6 +212,19 @@ class Ocean:
         return self._request(
             "POST", f"/publish/{ptype}/upload",
             params=params, content=data,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Content-SHA256": checksum
+            }
+        )
+
+    def package(self, ptype, package_id):
+        return self._request("GET", f"/packages/{ptype}/{package_id}")
+
+    def release(self, ptype, package_id, data, checksum, security=False):
+        return self._request(
+            "POST", f"/packages/{ptype}/{package_id}/releases/upload",
+            params={"security": "true" if security else "false"}, content=data,
             headers={
                 "Content-Type": "application/octet-stream",
                 "X-Content-SHA256": checksum

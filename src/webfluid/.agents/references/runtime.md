@@ -4,25 +4,26 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `28-44` **`mix()` — what owns the process**
-- `45-132` **Hooks**
-  - `68-84` What the framework registers itself
-  - `85-94` Where startup work belongs
-  - `95-132` Graceful shutdown
-- `133-200` **`FluidContext`**
-  - `156-166` The scratchpad
-  - `167-184` `cached_or` — memoise per request
-  - `185-200` Other contexts
-- `201-253` **Request hooks**
-  - `232-253` The cost of `after_request`
-- `254-268` **Reverse URLs**
-- `269-282` **Themes**
-- `283-306` **Rate limiting**
-- `307-325` **Proxies**
-- `326-371` **Logging**
-  - `356-371` Request logging
-- `372-397` **Useful helpers**
-- `398-412` **Exceptions**
+- `29-46` **`mix()` — what owns the process**
+- `47-167` **Hooks**
+  - `70-86` What the framework registers itself
+  - `87-96` Where startup work belongs
+  - `97-129` `server:running`
+  - `130-167` Graceful shutdown
+- `168-235` **`FluidContext`**
+  - `191-201` The scratchpad
+  - `202-219` `cached_or` — memoise per request
+  - `220-235` Other contexts
+- `236-288` **Request hooks**
+  - `267-288` The cost of `after_request`
+- `289-303` **Reverse URLs**
+- `304-317` **Themes**
+- `318-341` **Rate limiting**
+- `342-360` **Proxies**
+- `361-406` **Logging**
+  - `391-406` Request logging
+- `407-432` **Useful helpers**
+- `433-447` **Exceptions**
 <!-- /index -->
 
 ## `mix()` — what owns the process
@@ -31,7 +32,8 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 1. log_factory.start_session()      handlers and level from LOG_LEVEL
 2. startup phase                    every hook, registration order, each in safe_execute
 3. serve                            uvicorn on SERVER_HOST:SERVER_PORT
-4. shutdown phase                   in a finally around 2 and 3, so it runs on every path,
+4. server:running                   EXT_EVENTS only: once uvicorn reports it listens
+5. shutdown phase                   in a finally around 2 to 4, so it runs on every path,
                                     REVERSE order
 ```
 
@@ -91,6 +93,39 @@ scheduler or an event.
 | `startup_hook`                    | Events and queries, table creation, cache warming, anything needing the loop                     |
 | `additive.before_enable`          | An Additive's routes, contracts and jobs                                                         |
 | `shutdown_hook`                   | Flushing and closing                                                                             |
+
+### `server:running`
+
+With `EXT_EVENTS` the bus declares the internal signal `server:running` (`EventBus.SERVER_RUNNING`)
+while it expands, so it exists for every subscriber. The server triggers it once per serve, after
+the whole startup phase ran and uvicorn reports `started` — the socket accepts connections when
+subscribers run.
+
+```python
+from webfluid.core.ext import events
+
+@additive.before_enable
+async def before_enable(fluid):
+    events.event("server:running")(warm_caches)
+
+async def warm_caches(data):
+    ...                                  # {"host", "port", "pid", "started_at"}
+```
+
+| Property      | Behaviour                                                                                          |
+|---------------|----------------------------------------------------------------------------------------------------|
+| Payload       | `host`, `port` (int), `pid`, `started_at` (ISO 8601, UTC)                                          |
+| Order         | after every startup hook (Additive registration, scheduler, frontend), after the socket is bound   |
+| Delivery      | the bus's consumer loop, inside a `FluidContext` without a request — never inline in the start     |
+| Requests      | a subscriber may call the app through `httpx.ASGITransport(app=FluidContext.current().fluid)` or the socket |
+| Failures      | a raising subscriber is logged; the server and the other subscribers keep running                  |
+| Frequency     | once per serve and process: again after every restart, in every worker, never if serving failed   |
+| Not covered   | the test client and harnesses that only call `run_startup()` never see it                          |
+
+Subscribers that must act once per deployment — several processes serve the same database — make
+the work itself idempotent: a unique row, a compare-and-set, a content hash. Long work belongs in a
+scheduler job the subscriber adds with a fixed `id` and `replace_existing=True`; a subscriber that
+blocks delays the other subscribers of the same event.
 
 ### Graceful shutdown
 

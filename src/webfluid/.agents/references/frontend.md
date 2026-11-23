@@ -199,10 +199,10 @@ is gitignored.
 `WF_THEMES` enables the theme API **and** decides which raw stylesheet name is compiled:
 `tailwind_raw.css` when on, `tailwind_no_themes.css` when off.
 
-The shipped theme derives its whole surface from five CSS custom properties on `:root` —
-`--wf-blend`, `--wf-deep`, `--wf-veil`, `--wf-sunk`, `--wf-page`. Page and error backgrounds, nav,
-footer, dropdowns, cards and traceback frames all read from those with a neutral fallback, so a theme
-that only redefines the colour scale already renders coherently.
+The selected theme supplies the palette. Framework surface roles load with `{{ theme }}`, including
+on pages that use plain CSS. Use `--wf-page`, `--wf-panel`, `--wf-line` and `--wf-text` for the
+page, cards, borders and copy, plus `--wf-muted` or `--wf-caption` for supporting text. Use
+`--tertiary-1` for primary actions. A custom theme may override these roles on `:root`.
 
 `window.wf.switchTheme()` (from the injected `base.js`) is the client light/dark preference and is
 independent of the server-side theme registry.

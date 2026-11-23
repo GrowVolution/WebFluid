@@ -100,25 +100,26 @@ class IntegrityReference:
         try:
             if not cls.path.exists() or not any(cls.path.iterdir()):
                 if not cls.update: raise GenerationError("REFERENCE_MISSING")
-                Repo.clone_from(cls.repository, cls.path, depth=50, kill_after_timeout=cls.timeout)
+                Repo.clone_from(cls.repository, cls.path, depth=50, kill_after_timeout=cls.timeout).close()
                 state["updated"] = True
-            repo = Repo(cls.path)
-            state["dirty"] = repo.is_dirty(untracked_files=False)
-            if cls.update and not state["dirty"] and repo.remotes:
-                repo.git.fetch("origin", kill_after_timeout=cls.timeout)
-                try:
-                    repo.git.merge("--ff-only", f"origin/{cls.branch}", kill_after_timeout=cls.timeout)
-                    state["updated"] = True
-                except GitCommandError as exc:
-                    state["error"] = "FAST_FORWARD_FAILED"
-                    log_factory.warning(cls._log(f"The integrity reference could not be fast-forwarded: {exc}"))
-            state["commit"] = repo.head.commit.hexsha if repo.head.is_valid() else None
+            with Repo(cls.path) as repo:
+                state["dirty"] = repo.is_dirty(untracked_files=False)
+                if cls.update and not state["dirty"] and repo.remotes:
+                    repo.git.fetch("origin", kill_after_timeout=cls.timeout)
+                    try:
+                        repo.git.merge("--ff-only", f"origin/{cls.branch}", kill_after_timeout=cls.timeout)
+                        state["updated"] = True
+                    except GitCommandError as exc:
+                        state["error"] = "FAST_FORWARD_FAILED"
+                        log_factory.warning(cls._log(f"The integrity reference could not be fast-forwarded: {exc}"))
+                state["commit"] = repo.head.commit.hexsha if repo.head.is_valid() else None
         except GenerationError:
             raise
         except (GitCommandError, InvalidGitRepositoryError, NoSuchPathError, OSError) as exc:
             state["error"] = "REFERENCE_UPDATE_FAILED"
             state["detail"] = str(exc)[:200]
-            try: state["commit"] = Repo(cls.path).head.commit.hexsha
+            try:
+                with Repo(cls.path) as repo: state["commit"] = repo.head.commit.hexsha
             except Exception: state["commit"] = None
         return state
 

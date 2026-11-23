@@ -1,0 +1,14 @@
+:where(:root) {
+    --wf-blend: var(--primary-5, var(--default-5));
+    --wf-deep: color-mix(in srgb, var(--wf-blend) 78%, black);
+    --wf-veil: color-mix(in srgb, var(--wf-blend) 94%, white);
+    --wf-sunk: var(--wf-deep);
+    --wf-panel: color-mix(in srgb, var(--wf-blend) 95%, white);
+    --wf-panel-soft: color-mix(in srgb, var(--wf-blend) 98%, white);
+    --wf-text: color-mix(in srgb, var(--default-1) 15%, white);
+    --wf-muted: color-mix(in srgb, var(--default-1) 55%, white);
+    --wf-caption: var(--default-1);
+    --wf-line: color-mix(in srgb, var(--primary-1, var(--default-1)) 29%, transparent);
+    --wf-shadow: 0 3px 12px rgb(0 0 0 / 0.12);
+    --wf-page: var(--wf-deep);
+}

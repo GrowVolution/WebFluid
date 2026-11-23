@@ -20,49 +20,18 @@
 </head>
 
 <body>
-{% block skip_link %}<a class="wf-skip-link" href="#wf-main">Skip to content</a>{% endblock %}
+{% block skip_link %}<a class="wf-skip-link" href="#wf-main">{{ _('SKIP_TO_CONTENT') if _ else 'Skip to content' }}</a>{% endblock %}
 <header>
     <nav>
         {% block nav %}
         <div class="navbar">
-            <a class="nav-brand group" href="/">
-                <img src="{{ _url_for(wf_static, path='img/logo.png') }}" class="nav-logo nav-logo-glow" alt="Logo">
+            <a class="nav-brand" href="/">
+                <img src="{{ _url_for(wf_static, path='img/logo.png') }}" class="nav-logo nav-logo-glow" alt="">
                 <span class="nav-title">
                     {{ _('BRAND') }}
                 </span>
             </a>
 
-            <div class="nav-links hidden md:flex">
-                <a href="/" class="nav-link" data-nav>Home</a>
-
-                <div class="nav-dropdown" data-dropdown>
-                    <button class="nav-dropdown-button" aria-expanded="false" data-dropdown-btn>
-                        More
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-70"
-                             fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-
-                    <div class="nav-dropdown-menu hidden" data-dropdown-menu>
-                        <a href="#" class="nav-dropdown-item" data-nav>Action 1</a>
-                        <a href="#" class="nav-dropdown-item" data-nav>Action 2</a>
-                    </div>
-                </div>
-            </div>
-
-            <button class="nav-toggle" id="navToggle" aria-controls="navMobile" aria-expanded="false" aria-label="Toggle navigation">
-                ☰
-            </button>
-        </div>
-
-        <div class="nav-mobile max-h-0" id="navMobile">
-            <div class="nav-mobile-inner">
-                <a href="#" class="nav-link" data-nav>Home</a>
-                <a href="#" class="nav-link" data-nav>Action 1</a>
-                <a href="#" class="nav-link" data-nav>Action 2</a>
-            </div>
         </div>
         {% endblock %}
     </nav>
@@ -79,10 +48,6 @@
             &copy; {{ YEAR | default(2026) }} GrowVolution e.V. – MIT License
         </div>
 
-        <div class="footer-links">
-            <a href="#" class="footer-link">Imprint</a>
-            <a href="#" class="footer-link">Privacy</a>
-        </div>
     </div>
     {% endblock %}
 </footer>
@@ -94,21 +59,25 @@
         const toggle = document.getElementById("navToggle")
         const mobile = document.getElementById("navMobile")
 
-        let mobileOpen = false
-
-        toggle?.addEventListener("click", () => {
-            mobileOpen = !mobileOpen
-            toggle.setAttribute("aria-expanded", String(mobileOpen))
-
-            if (mobileOpen) {
-                mobile.classList.remove("max-h-0")
-                mobile.classList.add("max-h-96")
-            } else {
-                mobile.classList.add("max-h-0")
-                mobile.classList.remove("max-h-96")
+        if (toggle && mobile) {
+            function setMobile(open) {
+                toggle.setAttribute("aria-expanded", String(open))
+                mobile.inert = !open
+                mobile.classList.toggle("max-h-0", !open)
+                mobile.classList.toggle("max-h-96", open)
             }
-        });
-
+            setMobile(false)
+            toggle.addEventListener("click", () => setMobile(mobile.inert))
+            mobile.addEventListener("click", event => {
+                if (event.target.closest("a")) setMobile(false)
+            })
+            document.addEventListener("keydown", event => {
+                if (event.key === "Escape" && !mobile.inert) {
+                    setMobile(false)
+                    toggle.focus()
+                }
+            })
+        }
 
         document.querySelectorAll("[data-dropdown]").forEach(drop => {
             const btn = drop.querySelector("[data-dropdown-btn]")
@@ -141,6 +110,7 @@
 
             if (href === currentPath) {
                 link.classList.add("nav-link-active")
+                link.setAttribute("aria-current", "page")
             }
         })
     })

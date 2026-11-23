@@ -1,6 +1,7 @@
 ---
 name: webfluid
-description: Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, the `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one. Building or restructuring an Additive or an extension — above all one meant for Ocean — also needs its binding code style and package architecture in references/style.md.
+description: >-
+  Build and maintain applications on the WebFluid framework (the `webfluid` package, `Fluid`, the `wf` CLI, Additives, `webfluid.core.ext` batteries). Use whenever a project contains a fluid/ package exposing prepare_fluid(), a main.py next to it, an app_configs/ directory, an additives/ tree or a manifest.json — or when the task mentions WebFluid, Fluid, Additives, Ocean, or the wf command. Use it even when the task looks like ordinary FastAPI, SQLAlchemy or Jinja work: inside a WebFluid project those libraries are wired by the framework, and the plain-library answer is usually the wrong one. Building or restructuring an Additive or an extension — above all one meant for Ocean — also needs its binding code style and package architecture in references/style.md.
 ---
 
 # Working with WebFluid
@@ -10,15 +11,15 @@ This file is short enough to read whole; the ranges are for coming back to one s
 it points to opens with an index of the same shape — read those first 30 lines, then only the ranges
 the task needs.
 
-- `47-68` **Orient before you write**
-- `69-88` **Reuse before you build**
-- `89-103` **Leave the human in charge**
-- `104-170` **The rules that keep generated code correct**
-- `171-268` **The shapes to generate**
-- `269-291` **Task → route**
-- `292-304` **Verify your work**
-- `305-338` **Pull deeper detail live**
-- `339-355` **References**
+- `48-69` **Orient before you write**
+- `70-89` **Reuse before you build**
+- `90-104` **Leave the human in charge**
+- `105-178` **The rules that keep generated code correct**
+- `179-276` **The shapes to generate**
+- `277-299` **Task → route**
+- `300-312` **Verify your work**
+- `313-346` **Pull deeper detail live**
+- `347-363` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -167,6 +168,13 @@ work so that they can:
     `exceptions.py`; every module orders its imports, variables, functions and classes the same way.
     Read `references/style.md` before you create or restructure a package, and always before you
     build an Additive or an extension for Ocean — it is what reviewers hold published packages to.
+
+18. **Declare the minimal dependency graph.** Read the required packages' manifests recursively.
+    If A requires B and B already requires C, A lists B alone, even when A uses C. Apply this
+    across Additives and extensions. Optional integrations do not guarantee a dependency.
+19. **Share the host presentation.** On theme-enabled pages render the framework's selected
+    theme and use its surface and palette variables. Reuse the host's shell, fields and actions
+    for embedded apps. Keep standalone packages usable with their documented feature switches.
 
 ## The shapes to generate
 

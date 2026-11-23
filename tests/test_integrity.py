@@ -91,3 +91,26 @@ async def test_empty_repository_is_unconfigured(reference, monkeypatch):
     records = await Reference.provide({ "run": "unconfigured" })
     assert {record["context"]["error"] for record in records} == {"REFERENCE_UNCONFIGURED"}
     assert records[0]["reference"]["url"] is None and records[0]["reference"]["manifest"] is None
+
+
+def test_refresh_closes_every_repository_it_opens(reference, monkeypatch):
+    import gc
+    from git import Repo
+    Reference, _ = reference
+    opened, closed = [], []
+    init, close = Repo.__init__, Repo.close
+
+    def tracked_init(self, *args, **kwargs):
+        opened.append(id(self))
+        init(self, *args, **kwargs)
+
+    def tracked_close(self):
+        closed.append(id(self))
+        close(self)
+
+    monkeypatch.setattr(Repo, "__init__", tracked_init)
+    monkeypatch.setattr(Repo, "close", tracked_close)
+    gc.disable()
+    try: state = Reference.refresh()
+    finally: gc.enable()
+    assert state["commit"] and opened and set(opened) <= set(closed)

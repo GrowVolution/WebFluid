@@ -9,6 +9,7 @@ from webfluid.extensions.events.queries import Queries
 def _context_decorator(fluid: Fluid) -> Callable[..., Any]: ...
 
 class EventBus(FluidExtension):
+    SERVER_RUNNING: str
     _events: Events | None
     _queries: Queries | None
     create_signal: Callable[..., None]

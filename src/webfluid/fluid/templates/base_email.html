@@ -7,17 +7,17 @@
   <meta name="supported-color-schemes" content="dark">
 </head>
 
-<body style="margin:0;padding:0;background-color:#060f1f;">
+<body style="margin:0;padding:0;background-color:#10222f;">
 
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#060f1f;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#10222f;">
   <tr>
     <td align="center" style="padding:24px 12px;">
 
       <table width="600" cellpadding="0" cellspacing="0" role="presentation"
-             style="max-width:600px;width:100%;background-color:#0a1426;font-family:'Inter',Arial,sans-serif;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+             style="max-width:600px;width:100%;background-color:#1c3240;font-family:'Inter',Arial,sans-serif;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
 
         <tr>
-          <td style="background-color:#112943;color:#ffffff;padding:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);">
+          <td style="background-color:#213646;color:#ffffff;padding:24px 32px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08);">
             {% block brand %}
             <strong style="font-size:18px;letter-spacing:-0.01em;color:#ffffff;">{{ _('BRAND') }}</strong>
             {% endblock %}
@@ -25,14 +25,14 @@
         </tr>
 
         <tr>
-          <td style="background-color:#0a1426;padding:32px;color:#cdd9ec;font-size:15px;line-height:1.7;">
+          <td style="background-color:#1c3240;padding:32px;color:#cdd9ec;font-size:15px;line-height:1.7;">
             {% block content %}{% endblock %}
           </td>
         </tr>
 
         {% if with_legal %}
         <tr>
-          <td style="background-color:#091324;padding:20px 32px;font-size:12px;color:#8aa0bd;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="background-color:#182c39;padding:20px 32px;font-size:12px;color:#8aa0bd;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
             {% block legal %}{% endblock %}
           </td>
         </tr>
@@ -40,14 +40,14 @@
 
         {% if with_socials %}
         <tr>
-          <td style="background-color:#091324;padding:12px;text-align:center;">
+          <td style="background-color:#182c39;padding:12px;text-align:center;">
             {% block socials %}{% endblock %}
           </td>
         </tr>
         {% endif %}
 
         <tr>
-          <td style="background-color:#031426;color:#7e93b0;padding:16px;text-align:center;font-size:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="background-color:#10222f;color:#a6b8c5;padding:16px;text-align:center;font-size:12px;border-top:1px solid rgba(255,255,255,0.06);">
             {% block copy %}
             &copy; {{ YEAR | default(2026) }} GrowVolution e.V. – MIT License
             {% endblock %}

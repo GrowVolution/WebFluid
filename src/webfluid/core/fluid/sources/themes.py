@@ -34,8 +34,9 @@ class Themes:
         ctx = FluidContext.try_current()
         request = ctx.request if ctx is not None else None
         theme = request.session.get("theme") if request is not None else None
-        return self.themes.get(theme or self.global_theme) \
-            or self.themes[FRAMEWORK_ID]
+        selected = self.themes.get(theme or self.global_theme) or self.themes[FRAMEWORK_ID]
+        surfaces = Markup(f'<link rel="stylesheet" href="{FRAMEWORK_STATIC}/css/surfaces.css">')
+        return surfaces + "\n" + selected
 
     def set(self, request, name):
         self._validate(name, True)

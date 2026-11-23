@@ -74,6 +74,13 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 ### Fixed
 
+- **`IntegrityReference.refresh` left a `git cat-file` process behind on every
+  run.** It opened the reference checkout with GitPython and never closed it;
+  the repository object sits in a reference cycle, so its persistent
+  `git cat-file --batch-check` (plus a console host on Windows) lived until the
+  cyclic garbage collector ran. With a short integrity interval an application
+  collected dozens of idle git processes. The checkout, a fresh clone and the
+  fallback commit lookup are now closed as soon as they are read.
 - **A mail with attachments was one `multipart/alternative` message.**
   `Mail` attached files next to the plain-text and HTML parts, so clients
   treated the attachments as further alternatives of the body and showed only

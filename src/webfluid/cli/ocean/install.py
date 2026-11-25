@@ -299,9 +299,6 @@ def _install_package(ocean, ptype, pid, pinned, channel, prefer_stable, target):
                         fg=typer.colors.RED)
         return False
 
-    version = _select_version(pid, meta, pinned, channel, prefer_stable)
-    if version is None: return False
-
     if not meta.get("oss") and not meta.get("owned"):
         if not ocean.authenticated:
             typer.secho(
@@ -316,6 +313,9 @@ def _install_package(ocean, ptype, pid, pinned, channel, prefer_stable, target):
                 fg=typer.colors.RED
             )
         return False
+
+    version = _select_version(pid, meta, pinned, channel, prefer_stable)
+    if version is None: return False
 
     if meta.get("withdrawal_pending") and (meta.get("waiver_required") or not _available(meta, version)):
         typer.secho(

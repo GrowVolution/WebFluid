@@ -74,6 +74,11 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 ### Fixed
 
+- **`wf ocean install` blamed the license for a package that was never bought.**
+  For a paid package without a purchase, or without a login, the command
+  answered *No … release available within your license*, because it selected
+  the release before it looked at the ownership. It now says first that the
+  package is paid and has to be bought, and how to log in.
 - **`IntegrityReference.refresh` left a `git cat-file` process behind on every
   run.** It opened the reference checkout with GitPython and never closed it;
   the repository object sits in a reference cycle, so its persistent

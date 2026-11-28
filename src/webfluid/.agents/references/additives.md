@@ -114,7 +114,7 @@ Before adding a line, check the three places a package can already come from:
 
 1. **The framework's own dependencies.** WebFluid installs `fastapi`, `jinja2`, `babel`,
    `sqlalchemy`, `alembic`, `psycopg`, `pymysql`, `aiomysql`, `aiosqlite`, `redis`, `uvicorn`,
-   `httpx`, `requests`, `websockets`, `asgiref`, `slowapi`, `limits`, `packaging`,
+   `httpx2`, `requests`, `websockets`, `asgiref`, `slowapi`, `limits`, `packaging`,
    `python-multipart`, `apscheduler`, `aiosmtplib`, `gitpython`, `frozendict`, `selectolax`,
    `pytz`, `argon2_cffi`, `itsdangerous`, `authlib`, `pyjwt`, `typer`, `tqdm` and `questionary`.
    Read the installed distribution rather than trusting that list to stay current:
@@ -597,7 +597,7 @@ requires. They follow the same boundaries as the code:
 3. **Tables exist before the Additives enable.** Import the `models` package of every copied
    Additive — the one layout rule all of them share — and create the tables before and after
    `run_startup()`, because an enable hook may already read its tables and some models only register
-   while their Additive enables. Then drive the app with `httpx.ASGITransport`.
+   while their Additive enables. Then drive the app with `httpx2.ASGITransport`.
 4. **Another Additive is reached through its contract.** Tests import their own Additive
    (`from additives.<id>.services import …`), never another one; they call its routes and its
    events and queries the way the code does. An optional contract is tested only when its producer

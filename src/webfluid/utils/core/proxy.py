@@ -1,6 +1,6 @@
 from fastapi import Request, Response, WebSocket
 from starlette.websockets import WebSocketDisconnect
-import asyncio, httpx, websockets
+import asyncio, httpx2, websockets
 
 _proxy_client = None
 
@@ -21,7 +21,7 @@ def _connection_headers(headers):
 
 def forwarded_headers(headers):
     dropped = _DROPPED_REQUEST_HEADERS | _connection_headers(headers)
-    return httpx.Headers([
+    return httpx2.Headers([
         (key, value) for key, value in headers.items()
         if key.lower() not in dropped
     ])
@@ -30,7 +30,7 @@ def forwarded_headers(headers):
 def proxy_client():
     global _proxy_client
     if _proxy_client is None:
-        _proxy_client = httpx.AsyncClient()
+        _proxy_client = httpx2.AsyncClient()
     return _proxy_client
 
 

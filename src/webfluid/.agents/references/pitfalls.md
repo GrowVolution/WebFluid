@@ -287,7 +287,7 @@ These are correct behaviour that reliably produces wrong code when assumed away.
 - **Installing does not enable.** Add the id to `[additives]` and set `WF_ADDITIVES = 1`.
 - **`requires.packages` is `pip install --upgrade`, not a resolver.** Every entry runs
   unconditionally at install. Listing something the framework, a required Additive or your base
-  already brings — `httpx`, `redis`, `sqlalchemy`, `pyjwt` — silently upgrades it out from under the
+  already brings — `httpx2`, `redis`, `sqlalchemy`, `pyjwt` — silently upgrades it out from under the
   host application. List only what nothing above you in the chain provides.
 - **`events.request` raises `ValueError` for an unknown name.** An optional dependency needs
   `events.has_query(name)` or a `try`/`except`.

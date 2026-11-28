@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib, httpx, io, json, tarfile
+import hashlib, httpx2, io, json, tarfile
 
 from webfluid.core.constants import HUB_API, HUB_AUTH
 from webfluid.core.identity import CLI_NAME, HUB_NAME, HUB_TOKEN_FILE
@@ -142,9 +142,9 @@ class Ocean:
         url = f"{base or self.base_url}{path}"
         headers = self._headers(kwargs.pop("headers", None))
         try:
-            with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+            with httpx2.Client(timeout=60.0, follow_redirects=True) as client:
                 response = client.request(method, url, headers=headers, **kwargs)
-        except httpx.HTTPError as e:
+        except httpx2.HTTPError as e:
             raise OceanError(0, f"Could not reach the Ocean: {e}")
         return self._parse(response)
 

@@ -117,7 +117,7 @@ async def warm_caches(data):
 | Payload     | `host`, `port` (int), `pid`, `started_at` (ISO 8601, UTC)                                                   |
 | Order       | after every startup hook (Additive registration, scheduler, frontend), after the socket is bound            |
 | Delivery    | the bus's consumer loop, inside a `FluidContext` without a request — never inline in the start              |
-| Requests    | a subscriber may call the app through `httpx.ASGITransport(app=FluidContext.current().fluid)` or the socket |
+| Requests    | a subscriber may call the app through `httpx2.ASGITransport(app=FluidContext.current().fluid)` or the socket|
 | Failures    | a raising subscriber is logged; the server and the other subscribers keep running                           |
 | Frequency   | once per serve and process: again after every restart, in every worker, never if serving failed             |
 | Not covered | the test client and harnesses that only call `run_startup()` never see it                                   |

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-import httpx
+import httpx2
 
 TOKEN_FILE: Path
 RESERVED_FILES: tuple[str, ...]
@@ -33,7 +33,7 @@ class Ocean:
     @staticmethod
     def _detail(data: Any) -> str | None: ...
     @staticmethod
-    def _parse(response: httpx.Response) -> Any: ...
+    def _parse(response: httpx2.Response) -> Any: ...
     def search(
         self, q: str = "", types: list[str] | None = None, license: str = ""
     ) -> list[dict[str, Any]]: ...

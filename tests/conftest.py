@@ -47,13 +47,13 @@ def make_fluid(project, monkeypatch):
 @pytest.fixture
 def client():
     from contextlib import asynccontextmanager
-    import httpx
+    import httpx2
 
     @asynccontextmanager
     async def factory(fluid):
         await fluid._lifecycle.run_startup()
-        transport = httpx.ASGITransport(app=fluid)
-        async with httpx.AsyncClient(
+        transport = httpx2.ASGITransport(app=fluid)
+        async with httpx2.AsyncClient(
                 transport=transport, base_url="http://testserver"
         ) as c: yield c
 

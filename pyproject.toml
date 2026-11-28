@@ -26,7 +26,7 @@ dependencies = [
     "uvicorn",
     "asgiref",
     "requests",
-    "httpx",
+    "httpx2",
     "websockets",
     "slowapi>=0.1.9",
     "limits>=5.8.0",

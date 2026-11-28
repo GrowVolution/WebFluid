@@ -12,8 +12,8 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `144-201` **Module layout**
   - `192-201` Class body
 - `202-208` **Schemas and exceptions**
-- `209-217` **Formatting**
-- `218-226` **Checklist before you hand over**
+- `209-220` **Formatting**
+- `221-229` **Checklist before you hand over**
 <!-- /index -->
 
 WebFluid code is written by agents and answered for by people. One shape everywhere is what makes
@@ -214,6 +214,9 @@ One blank line between methods. Records — Pydantic and SQLAlchemy models, data
 - Names say what a thing is: a service ends in `Service`, a composing part names its responsibility
   (`AccountAddresses`), a helper says what it returns (`other_members`, `bump_revision`). Abbreviate
   only what the domain abbreviates (`olm`, `jwt`).
+- Routes are English: the path (`/imprint`, `/privacy`, `/api/v1/shipments`) and the route name
+  `url_for` reverses (`imprint_request`) — also on a site whose pages are written in another
+  language. The page's language comes from the locale, never from its URL.
 
 ## Checklist before you hand over
 

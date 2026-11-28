@@ -1,6 +1,6 @@
 from .broadcast import BroadCaster
 from webfluid.exceptions import FrameworkException
-from webfluid.utils.core import required_arg_count, in_running_loop
+from webfluid.utils.core import accepts_arg_count, in_running_loop
 
 
 class Events:
@@ -67,7 +67,7 @@ class Events:
         def decorator(fn):
             self._prepare_event(name, singleton, internal)
 
-            if required_arg_count(fn) != 1:
+            if not accepts_arg_count(fn, 1):
                 raise FrameworkException(
                     "Event handlers must receive exactly one argument (data)."
                 )

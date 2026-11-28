@@ -32,7 +32,7 @@ class DefaultConfig:
         "type": "htmx",
         "alpine": True
     }
-    BASE_URL = f"http://localhost:8000"
+    BASE_URL = "http://localhost:8000"
     SECRET_KEY = os.getenv("SECRET_KEY")
 
     SESSION_COOKIE_NAME = "session"

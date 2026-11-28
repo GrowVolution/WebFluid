@@ -4,20 +4,21 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `23-115` **Template resolution**
-  - `55-78` The loader stack
-  - `79-102` Overriding framework templates
-  - `103-115` Adding a loader
-- `116-133` **The shared context (`WF_PROCESSING`)**
-- `134-178` **`fluid_base.html`**
-  - `165-178` Rules for generated templates
-- `179-213` **Tailwind and themes**
-- `214-228` **Page sources**
-- `229-248` **Static files**
-- `249-320` **`APP_FRONTEND`**
-  - `273-281` htmx
-  - `282-320` Vite
-- `321-333` **The bundled toolchain**
+- `24-116` **Template resolution**
+  - `56-79` The loader stack
+  - `80-103` Overriding framework templates
+  - `104-116` Adding a loader
+- `117-134` **The shared context (`WF_PROCESSING`)**
+- `135-179` **`fluid_base.html`**
+  - `166-179` Rules for generated templates
+- `180-214` **Tailwind and themes**
+- `215-229` **Page sources**
+- `230-254` **Static files**
+- `255-330` **`APP_FRONTEND`**
+  - `279-287` htmx
+  - `288-330` Vite
+- `331-344` **The bundled toolchain**
+- `345-354` **Layouts across clients**
 <!-- /index -->
 
 ## Template resolution

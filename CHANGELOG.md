@@ -6,6 +6,9 @@ else is internal and may change in any release.
 
 ## 1.0.0rc1
 
+The Additive test guide uses the same factory layout as generated applications. The test harness
+puts `prepare_fluid()` in `fluid/__init__.py` and imports it from `fluid`.
+
 The first release candidate. `1.0.0b3` closed the last of the known defects that
 could be closed inside a stabilisation release; this one keeps the framework's
 public surface compatible and exists to let the `1.0.0` surface sit still for a
@@ -364,6 +367,23 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   it starts, so a muted application in the menu can no longer stall on a full pipe.
   `LogService._pump_log` is now `LogService.follow`, and `read_key` takes an optional timeout and
   returns `None` when no key arrives.
+- **A handler with an optional data parameter was refused at registration.** Event and query
+  handlers were checked with `required_arg_count(fn) != 1`, which counts only parameters without
+  a default, so a classmethod handler that ignores its payload — `async def view(cls, _=None)` —
+  counted zero and failed its Additive's registration with *Query handlers must receive exactly
+  one argument (data)*. The check is now `accepts_arg_count(fn, 1)`: a handler is accepted when it
+  can be called with the one positional payload — at most one required positional parameter, room
+  for one (or `*args`) and no required keyword-only parameter. `required_arg_count` and the new
+  helper ignore a leading `self`, `cls`, `mcs` or `metacls` of an unbound function and unwrap a raw
+  `classmethod` or `staticmethod`, so a handler taken from a class `__dict__` counts the same as
+  one taken from the class. The lifecycle phases keep their exact required-argument check.
+- **`url_for` without a request could not reverse a route of an included router.** FastAPI 0.139
+  keeps an `include_router` call as one `_IncludedRouter` entry in `fluid.routes` instead of
+  copying the routes, and that entry has no name, so the index behind `fluid.url_path_for` never
+  saw them. Every offline reverse — a mail rendered from a job, a page rendered under a synthetic
+  request such as the compliance terms capture — raised `NoMatchFound` for the application's own
+  pages. The index now expands an included router into its effective routes, and unnamed routes
+  such as a `Mount` without a name are tried after the named matches.
 
 ### Added
 

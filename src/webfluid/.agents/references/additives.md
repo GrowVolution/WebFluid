@@ -4,26 +4,27 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `29-43` **Which one**
-- `44-581` **Additives**
-  - `70-138` The manifest
-    - `103-138` `requires.packages` — only what nothing else already brings
-  - `139-178` The additive object
-  - `179-201` Handlers and rendering
-  - `202-253` Local lifecycle hooks
-  - `254-273` Enabling
-  - `274-289` The four rules
-  - `290-343` Contracts: events and queries
-    - `326-343` Contract design rules
-  - `344-388` Base Additives
-  - `389-417` `install()` and `configure()`
-  - `418-469` Integrity references for served files
-  - `470-533` Documenting an Additive for people and agents
-    - `508-533` References point down, never up
-  - `534-560` Testing an Additive
-  - `561-581` Packaging checklist
-- `582-671` **Extensions (`FluidExtension`)**
-  - `647-671` What `expand_fluid` may do
+- `30-44` **Which one**
+- `45-636` **Additives**
+  - `71-141` The manifest
+    - `106-141` `requires.packages` — only what nothing else already brings
+  - `142-228` The additive object
+    - `182-228` Id and prefix
+  - `229-251` Handlers and rendering
+  - `252-303` Local lifecycle hooks
+  - `304-323` Enabling
+  - `324-339` The four rules
+  - `340-393` Contracts: events and queries
+    - `376-393` Contract design rules
+  - `394-438` Base Additives
+  - `439-467` `install()` and `configure()`
+  - `468-519` Integrity references for served files
+  - `520-583` Documenting an Additive for people and agents
+    - `558-583` References point down, never up
+  - `584-613` Testing an Additive
+  - `614-636` Packaging checklist
+- `637-726` **Extensions (`FluidExtension`)**
+  - `702-726` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -586,8 +587,8 @@ An Additive's tests live in its `tests/` directory and run on their own — `pyt
 inside `tests/` — with nothing but the framework, the Additive and the Additives its manifest
 requires. They follow the same boundaries as the code:
 
-1. **The harness builds a throwaway project.** `conftest.py` writes `main.py` with
-   `prepare_fluid()`, a `fluid/config.py` with `@register_config(10)` and the test settings
+1. **The harness builds a throwaway project.** `conftest.py` writes the app factory
+   `prepare_fluid()` to `fluid/__init__.py`, a thin `main.py` launcher, a `fluid/config.py` with `@register_config(10)` and the test settings
    (`RATELIMIT_ENABLED = False`, `SESSION_COOKIE_SECURE = False`, …), and copies the Additive plus
    every Additive in its `requires.additives`, transitively, into `additives/`. In an installed
    project those are its siblings, which is where the harness looks; frontends become
@@ -602,6 +603,9 @@ requires. They follow the same boundaries as the code:
    (`from additives.<id>.services import …`), never another one; they call its routes and its
    events and queries the way the code does. An optional contract is tested only when its producer
    is present, so the suite still runs without it.
+   Scenarios that need to manipulate private state in several packages belong to the host integration
+   suite. Run each application harness in a separate process so extension registries and credentials
+   belong to one test project at a time.
 5. **Fixtures use neutral names** (`shop`, `my-app`) — never the name of a package built on top.
 
 The `.gitignore` decides what is published: tracked tests ship with the Additive, and anyone who

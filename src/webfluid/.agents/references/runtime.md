@@ -16,14 +16,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `220-235` Other contexts
 - `236-288` **Request hooks**
   - `267-288` The cost of `after_request`
-- `289-303` **Reverse URLs**
-- `304-347` **Themes**
-- `348-371` **Rate limiting**
-- `372-397` **Proxies**
-- `398-443` **Logging**
-  - `428-443` Request logging
-- `444-469` **Useful helpers**
-- `470-484` **Exceptions**
+- `289-304` **Reverse URLs**
+- `305-348` **Themes**
+- `349-372` **Rate limiting**
+- `373-398` **Proxies**
+- `399-444` **Logging**
+  - `429-444` Request logging
+- `445-470` **Useful helpers**
+- `471-485` **Exceptions**
 <!-- /index -->
 
 ## `mix()` — what owns the process
@@ -59,9 +59,9 @@ app.shutdown_hook(fn)       # or @app.shutdown_hook
 | Exceptions          | logged, execution continues | logged, execution continues    |
 | Registration window | before the server starts    | before the server stops        |
 
-`Phase.add` calls `required_arg_count(fn)` and raises `TypeError` at **registration** time, so the
-error points at the right line. After the phase has run it is sealed and adding raises
-`RuntimeError`.
+`Phase.add` calls `required_arg_count(fn)` (parameters without a default, a leading `self` or `cls`
+not counted) and raises `TypeError` at **registration** time, so the error points at the right line.
+After the phase has run it is sealed and adding raises `RuntimeError`.
 
 Hooks run sequentially: a slow hook holds up every hook after it and delays the first request. Keep
 them focused — register things, warm one cache, create tables. Long-running work belongs behind the
@@ -299,7 +299,8 @@ back to the application's route table, and `external=True` prefixes the configur
 which is what makes rendering a mail template from a job or a startup hook work.
 
 `url_path_for` maintains a name → routes index that rebuilds itself whenever the route count
-changes, and raises `NoMatchFound` when nothing matches.
+changes, and raises `NoMatchFound` when nothing matches. An included router is expanded into its
+routes, so a page of `app_router` reverses offline the same as through a request.
 
 ## Themes
 

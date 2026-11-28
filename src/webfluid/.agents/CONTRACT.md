@@ -6,10 +6,10 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
 - `18-30` **Application boundary**
 - `31-46` **Extension boundary**
-- `47-66` **Module boundary**
-- `67-80` **Failure and compatibility boundary**
-- `81-86` **Documentation maintenance**
-- `87-95` **Privacy and security boundary**
+- `47-72` **Module boundary**
+- `73-86` **Failure and compatibility boundary**
+- `87-92` **Documentation maintenance**
+- `93-101` **Privacy and security boundary**
 <!-- /index -->
 
 The integration boundaries of WebFluid `1.0.0rc1`, for Python 3.14+.

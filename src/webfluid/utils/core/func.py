@@ -1,19 +1,40 @@
 import asyncio, inspect
 
 
-def required_arg_count(fn):
-    sig = inspect.signature(fn)
+RECEIVER_NAMES = frozenset({"self", "cls", "mcs", "metacls"})
+POSITIONAL_KINDS = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
 
+
+def _parameters(fn):
+    if isinstance(fn, (classmethod, staticmethod)):
+        fn = fn.__func__
+    params = list(inspect.signature(fn).parameters.values())
+    if (
+        params and not inspect.ismethod(fn)
+        and params[0].kind in POSITIONAL_KINDS
+        and params[0].name in RECEIVER_NAMES
+    ):
+        params = params[1:]
+    return params
+
+
+def required_arg_count(fn):
     return sum(
         1
-        for p in sig.parameters.values()
-        if p.kind in (
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            inspect.Parameter.KEYWORD_ONLY,
-        )
-        and p.default is inspect._empty
+        for p in _parameters(fn)
+        if p.kind in (*POSITIONAL_KINDS, inspect.Parameter.KEYWORD_ONLY)
+        and p.default is inspect.Parameter.empty
     )
+
+
+def accepts_arg_count(fn, count):
+    params = _parameters(fn)
+    if any(p.kind is inspect.Parameter.KEYWORD_ONLY and p.default is inspect.Parameter.empty for p in params):
+        return False
+    positional = [p for p in params if p.kind in POSITIONAL_KINDS]
+    required = sum(1 for p in positional if p.default is inspect.Parameter.empty)
+    variadic = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in params)
+    return required <= count and (variadic or count <= len(positional))
 
 
 async def async_result(result):

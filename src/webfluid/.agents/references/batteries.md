@@ -23,14 +23,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `409-422` Domains
   - `423-442` Locale and timezone
   - `443-455` Formatting
-- `456-588` **Events — `EXT_EVENTS`**
-  - `528-537` Delivery semantics
-  - `538-588` On the client
-- `589-640` **Cache — `EXT_CACHE`**
-- `641-700` **Mail — `EXT_MAIL`**
-  - `666-700` Batching
-- `701-740` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `741-772` **Scheduling — `EXT_SCHEDULING`**
+- `456-590` **Events — `EXT_EVENTS`**
+  - `530-539` Delivery semantics
+  - `540-590` On the client
+- `591-642` **Cache — `EXT_CACHE`**
+- `643-702` **Mail — `EXT_MAIL`**
+  - `668-702` Batching
+- `703-742` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `743-774` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -478,8 +478,10 @@ Note the asymmetric defaults: `create_signal` defaults to `internal=False` (publ
 raises `ValueError: Event '<name>' is already registered as public`. **Pass the flag consistently on
 every call for a given name.**
 
-Handlers take **exactly one required argument**. A mismatch raises `FrameworkException` at
-registration.
+A handler must accept **exactly one positional argument** — the data. It may give that parameter
+a default (`async def view(cls, _=None)`) or take `*args`; a second required positional parameter
+or a required keyword-only one raises `FrameworkException` at registration. A leading `self` or
+`cls` of an unbound function is not counted.
 
 ```python
 # fluid/events/models.py

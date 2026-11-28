@@ -15,14 +15,14 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `150-189` **Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here**
   - `155-166` Security fixes — assume the old behaviour is what an attacker still tries
   - `167-189` Correctness fixes
-- `190-305` **Traps that are not bugs**
+- `190-309` **Traps that are not bugs**
   - `194-214` Configuration
   - `215-233` Templates and rendering
   - `234-252` Database
   - `253-265` Events and cache
   - `266-273` Mail
-  - `274-292` Additives
-  - `293-305` Process model
+  - `274-296` Additives
+  - `297-309` Process model
 <!-- /index -->
 
 Treat the first section as part of the API. Generating code that trips one of these produces a

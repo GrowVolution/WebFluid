@@ -1,7 +1,15 @@
+import inspect
 from collections.abc import Callable
 from typing import Any
 
+RECEIVER_NAMES: frozenset[str]
+POSITIONAL_KINDS: tuple[inspect._ParameterKind, ...]
+
+def _parameters(
+    fn: Callable[..., Any] | classmethod[Any, ..., Any] | staticmethod[..., Any]
+) -> list[inspect.Parameter]: ...
 def required_arg_count(fn: Callable[..., Any]) -> int: ...
+def accepts_arg_count(fn: Callable[..., Any], count: int) -> bool: ...
 async def async_result(result: Any) -> Any: ...
 async def safe_execute(
     fn: Callable[..., Any], reraise: bool, *args: Any, **kwargs: Any

@@ -14,12 +14,12 @@ the task needs.
 - `48-69` **Orient before you write**
 - `70-89` **Reuse before you build**
 - `90-104` **Leave the human in charge**
-- `105-178` **The rules that keep generated code correct**
-- `179-276` **The shapes to generate**
-- `277-299` **Task → route**
-- `300-312` **Verify your work**
-- `313-346` **Pull deeper detail live**
-- `347-363` **References**
+- `105-184` **The rules that keep generated code correct**
+- `185-282` **The shapes to generate**
+- `283-305` **Task → route**
+- `306-318` **Verify your work**
+- `319-352` **Pull deeper detail live**
+- `353-369` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`

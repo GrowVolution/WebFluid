@@ -5,7 +5,7 @@ __all__ = [
     "read_config", "check_priority", "build_sorted_tuple",
     "try_import", "in_running_loop",
 
-    "required_arg_count", "async_result",
+    "required_arg_count", "accepts_arg_count", "async_result",
     "safe_execute", "run_in_executor",
 
     "Version", "check_required_version",
@@ -26,7 +26,7 @@ def __getattr__(name):
         return getattr(main, name)
 
     if name in {
-        "required_arg_count", "async_result",
+        "required_arg_count", "accepts_arg_count", "async_result",
         "safe_execute", "run_in_executor"
     }:
         from . import func

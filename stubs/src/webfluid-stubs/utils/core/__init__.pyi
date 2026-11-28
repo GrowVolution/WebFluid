@@ -13,6 +13,7 @@ from webfluid.utils.core.main import (
 )
 from webfluid.utils.core.func import (
     required_arg_count as required_arg_count,
+    accepts_arg_count as accepts_arg_count,
     async_result as async_result,
     safe_execute as safe_execute,
     run_in_executor as run_in_executor,
@@ -34,7 +35,7 @@ __all__ = [
     "read_config", "check_priority", "build_sorted_tuple",
     "try_import",
 
-    "required_arg_count", "async_result",
+    "required_arg_count", "accepts_arg_count", "async_result",
     "safe_execute", "run_in_executor",
 
     "Version", "check_required_version",

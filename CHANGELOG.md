@@ -41,7 +41,7 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
 
 - Dependency floors: Authlib 1.9.1, GitPython 3.2.1, PyJWT 2.15.0; constrained transitive security
   updates are supplied in `constraints.txt` and applied by the image build. The generated frontend
-  workspace requires Vite `^8.3.5`.
+  workspace requires Vite `^8.3.8`.
 - The request logger and the 500 handler record the method only. `REQUEST_LOG_PATH` adds the path
   and defaults to `DEBUG` — on under `wf run -d`, off in a deployment, because a path can carry a
   token. `REQUEST_LOG_CLIENT` and `REQUEST_LOG_USER_AGENT` add the client address and the user agent

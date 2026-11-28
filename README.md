@@ -320,4 +320,4 @@ cannot refresh reports unavailable. See [CHANGELOG.md](CHANGELOG.md) and the
 
 Security dependency floors are recorded in `pyproject.toml`; `constraints.txt` also bounds the
 verified transitive versions. Use `pip install -c constraints.txt -e .` when installing this checkout.
-The container build applies the same constraints. New frontend projects start on Vite `^8.3.5`.
+The container build applies the same constraints. New frontend projects start on Vite `^8.3.8`.

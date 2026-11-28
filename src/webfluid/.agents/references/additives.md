@@ -4,27 +4,28 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `30-44` **Which one**
-- `45-636` **Additives**
-  - `71-141` The manifest
-    - `106-141` `requires.packages` — only what nothing else already brings
-  - `142-228` The additive object
-    - `182-228` Id and prefix
-  - `229-251` Handlers and rendering
-  - `252-303` Local lifecycle hooks
-  - `304-323` Enabling
-  - `324-339` The four rules
-  - `340-393` Contracts: events and queries
-    - `376-393` Contract design rules
-  - `394-438` Base Additives
-  - `439-467` `install()` and `configure()`
-  - `468-519` Integrity references for served files
-  - `520-583` Documenting an Additive for people and agents
-    - `558-583` References point down, never up
-  - `584-613` Testing an Additive
-  - `614-636` Packaging checklist
-- `637-726` **Extensions (`FluidExtension`)**
-  - `702-726` What `expand_fluid` may do
+- `31-45` **Which one**
+- `46-645` **Additives**
+  - `72-79` Database models
+  - `80-150` The manifest
+    - `115-150` `requires.packages` — only what nothing else already brings
+  - `151-237` The additive object
+    - `191-237` Id and prefix
+  - `238-260` Handlers and rendering
+  - `261-312` Local lifecycle hooks
+  - `313-332` Enabling
+  - `333-348` The four rules
+  - `349-402` Contracts: events and queries
+    - `385-402` Contract design rules
+  - `403-447` Base Additives
+  - `448-476` `install()` and `configure()`
+  - `477-528` Integrity references for served files
+  - `529-592` Documenting an Additive for people and agents
+    - `567-592` References point down, never up
+  - `593-622` Testing an Additive
+  - `623-645` Packaging checklist
+- `646-735` **Extensions (`FluidExtension`)**
+  - `711-735` What `expand_fluid` may do
 <!-- /index -->
 
 ## Which one
@@ -67,6 +68,14 @@ Three hard requirements enforced by the constructor:
 2. **`manifest.json` must exist and validate.**
 3. **The package must expose `additive`**, an `Additive` instance — `register_additives` logs an
    error and skips the package otherwise.
+
+### Database models
+
+For an Additive that owns tables, register them in `models/__init__.py`. Apply the package's
+`bind_models(fluid.config)` from `before_enable` before any service queries its tables. Alembic
+imports the package inside a `FluidContext` and skips the enable hooks. Its `if not EXECUTION`
+branch must apply the same function. When adding a table, check joins, shared transactions and
+the data category before assigning its bind. The complete example is in [Binds](batteries.md#binds).
 
 ## The manifest
 

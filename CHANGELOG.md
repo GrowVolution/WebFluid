@@ -6,6 +6,11 @@ else is internal and may change in any release.
 
 ## 1.0.0rc1
 
+Host and Additive model packages now have a shared bind registration convention for startup and
+Alembic. Framework-created `ensured_executor` and `ensured_async_executor` calls open a separate
+transaction when their explicit target belongs to a different bind. Before applying a revision that
+corrects an existing table's bind, copy and verify its data at the destination.
+
 The Additive test guide uses the same factory layout as generated applications. The test harness
 puts `prepare_fluid()` in `fluid/__init__.py` and imports it from `fluid`.
 

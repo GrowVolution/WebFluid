@@ -7,19 +7,19 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `25-62` **The command tree**
 - `63-99` **The project layout**
 - `100-119` **What `Fluid(import_name)` does, in constructor order**
-- `120-232` **`app_configs/<name>.ini`**
+- `120-233` **`app_configs/<name>.ini`**
   - `171-185` `EXT_*` — batteries
   - `186-201` `WF_*` — surface features
   - `202-207` `[additives]`
   - `208-219` Secrets from files
   - `220-225` `[dev]`
-  - `226-232` Environment the CLI injects
-- `233-321` **Config classes**
-  - `266-311` What belongs where
-  - `312-321` Reading config
-- `322-343` **One project, many apps**
-- `344-373` **`wf run` and deployment**
-- `374-421` **Ocean**
+  - `226-233` Environment the CLI injects
+- `234-322` **Config classes**
+  - `267-312` What belongs where
+  - `313-322` Reading config
+- `323-344` **One project, many apps**
+- `345-374` **`wf run` and deployment**
+- `375-422` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -88,7 +88,7 @@ The split is load-bearing:
 | `fluid/__init__.py` | Holds `prepare_fluid()`; `wf migrate` imports `fluid` **by name** |
 | `fluid/api`         | Mounted under `/api`; JSON default response class                 |
 | `fluid/app`         | Router created with `default_response_class=HTMLResponse`         |
-| `fluid/models`      | The generated Alembic `env.py` imports `fluid.models` **by name** |
+| `fluid/models`      | Alembic imports `fluid.models`. Its `__init__.py` registers all host models and applies their configured binds under `if not EXECUTION`. |
 | `fluid/events`      | Registered from a startup hook, not at import                     |
 | `fluid/static`      | Served at `/static`, reversed with route name `static`            |
 | `fluid/templates`   | Searched **before** the framework's own templates                 |
@@ -229,6 +229,7 @@ apply `[dev]` — use a separate app config for a development database.
 `COLUMNS`/`LINES`, `PYTHONIOENCODING`, `PYTHONUNBUFFERED`, `ENABLED_ADDITIVES`. Do not set these in
 the `.ini`. Two more are read but never set: `DEV_AUTO_INSTALL=1` (debug only — calls
 `Additive.install()` on every registration) and `OCEAN_API` / `OCEAN_AUTH`.
+The Alembic subprocess sets `IN_EXECUTION=0` and `IN_MIGRATION=1` for revision generation and upgrades or downgrades.
 
 ## Config classes
 

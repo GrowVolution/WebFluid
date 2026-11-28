@@ -4,33 +4,33 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `50-187` **SQLAlchemy — `EXT_SQLALCHEMY`**
+- `50-232` **SQLAlchemy — `EXT_SQLALCHEMY`**
   - `52-65` URIs carry no driver
   - `66-95` Models
-  - `96-138` Executors
-  - `139-148` What survives the block
-  - `149-167` Binds
-  - `168-187` Creating tables
-- `188-233` **Migrate — CLI only, no `EXT_` switch**
-- `234-360` **Security — `EXT_SECURITY` (requires `EXT_SQLALCHEMY`)**
-  - `252-260` Relationship loading
-  - `261-292` Registration and authentication
-  - `293-324` Route guards
-  - `325-339` CSRF and single-use tokens
-  - `340-360` Bearer grants — one route, browser and machine
-- `361-455` **Babel — `EXT_BABEL` (requires `EXT_SQLALCHEMY`)**
-  - `379-408` The runtime store
-  - `409-422` Domains
-  - `423-442` Locale and timezone
-  - `443-455` Formatting
-- `456-590` **Events — `EXT_EVENTS`**
-  - `530-539` Delivery semantics
-  - `540-590` On the client
-- `591-642` **Cache — `EXT_CACHE`**
-- `643-702` **Mail — `EXT_MAIL`**
-  - `668-702` Batching
-- `703-742` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `743-774` **Scheduling — `EXT_SCHEDULING`**
+  - `96-141` Executors
+  - `142-151` What survives the block
+  - `152-212` Binds
+  - `213-232` Creating tables
+- `233-281` **Migrate — CLI only, no `EXT_` switch**
+- `282-408` **Security — `EXT_SECURITY` (requires `EXT_SQLALCHEMY`)**
+  - `300-308` Relationship loading
+  - `309-340` Registration and authentication
+  - `341-372` Route guards
+  - `373-387` CSRF and single-use tokens
+  - `388-408` Bearer grants — one route, browser and machine
+- `409-503` **Babel — `EXT_BABEL` (requires `EXT_SQLALCHEMY`)**
+  - `427-456` The runtime store
+  - `457-470` Domains
+  - `471-490` Locale and timezone
+  - `491-503` Formatting
+- `504-638` **Events — `EXT_EVENTS`**
+  - `578-587` Delivery semantics
+  - `588-638` On the client
+- `639-690` **Cache — `EXT_CACHE`**
+- `691-750` **Mail — `EXT_MAIL`**
+  - `716-750` Batching
+- `751-790` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `791-822` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -133,7 +133,10 @@ Bind resolution: `bind_key` wins, then the model's `__bind_key__`, then `"defaul
   Omitting it works only while every model lives on the default bind — and silently connects to the
   wrong database the day one does not.
 - **`ensured_*` is for reusable service functions** that must work both standalone and inside a
-  caller's transaction.
+  caller's transaction. An explicit model or key reuses the current executor only on the same
+  bind. A different bind opens a separate transaction. With no explicit target it reuses the active
+  executor. Wrapping a caller-supplied session directly in `Executor(session)` or `AsyncExecutor(session)`
+  leaves that session in control of routing.
 - `scalars=True` is right for `select(Model)` and wrong for `select(func.count(...))`.
 
 ### What survives the block
@@ -164,6 +167,48 @@ and `db.bind_keys` reach them.
 `Model.set_bind(key)` attaches at runtime; it raises `FrameworkException` if the model already has a
 bind. That is how `SECURITY_MODELS_DB_BIND` and `BABEL_DATABASE_BIND` work, and how an Additive puts
 its models on a configured bind from `before_enable`.
+
+In every host or Additive that owns models, import all mapped classes in `models/__init__.py`.
+Keep foreign keys, association tables, SQL joins, writes requiring one transaction and records of
+the same logical category on one bind. Models related to security users follow
+`SECURITY_MODELS_DB_BIND`. An independent category can expose one optional config key with
+default `None`. Document its fallback and what moves together.
+
+For example, a package with account profiles and an independent audit journal can use this setup.
+
+```python
+from webfluid.core.constants import EXECUTION
+from webfluid.core.context import FluidContext
+
+from .accounts import Profile
+from .audit import AuditRun, AuditItem
+
+
+def bind_models(config):
+    for bind, models in ((config["SECURITY_MODELS_DB_BIND"], (Profile,)),
+                         (config.get("EXAMPLE_AUDIT_DB_BIND"), (AuditRun, AuditItem))):
+        if bind:
+            for model in models:
+                if getattr(model, "__bind_key__", None) != bind:
+                    model.set_bind(bind)
+
+
+if not EXECUTION:
+    ctx = FluidContext.try_current()
+    if ctx is not None and ctx.fluid is not None:
+        bind_models(ctx.fluid.config)
+```
+
+Call `bind_models(fluid.config)` during `before_enable` or from the host's `prepare_fluid()`
+before the first query. A factory that imports models early also calls it when Alembic builds
+the app, since Python caches the first package import. For a standalone association `Table`,
+use `update_metadata(table, target_model=Owner)` after binding its owner. An app that keeps
+all models in `fluid/models.py` uses the same convention in that module.
+
+Register each named destination in `SQLALCHEMY_BINDS` before `wf migrate init`. Verify an
+autogenerated revision with separate databases and check each table and foreign key on its intended
+bind. For existing data, changing a bind requires copying and verifying the rows before cutover.
+Alembic compares schemas per database and can emit a drop on the source and a create on the target.
 
 ### Creating tables
 
@@ -217,6 +262,9 @@ them literally and carries no placeholder. Edit that `env.py`, never the templat
 The migration environment is a manipulated one: `EXT_SQLALCHEMY` forced on; `EXT_EVENTS`,
 `EXT_CACHE`, `EXT_MAIL`, `EXT_JWT`, `WF_THEMES`, `WF_TAILWIND`, `WF_PROCESSING` forced off. Notably:
 
+- The Alembic process sets `IN_MIGRATION=1` and `IN_EXECUTION=0`. A host whose factory starts
+  external services or requires runtime-only extensions can return its configured `Fluid` before
+  those steps when `webfluid.utils.enabled("IN_MIGRATION")` is true. Alembic then imports its models.
 - `*_FILE` keys **are** resolved, so a migration connects with the real secret.
 - `EXT_BABEL` and `EXT_SECURITY` are **not** forced off, so their models appear in autogenerated
   revisions when the app config enables them.

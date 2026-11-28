@@ -25,6 +25,8 @@ def _manipulated_env(app):
     for section in cfg.sections():
         pairs = [parse_config(k, v) for k, v in cfg[section].items()]
         for k, v in pairs: env[k] = v
+    env["IN_EXECUTION"] = "0"
+    env["IN_MIGRATION"] = "1"
     env["EXT_SQLALCHEMY"] = "1"
     env["EXT_EVENTS"] = "0"
     env["EXT_CACHE"] = "0"

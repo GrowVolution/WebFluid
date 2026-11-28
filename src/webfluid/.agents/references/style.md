@@ -38,7 +38,7 @@ An Additive or an application package uses these modules. Create only the ones t
 | `api/`          | JSON handlers, one module per resource; `api/v1/__init__.py` assembles the router                         |
 | `app/`          | HTML handlers                                                                                             |
 | `events/`       | Signal, event and query handlers, registered from a hook                                                  |
-| `models/`       | `db.Model` subclasses — nothing else                                                                      |
+| `models/`       | `db.Model` subclasses, association tables and their shared bind setup in `__init__.py`                                                                      |
 | `schemas/`      | Pydantic models — nothing else, and no Pydantic model anywhere else                                       |
 | `services/`     | Business logic: one service class per module, exported from `services/__init__.py`                        |
 | `utils/`        | Stateless helpers that need neither the database nor the request                                          |

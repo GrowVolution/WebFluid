@@ -63,18 +63,20 @@ class SQLAlchemy(FluidExtension):
 
     @contextmanager
     def executor(self, bind_key=None, model=None):
-        with self._resolve_bind(bind_key, model).session() as session:
-            with Executor(session) as e: yield e
+        bind = self._resolve_bind(bind_key, model)
+        with bind.session() as session:
+            with Executor(session, bind.name) as e: yield e
 
     @asynccontextmanager
     async def async_executor(self, bind_key=None, model=None):
-        async with self._resolve_bind(bind_key, model).async_session() as session:
-            with AsyncExecutor(session) as e: yield e
+        bind = self._resolve_bind(bind_key, model)
+        async with bind.async_session() as session:
+            with AsyncExecutor(session, bind.name) as e: yield e
 
     @contextmanager
     def ensured_executor(self, bind_key=None, model=None):
         e = Executor.try_current()
-        if e is not None:
+        if e is not None and e._accepts_bind(bind_key, model):
             yield e
             return
 
@@ -84,7 +86,7 @@ class SQLAlchemy(FluidExtension):
     @asynccontextmanager
     async def ensured_async_executor(self, bind_key=None, model=None):
         e = AsyncExecutor.try_current()
-        if e is not None:
+        if e is not None and e._accepts_bind(bind_key, model):
             yield e
             return
 

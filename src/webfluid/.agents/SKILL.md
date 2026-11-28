@@ -14,12 +14,12 @@ the task needs.
 - `48-69` **Orient before you write**
 - `70-89` **Reuse before you build**
 - `90-104` **Leave the human in charge**
-- `105-184` **The rules that keep generated code correct**
-- `185-282` **The shapes to generate**
-- `283-305` **Task → route**
-- `306-318` **Verify your work**
-- `319-352` **Pull deeper detail live**
-- `353-369` **References**
+- `105-190` **The rules that keep generated code correct**
+- `191-288` **The shapes to generate**
+- `289-311` **Task → route**
+- `312-324` **Verify your work**
+- `325-358` **Pull deeper detail live**
+- `359-375` **References**
 <!-- /index -->
 
 WebFluid is a fullstack Python application runtime on top of FastAPI. `Fluid` is a `FastAPI`
@@ -181,6 +181,12 @@ work so that they can:
     URLs from `additive.prefix`, never from the id, mirror it in the Vite `base`, and treat a
     changed prefix as a breaking change that needs an Upgrade note and a rebuilt frontend. Details
     in `references/additives.md` under *Id and prefix*.
+
+21. **Register every owned table for migration and startup.** When adding a model or association
+    table, update the host or Additive's `models/__init__.py`. Call the same bind setup from
+    `if not EXECUTION` during migration discovery and from the factory or `before_enable` at runtime.
+    Group related data, including records used together without a foreign key. See *Binds* in
+    `references/batteries.md`.
 
 ## The shapes to generate
 

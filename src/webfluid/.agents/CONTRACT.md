@@ -4,12 +4,12 @@
 Read this file in parts. Each range is `first-last` as the file stands now — open one with the Read
 tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 
-- `18-30` **Application boundary**
-- `31-46` **Extension boundary**
-- `47-72` **Module boundary**
-- `73-86` **Failure and compatibility boundary**
-- `87-92` **Documentation maintenance**
-- `93-101` **Privacy and security boundary**
+- `18-33` **Application boundary**
+- `34-49` **Extension boundary**
+- `50-75` **Module boundary**
+- `76-89` **Failure and compatibility boundary**
+- `90-95` **Documentation maintenance**
+- `96-104` **Privacy and security boundary**
 <!-- /index -->
 
 The integration boundaries of WebFluid `1.0.0rc1`, for Python 3.14+.
@@ -24,6 +24,9 @@ The linked references ship inside this package and provide the detailed contract
 | `wf run <app>` / `fluid.mix()`                            | Framework startup and shutdown, including enabled extensions and Additives. An external ASGI server does not run this lifecycle. |
 | `app_configs/<app>.ini`                                   | Runtime switches and secrets; keep it out of version control.                                                                    |
 | `fluid/config.py`                                         | Non-secret application configuration and structured values.                                                                      |
+
+Host and Additive model packages must import every mapped model and association table. The migration
+import under `if not EXECUTION` and the runtime setup must apply the same bind to each data group.
 
 See [project setup](references/project-setup.md) for CLI and configuration,
 and [runtime](references/runtime.md) for hooks, context and request processing.

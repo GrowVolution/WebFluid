@@ -143,6 +143,32 @@ async def test_the_ensured_async_executor_joins_an_open_one(bound):
     assert AsyncExecutor.try_current() is None
 
 
+@pytest.fixture
+def other_bind(bound, tmp_path):
+    path = tmp_path / "other.db"
+    bind = Bind("other", (f"sqlite:///{path}", f"sqlite+aiosqlite:///{path}"))
+    db._binds["other"] = bind
+    return bind
+
+
+def test_nested_executor_respects_explicit_bind(other_bind):
+    with db.executor(bind_key="other") as outer:
+        with db.ensured_executor() as current:
+            assert current is outer
+        with db.ensured_executor(model=I18nKey) as inner:
+            assert inner.session.bind is db.get_bind("default").sync_engine
+        assert db.current_executor is outer
+
+
+async def test_nested_async_executor_respects_explicit_bind(other_bind):
+    async with db.async_executor(model=I18nKey) as outer:
+        async with db.ensured_async_executor(bind_key="other") as inner:
+            assert inner.session.bind is other_bind.async_engine
+            async with db.ensured_async_executor() as current:
+                assert current is inner
+        assert db.current_async_executor is outer
+
+
 def test_binds_are_resolved_by_key_and_by_model(bound):
     assert db.bind_keys == ["default"]
     assert db.get_bind("default") is bound

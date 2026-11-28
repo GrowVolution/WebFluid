@@ -150,3 +150,12 @@ def test_a_message_without_attachments_stays_alternative():
     from webfluid.extensions.mailman.message import make_message
     message = make_message("noreply@example.org", "a@example.org", "Subject", {"plain": "Hi", "html": "<p>Hi</p>"})
     assert message.get_content_type() == "multipart/alternative"
+
+
+def test_every_message_carries_a_date_and_a_message_id_in_the_sender_domain():
+    from webfluid.extensions.mailman.message import make_message
+    from email.utils import parsedate_to_datetime
+    first = make_message("Shop <noreply@shop.example>", "a@example.org", "Subject", {"plain": "Hi"})
+    second = make_message("Shop <noreply@shop.example>", "a@example.org", "Subject", {"plain": "Hi"})
+    assert parsedate_to_datetime(first["Date"]).utcoffset().total_seconds() == 0
+    assert first["Message-ID"].endswith("@shop.example>") and first["Message-ID"] != second["Message-ID"]

@@ -17,13 +17,13 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `236-288` **Request hooks**
   - `267-288` The cost of `after_request`
 - `289-303` **Reverse URLs**
-- `304-317` **Themes**
-- `318-341` **Rate limiting**
-- `342-360` **Proxies**
-- `361-406` **Logging**
-  - `391-406` Request logging
-- `407-432` **Useful helpers**
-- `433-447` **Exceptions**
+- `304-347` **Themes**
+- `348-371` **Rate limiting**
+- `372-397` **Proxies**
+- `398-443` **Logging**
+  - `428-443` Request logging
+- `444-469` **Useful helpers**
+- `470-484` **Exceptions**
 <!-- /index -->
 
 ## `mix()` — what owns the process
@@ -112,15 +112,15 @@ async def warm_caches(data):
     ...                                  # {"host", "port", "pid", "started_at"}
 ```
 
-| Property      | Behaviour                                                                                          |
-|---------------|----------------------------------------------------------------------------------------------------|
-| Payload       | `host`, `port` (int), `pid`, `started_at` (ISO 8601, UTC)                                          |
-| Order         | after every startup hook (Additive registration, scheduler, frontend), after the socket is bound   |
-| Delivery      | the bus's consumer loop, inside a `FluidContext` without a request — never inline in the start     |
-| Requests      | a subscriber may call the app through `httpx.ASGITransport(app=FluidContext.current().fluid)` or the socket |
-| Failures      | a raising subscriber is logged; the server and the other subscribers keep running                  |
-| Frequency     | once per serve and process: again after every restart, in every worker, never if serving failed   |
-| Not covered   | the test client and harnesses that only call `run_startup()` never see it                          |
+| Property    | Behaviour                                                                                                   |
+|-------------|-------------------------------------------------------------------------------------------------------------|
+| Payload     | `host`, `port` (int), `pid`, `started_at` (ISO 8601, UTC)                                                   |
+| Order       | after every startup hook (Additive registration, scheduler, frontend), after the socket is bound            |
+| Delivery    | the bus's consumer loop, inside a `FluidContext` without a request — never inline in the start              |
+| Requests    | a subscriber may call the app through `httpx.ASGITransport(app=FluidContext.current().fluid)` or the socket |
+| Failures    | a raising subscriber is logged; the server and the other subscribers keep running                           |
+| Frequency   | once per serve and process: again after every restart, in every worker, never if serving failed             |
+| Not covered | the test client and harnesses that only call `run_startup()` never see it                                   |
 
 Subscribers that must act once per deployment — several processes serve the same database — make
 the work itself idempotent: a unique row, a compare-and-set, a content hash. Long work belongs in a
@@ -313,6 +313,36 @@ Resolution: `request.session["theme"]` → `GLOBAL_THEME` → the framework them
 for a duplicate, `set_theme` for an unknown name — a typo is an error, not a page that silently
 keeps the old style. All three require `WF_THEMES` and raise `FrameworkException` without it.
 
+```python
+fluid.theme_variables(name=None, scheme=None)   # {"--primary-5": "#142b39", "--wf-page": "#10222c", …}
+```
+
+`theme_variables` reads the custom properties of a theme with `tinycss2`: the theme named, else the
+request's session theme, else `GLOBAL_THEME`, else the framework theme — without a request (a
+scheduled job, an outbox worker) the sending app's global theme. It reads `surfaces.css` and every
+`<link rel="stylesheet">` of the theme markup in order, resolved to files under the app's, the
+framework's and every Additive's static mount (an external URL is skipped with a log line). It keeps
+the custom properties of `:root`, `html` and `:where(:root)` rules in cascade order (specificity,
+then source order, `!important` last), `@layer` blocks included; `scheme="dark"` adds
+`[data-theme="dark"]` rules and `@media (prefers-color-scheme: dark)`. `var(--x, fallback)` chains
+are resolved; a property that stays unresolved — missing, cyclic — is left out, so a template
+fallback applies. Colours come back in notations every mail client reads: `#rrggbb`, or
+`rgba(r, g, b, a)` when translucent; `color-mix(in …)` (mixed in sRGB), 8-digit hex, `rgb()` with
+spaces, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()`, `light-dark()` and named colours
+are converted, inside composite values too. Other values (`--body` font stacks, shadows) are
+returned as resolved text. It returns `{}` with `WF_THEMES` off and never raises: a failure logs one
+line and returns `{}`.
+
+**`inject_theme`** is a magic keyword of `fluid.render`, `fluid.render_string` and `additive.render`
+(all pass through the same renderer). With `WF_THEMES` off it is an ordinary template variable and
+stays in the context. With `WF_THEMES` on it is consumed: `inject_theme=True` replaces `theme` with
+`fluid.theme_variables()`; `False` injects nothing, so `theme` stays what a context processor or the
+caller supplied (the stylesheet markup by default). The Jinja test `dict` (`{% if theme is dict %}`)
+tells the two apart. Mail call sites pass `inject_theme=True`. Two more helpers work on the concrete
+colours: the filter `contrast` (`background | contrast(preferred, …)` answers the first candidate
+with a WCAG contrast ratio of 4.5 against the background, else the strongest one) and the test
+`light` (`{% if colour is light %}`).
+
 The client-side `window.wf.switchTheme()` light/dark helper is independent of this registry.
 
 ## Rate limiting
@@ -354,6 +384,13 @@ the app: a trusted `"*"` means any client can claim any IP through `X-Forwarded-
 the rate limiter and every IP-based decision. This middleware is the *only* thing that lets a
 forwarded header change `request.client` — nothing downstream reads one on its own.
 
+The same boundary holds for geolocation headers (`CF-IPCountry` and the like). Before it rewrites
+the client address, the middleware notes in the request scope (`webfluid.trusted_proxy`) whether the
+direct peer was a trusted proxy. `countries.trusted_country(request=None)` answers the header's
+country only then and `None` otherwise — use it wherever the country decides something.
+`countries.country_from_request` reads the header from any client; keep it for a preselection the
+visitor can still change.
+
 General-purpose helpers: `get_proxy`, `get_websocket_proxy`, `add_proxy`, `close_proxy_client`. The
 HTTP one drops the upstream's hop-by-hop and encoding headers and recomputes `Content-Length`, while
 repeated headers such as `Set-Cookie` survive as separate lines.
@@ -393,11 +430,11 @@ tokens, passwords or session contents. Prefer the factory over `logging.getLogge
 The framework's request logger and its 500 handler record the method only. Three settings in
 `fluid/config.py` opt into more, one field each:
 
-| Setting                  | Default                                  | Adds                                 |
-|--------------------------|------------------------------------------|--------------------------------------|
+| Setting                  | Default                                  | Adds                                  |
+|--------------------------|------------------------------------------|---------------------------------------|
 | `REQUEST_LOG_PATH`       | `DEBUG` — on under `wf run -d`, else off | the path, also to the 500 log context |
-| `REQUEST_LOG_CLIENT`     | `False`                                  | `from <client address>`              |
-| `REQUEST_LOG_USER_AGENT` | `False`                                  | `(<user agent>)`                     |
+| `REQUEST_LOG_CLIENT`     | `False`                                  | `from <client address>`               |
+| `REQUEST_LOG_USER_AGENT` | `False`                                  | `(<user agent>)`                      |
 
 A path can carry a token (`/reset/<token>`), so a deployment keeps `REQUEST_LOG_PATH` off unless it
 needs it. Each field is cut to 256 characters with non-printable characters replaced by `?`; query

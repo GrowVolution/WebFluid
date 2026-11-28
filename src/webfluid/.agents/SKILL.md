@@ -50,13 +50,13 @@ write is code nobody has to review, test and maintain twice.
 Almost every WebFluid mistake comes from assuming a feature is available. Nothing is on by default.
 Read these first — one tool call each, and they settle what your code may use:
 
-| Read                          | Tells you                                                                          |
-|-------------------------------|------------------------------------------------------------------------------------|
-| `app_configs/*.ini`           | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
-| `fluid/config.py`             | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
-| `fluid/__init__.py`           | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
-| `additives/*/manifest.json`   | Which feature modules exist, their ids, and what they require                      |
-| `additives/*/.agents/SKILL.md` | How to use that Additive; it points into `.agents/CONTRACT.md` by line range      |
+| Read                           | Tells you                                                                          |
+|--------------------------------|------------------------------------------------------------------------------------|
+| `app_configs/*.ini`            | Per app: the `EXT_*`, `WF_*` and `[additives]` switches — and every secret it uses |
+| `fluid/config.py`              | The committed, non-secret settings: `APP_CONFIG`, `APP_FRONTEND`, binds, own keys  |
+| `fluid/__init__.py`            | The `prepare_fluid()` factory: which routers, hooks and extensions are wired       |
+| `additives/*/manifest.json`    | Which feature modules exist, their ids, and what they require                      |
+| `additives/*/.agents/SKILL.md` | How to use that Additive; it points into `.agents/CONTRACT.md` by line range       |
 
 The `.gitignore` the scaffolder writes into a project excludes `app_configs/` and `additives/`.
 `git status` will not show your edits there — verify by reading files, not by diffing.
@@ -175,6 +175,12 @@ work so that they can:
 19. **Share the host presentation.** On theme-enabled pages render the framework's selected
     theme and use its surface and palette variables. Reuse the host's shell, fields and actions
     for embedded apps. Keep standalone packages usable with their documented feature switches.
+20. **An Additive's id is its identity, its prefix is its address.** Templates, route names,
+    config switches, tables, events and queries follow the manifest `id`; every URL follows
+    `additive.prefix`, which defaults to the id and may be set in the package's `__init__.py`. Build
+    URLs from `additive.prefix`, never from the id, mirror it in the Vite `base`, and treat a
+    changed prefix as a breaking change that needs an Upgrade note and a rebuilt frontend. Details
+    in `references/additives.md` under *Id and prefix*.
 
 ## The shapes to generate
 
@@ -276,26 +282,26 @@ default and is wrong for `select(func.count(...))`; pass `scalars=False` there.
 
 ## Task → route
 
-| Task                         | Do this                                                                                    | Depth                          |
-|------------------------------|--------------------------------------------------------------------------------------------|--------------------------------|
-| Scaffold a project           | `wf create project <name>` (add `--skip-frontend` when there is no TTY)                    | `references/project-setup.md`  |
-| Add an app config            | `wf create app <name>` is interactive — without a TTY, write the `.ini` by hand            | `references/project-setup.md`  |
-| Add a setting                | Secret, or could hold one → `.ini`. Everything else → `fluid/config.py`                    | `references/project-setup.md`  |
-| Add a page or route          | Handler module + router `__init__.py`; template extends `fluid_base.html`                  | `references/frontend.md`       |
-| Add a model                  | `fluid/models/`, then `wf migrate revision <app> -a -m "..."` → `wf migrate upgrade <app>` | `references/batteries.md`      |
-| Add auth / protect a route   | An auth Additive first; otherwise `security.user_service` guards as `Depends` defaults     | `references/batteries.md`      |
-| Translate                    | Symbolic `SCREAMING_SNAKE` keys, JSON runtime store, `update_translations` before `mix()`  | `references/batteries.md`      |
-| Run code at startup          | `@app.startup_hook` in the factory (0 args)                                                | `references/runtime.md`        |
-| Reach the request anywhere   | `FluidContext.current()` / `try_current()`, `cached_or`                                    | `references/runtime.md`        |
-| Use an installed Additive    | Its `.agents/SKILL.md`, then the `.agents/CONTRACT.md` ranges it names                     | the Additive's own files       |
-| Build a feature module       | `wf create additive <id>`; routes registered in `before_enable`                            | `references/additives.md`      |
-| Write or restructure a module | Services as classes, schemas and exceptions in their modules, the shared module layout    | `references/style.md`          |
-| Make two Additives talk      | Id-scoped events/queries via `additive.unique_name()` — **never an import**                | `references/additives.md`      |
-| Document an Additive         | `.agents/CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                         | `references/additives.md`      |
-| Test an Additive             | `tests/` builds a throwaway project with it and its requirements; no other Additive imported | `references/additives.md`      |
-| Prove which files are served | Subclass `webfluid.utils.integrity.IntegrityReference`, never a copy of its own            | `references/additives.md`      |
-| Ship a battery-style service | A `FluidExtension` distribution, not an Additive                                           | `references/additives.md`      |
-| Debug wrong behaviour        | Check the known-defect list first                                                          | `references/pitfalls.md`       |
+| Task                          | Do this                                                                                      | Depth                         |
+|-------------------------------|----------------------------------------------------------------------------------------------|-------------------------------|
+| Scaffold a project            | `wf create project <name>` (add `--skip-frontend` when there is no TTY)                      | `references/project-setup.md` |
+| Add an app config             | `wf create app <name>` is interactive — without a TTY, write the `.ini` by hand              | `references/project-setup.md` |
+| Add a setting                 | Secret, or could hold one → `.ini`. Everything else → `fluid/config.py`                      | `references/project-setup.md` |
+| Add a page or route           | Handler module + router `__init__.py`; template extends `fluid_base.html`                    | `references/frontend.md`      |
+| Add a model                   | `fluid/models/`, then `wf migrate revision <app> -a -m "..."` → `wf migrate upgrade <app>`   | `references/batteries.md`     |
+| Add auth / protect a route    | An auth Additive first; otherwise `security.user_service` guards as `Depends` defaults       | `references/batteries.md`     |
+| Translate                     | Symbolic `SCREAMING_SNAKE` keys, JSON runtime store, `update_translations` before `mix()`    | `references/batteries.md`     |
+| Run code at startup           | `@app.startup_hook` in the factory (0 args)                                                  | `references/runtime.md`       |
+| Reach the request anywhere    | `FluidContext.current()` / `try_current()`, `cached_or`                                      | `references/runtime.md`       |
+| Use an installed Additive     | Its `.agents/SKILL.md`, then the `.agents/CONTRACT.md` ranges it names                       | the Additive's own files      |
+| Build a feature module        | `wf create additive <id>`; routes registered in `before_enable`                              | `references/additives.md`     |
+| Write or restructure a module | Services as classes, schemas and exceptions in their modules, the shared module layout       | `references/style.md`         |
+| Make two Additives talk       | Id-scoped events/queries via `additive.unique_name()` — **never an import**                  | `references/additives.md`     |
+| Document an Additive          | `.agents/CONTRACT.md` + `.agents/SKILL.md`, then `wf agents index`                           | `references/additives.md`     |
+| Test an Additive              | `tests/` builds a throwaway project with it and its requirements; no other Additive imported | `references/additives.md`     |
+| Prove which files are served  | Subclass `webfluid.utils.integrity.IntegrityReference`, never a copy of its own              | `references/additives.md`     |
+| Ship a battery-style service  | A `FluidExtension` distribution, not an Additive                                             | `references/additives.md`     |
+| Debug wrong behaviour         | Check the known-defect list first                                                            | `references/pitfalls.md`      |
 
 ## Verify your work
 
@@ -359,5 +365,5 @@ whole to answer one question is wasted context.
 | `references/batteries.md`     | The eight `EXT_*` batteries — SQLAlchemy, Security, Babel, Events, Cache, Mail, JWT, Scheduling — plus Migrate |
 | `references/additives.md`     | Additives, base Additives, contracts, agent docs, packaging, and writing a `FluidExtension`                    |
 | `references/frontend.md`      | `WF_*` switches, template resolution, `fluid_base.html`, themes, htmx and Vite                                 |
-| `references/style.md`         | The binding code style and package architecture: services, schemas, exceptions, imports, module layout          |
+| `references/style.md`         | The binding code style and package architecture: services, schemas, exceptions, imports, module layout         |
 | `references/pitfalls.md`      | Known defects of the current release and the traps that produce silently wrong code                            |

@@ -26,6 +26,15 @@ def now() -> str:
     return datetime.now(UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _bounded(timeout: int) -> dict:
+    return {} if sys.platform == "win32" else { "kill_after_timeout": timeout }
+
+
+def _unattended(timeout: int) -> dict:
+    return { "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never",
+             "GIT_HTTP_LOW_SPEED_LIMIT": "1000", "GIT_HTTP_LOW_SPEED_TIME": str(timeout) }
+
+
 def normalized(data: bytes) -> bytes:
     return data.replace(b"\r\n", b"\n")
 
@@ -97,21 +106,25 @@ class IntegrityReference:
         from git import Repo, GitCommandError, InvalidGitRepositoryError, NoSuchPathError
         if not cls.repository: raise GenerationError("REFERENCE_UNCONFIGURED")
         state = { "updated": False, "dirty": False, "error": None }
+        bounded, unattended = _bounded(cls.timeout), _unattended(cls.timeout)
         try:
             if not cls.path.exists() or not any(cls.path.iterdir()):
                 if not cls.update: raise GenerationError("REFERENCE_MISSING")
-                Repo.clone_from(cls.repository, cls.path, depth=50, kill_after_timeout=cls.timeout).close()
+                Repo.clone_from(cls.repository, cls.path, env=unattended, depth=50, **bounded).close()
                 state["updated"] = True
             with Repo(cls.path) as repo:
                 state["dirty"] = repo.is_dirty(untracked_files=False)
                 if cls.update and not state["dirty"] and repo.remotes:
-                    repo.git.fetch("origin", kill_after_timeout=cls.timeout)
-                    try:
-                        repo.git.merge("--ff-only", f"origin/{cls.branch}", kill_after_timeout=cls.timeout)
-                        state["updated"] = True
-                    except GitCommandError as exc:
-                        state["error"] = "FAST_FORWARD_FAILED"
-                        log_factory.warning(cls._log(f"The integrity reference could not be fast-forwarded: {exc}"))
+                    with repo.git.custom_environment(**unattended):
+                        repo.git.fetch("origin", **bounded)
+                        try:
+                            repo.git.merge("--ff-only", f"origin/{cls.branch}", **bounded)
+                            state["updated"] = True
+                        except GitCommandError as exc:
+                            state["error"] = "FAST_FORWARD_FAILED"
+                            state["detail"] = str(exc)[:200]
+                            log_factory.warning(cls._log(
+                                f"The integrity reference could not be fast-forwarded: {exc}"))
                 state["commit"] = repo.head.commit.hexsha if repo.head.is_valid() else None
         except GenerationError:
             raise
@@ -171,7 +184,7 @@ class IntegrityReference:
             loop = asyncio.get_running_loop()
             try:
                 state = await loop.run_in_executor(None, cls.refresh)
-                if state.get("error"): raise GenerationError(state["error"])
+                if state.get("error"): raise GenerationError(state["error"], state.get("detail") or "")
                 generated = await loop.run_in_executor(None, cls.generate)
                 reference = { "status": "ok", **state, **generated }
             except GenerationError as exc:

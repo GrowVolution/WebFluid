@@ -11,13 +11,13 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
 - `116-133` **The shared context (`WF_PROCESSING`)**
 - `134-178` **`fluid_base.html`**
   - `165-178` Rules for generated templates
-- `179-209` **Tailwind and themes**
-- `210-224` **Page sources**
-- `225-244` **Static files**
-- `245-316` **`APP_FRONTEND`**
-  - `269-277` htmx
-  - `278-316` Vite
-- `317-329` **The bundled toolchain**
+- `179-213` **Tailwind and themes**
+- `214-228` **Page sources**
+- `229-248` **Static files**
+- `249-320` **`APP_FRONTEND`**
+  - `273-281` htmx
+  - `282-320` Vite
+- `321-333` **The bundled toolchain**
 <!-- /index -->
 
 ## Template resolution
@@ -204,6 +204,10 @@ on pages that use plain CSS. Use `--wf-page`, `--wf-panel`, `--wf-line` and `--w
 page, cards, borders and copy, plus `--wf-muted` or `--wf-caption` for supporting text. Use
 `--tertiary-1` for primary actions. A custom theme may override these roles on `:root`.
 
+Where CSS variables cannot work — HTML mail, a PDF — `fluid.theme_variables()` returns the selected
+theme's custom properties as concrete values, and `inject_theme=True` on a render call puts them into
+the template as the `theme` dict (`runtime.md`, *Themes*).
+
 `window.wf.switchTheme()` (from the injected `base.js`) is the client light/dark preference and is
 independent of the server-side theme registry.
 
@@ -224,12 +228,17 @@ app.add_source('<script src="/static/js/analytics.js" type="module"></script>', 
 
 ## Static files
 
-| Mount                   | Serves                                        | Route name                                |
-|-------------------------|-----------------------------------------------|-------------------------------------------|
-| `/static`               | `fluid/static` (only if the directory exists) | `static`                                  |
-| `/fluid/static`         | the framework's own static                    | `fluid_static` (Jinja global `wf_static`) |
-| `/<additive_id>/static` | that Additive's `static/`                     | `<id>_static`                             |
-| `/<prefix>/frontend`    | a Vite `dist`                                 | `<name>_frontend`                         |
+| Mount                | Serves                                        | Route name                                |
+|----------------------|-----------------------------------------------|-------------------------------------------|
+| `/static`            | `fluid/static` (only if the directory exists) | `static`                                  |
+| `/fluid/static`      | the framework's own static                    | `fluid_static` (Jinja global `wf_static`) |
+| `/frontend`          | the app's Vite `dist` (not in debug)          | `app_frontend`                            |
+| `/<prefix>/static`   | that Additive's `static/`                     | `<id>_static`                             |
+| `/<prefix>/frontend` | that Additive's Vite `dist` (not in debug)    | `<id>_frontend`                           |
+
+`<prefix>` is `additive.prefix` — the id with `_` written as `-` unless the Additive sets another
+one. The route names keep the id either way, so `url_for('<id>_static', path=…)` survives a changed
+prefix and a hand-written `/<id>/static/…` does not.
 
 ```html
 <script src="{{ url_for('static', path='js/models.js') }}"></script>
@@ -288,7 +297,11 @@ export default defineConfig(({ command }) => ({
 }))
 ```
 
-For an Additive the build base is the Additive's prefix, e.g. `'/portal/frontend/'`.
+For an Additive the build base is `additive.prefix` followed by `/frontend/`, e.g.
+`'/portal/frontend/'`. The scaffolder writes the default prefix; an Additive that sets
+`additive.prefix` changes this line by hand and rebuilds — nothing checks the two against each
+other, and a stale `dist` serves an index whose assets answer `404`. The same goes for the one
+constant that holds the frontend's API root (`"/portal/api/v1"`).
 
 `register_index` defaults to `true`: the framework registers `GET /` and serves the Vite index. Set
 it to `false` to own `/` yourself and wire the SPA where you want it:
@@ -327,3 +340,14 @@ wf tailwind -- --help          # the -- separator stops Typer parsing the follow
 ```
 
 Output is forwarded verbatim; a non-zero exit raises `NodeError`.
+
+## Layouts across clients
+
+Use the shared shell, surface colours, focus treatment and primary action for signed-in browser
+workspaces. Give lists and tables room on desktop and tablet. Keep a single form at reading width.
+Public pages and links sent by email also need to work at a 320px viewport and with enlarged text.
+Group each contact detail in mail so short labels and values wrap together.
+
+In Flutter, use the Users SDK controls and phone navigation. Let longer contract choices wrap in
+stacked selectable rows. Derive the visible choices and privacy explanations from the same effective
+server settings as the operation. Keep required declarations explicit when a choice changes the offer.

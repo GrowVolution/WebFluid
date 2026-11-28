@@ -431,3 +431,23 @@ def test_the_request_logger_survives_a_client_less_scope(make_fluid):
         "headers": [], "query_string": b""
     })
     with FluidContext(fluid, request): hooks[0]()
+
+
+async def test_geolocation_headers_count_only_behind_a_trusted_proxy():
+    from starlette.requests import Request
+    from webfluid.core.fluid.middleware.proxy_headers import TRUSTED_PROXY, TrustedProxyHeadersMiddleware
+    from webfluid.utils import countries
+    seen = {}
+
+    async def app(scope, receive, send):
+        seen.update(scope)
+
+    middleware = TrustedProxyHeadersMiddleware(app, trusted_hosts="10.0.0.1")
+    headers = [(b"cf-ipcountry", b"AT"), (b"x-forwarded-for", b"203.0.113.9")]
+    await middleware({"type": "http", "client": ("10.0.0.1", 1), "headers": headers}, None, None)
+    assert seen[TRUSTED_PROXY] is True and seen["client"][0] == "203.0.113.9"
+    assert countries.trusted_country(Request(dict(seen))) == "AT"
+    seen.clear()
+    await middleware({"type": "http", "client": ("198.51.100.7", 1), "headers": headers}, None, None)
+    assert seen[TRUSTED_PROXY] is False and countries.trusted_country(Request(dict(seen))) is None
+    assert countries.country_from_request(Request(dict(seen))) == "AT"

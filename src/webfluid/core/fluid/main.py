@@ -186,6 +186,10 @@ class Fluid(FastAPI):
         return self._themes.set
 
     @property
+    def theme_variables(self):
+        return self._themes.variables
+
+    @property
     def limit(self):
         return self._limiter.limit
 

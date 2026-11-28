@@ -37,6 +37,7 @@ dependencies = [
     "gitpython>=3.2.1",
     "frozendict",
     "selectolax",
+    "tinycss2",
     "pytz",
 
     "argon2_cffi",

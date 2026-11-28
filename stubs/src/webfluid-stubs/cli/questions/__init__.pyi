@@ -47,6 +47,7 @@ from webfluid.cli.questions.ocean import (
     price as ocean_price,
     maintainer as ocean_maintainer,
     license_choice as ocean_license_choice,
+    license_value as ocean_license_value,
 )
 
 __all__ = [
@@ -66,5 +67,5 @@ __all__ = [
 
     "ocean_token", "ocean_license_query", "ocean_confirm_overwrite",
     "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver", "ocean_confirm_release",
-    "ocean_price", "ocean_maintainer", "ocean_license_choice",
+    "ocean_price", "ocean_maintainer", "ocean_license_choice", "ocean_license_value",
 ]

@@ -260,6 +260,10 @@ def _verify(ocean, ptype, pid, version, data):
         typer.secho(f"[{pid}] {name} ships with the release but is not covered by its digest.",
                     fg=typer.colors.YELLOW)
     typer.secho(f"[{pid}] Content verified: {CONTENT_ALGORITHM} {digest} ({meta.get('artifact')})")
+    license = meta.get("license")
+    if isinstance(license, dict):
+        typer.secho(f"[{pid}] LICENSE written by the {HUB_NAME} from revision {license.get('revision')} of "
+                    f"{license.get('license_id')} (digest {str(license.get('digest'))[:12]}), covered above.")
     return True
 
 

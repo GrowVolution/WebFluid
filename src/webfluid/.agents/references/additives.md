@@ -94,8 +94,10 @@ Three hard requirements enforced by the constructor:
 | `frontend` | yes      | Same shape as `APP_FRONTEND`. A `base` **must** use `{"type": "none"}`                                     |
 | `requires` | no       | `wf` (framework specifier), `additives` (map or list), `packages` (pip requirements)                       |
 
-The **`id` is the public identity**: URL prefix (`_` → `-`), template namespace, static mount,
-config-file switch, and the prefix `unique_name()` applies to contracts.
+The **`id` is the identity**: the template namespace, the route names of the static and frontend
+mounts, the config-file switch, and the prefix `unique_name()` applies to contracts and tables. It
+is **not** the URL: the public mount is `additive.prefix`, which only defaults to the id — see
+*Id and prefix* below.
 
 `requires.wf` and `requires.additives` are checked **at enable**; `packages` at `install()`. A
 missing or mismatching Additive raises `AdditiveException`. A missing `wf` key only logs a warning.
@@ -166,15 +168,62 @@ names checked against `EXT_<NAME>` at enable time; a missing one raises
 > never mounted. `before_enable` is also already inside the running event loop, which is what event,
 > query and scheduler registration needs.
 
-| Router         | Prefix | Default response | Mounted at  |
-|----------------|--------|------------------|-------------|
-| `additive.app` | —      | `HTMLResponse`   | `/<id>`     |
-| `additive.api` | `/api` | JSON             | `/<id>/api` |
-| `additive.ws`  | `/ws`  | —                | `/<id>/ws`  |
+| Router         | Prefix | Default response | Mounted at      |
+|----------------|--------|------------------|-----------------|
+| `additive.app` | —      | `HTMLResponse`   | `/<prefix>`     |
+| `additive.api` | `/api` | JSON             | `/<prefix>/api` |
+| `additive.ws`  | `/ws`  | —                | `/<prefix>/ws`  |
 
 (For a **base** all three are created without prefixes, because the child supplies them.) They are
 `Router` instances — `APIRouter` subclasses that attribute every endpoint's log lines to the Additive
 and support `http_middleware`.
+
+### Id and prefix
+
+`additive.prefix` is a plain attribute. The constructor sets it to `"/" + id.replace("_", "-")`; an
+Additive that wants a shorter or friendlier mount reassigns it on the line after the constructor:
+
+```python
+additive = Additive(__name__)
+additive.prefix = "/portal"
+```
+
+It has to happen at module level, before the Additive is enabled: enabling mounts the three routers,
+`static/` and the Vite `dist` from the value it finds, and a base inherits its child's prefix at that
+moment. Assigning it later moves nothing.
+
+| Follows the `id`                                         | Follows the `prefix`                                     |
+|----------------------------------------------------------|----------------------------------------------------------|
+| Directory `additives/<id>/` and the `[additives]` switch | Pages, `…/api`, `…/ws`                                   |
+| Template namespace `<id>/…`, i18n domain                 | `…/static` and `…/frontend`                              |
+| Route names `<id>_static`, `<id>_frontend`               | The `base` of the Additive's `vite.config`               |
+| `unique_name()`: events, queries, tables; config keys    | Every link, redirect, webhook and mail URL into the area |
+| What other Additives depend on in `requires.additives`   | What browsers, apps, proxies and third parties call      |
+
+**Never rebuild a URL from the id.** Each side has one way to learn the prefix:
+
+- **Python** reads `additive.prefix` (or resolves a named route with `url_for`) and hands it to the
+  services that build links: `MailService.setup(additive.prefix)`, `f"{additive.prefix}/api/v1/…"`.
+- **Templates** receive it in their context — pass `prefix=additive.prefix` to `render`, or set
+  `additive.jinja_context["prefix"] = additive.prefix` in `before_enable` (the dict is frozen once
+  the Additive is enabled). `{{ id }}` is the namespace, never a path segment.
+- **A Vite frontend** carries it twice by hand, because it is compiled before the app runs: `base`
+  in `vite.config` is `<prefix>/frontend/`, and one exported constant holds the API root
+  (`export const API = "/portal/api/v1"`). Keep both next to each other in review; a mismatch serves
+  an index whose assets answer `404`.
+- **A static ES module** needs no constant: it knows where it was loaded from —
+  `new URL(import.meta.url).pathname.replace(/\/static\/js\/portal\.js$/, "")`.
+- **A client SDK** holds the API root as a single constant and takes every other location from the
+  server: links, push targets and app entries arrive as complete paths in responses.
+- **Another Additive** takes a path your contract hands out — the answer of a query, the `url` you
+  contribute to a collector — and where there is none, keeps your documented path in **one** place:
+  a config key of its own with your default, or a single constant. A foreign prefix spelled across
+  a frontend is what breaks on the next rename.
+
+The prefix is part of the Additive's **public HTTP contract**. Changing it breaks bookmarks, links
+in mails already sent, registered webhook and redirect URLs, reverse-proxy rules and every client
+built against the old paths — it needs an Upgrade note that lists them, and it needs the frontend
+rebuilt, since the old `dist` still points at the old `base`.
 
 ## Handlers and rendering
 
@@ -456,12 +505,12 @@ never reported as fresh, not even after a failed fetch or fast-forward. Async re
 hashing runs off the event loop. `IntegrityGenerationError` in `webfluid.exceptions` carries these
 codes.
 
-| Call | Answers |
-|------|---------|
-| `await provide(data)` | One integrity record per artifact for run `data["run"]`: `hash`, `size`, `served_version`, `latest_version`, `reference` (`source: "git"`, `url`, `commit`, `manifest`, `hash`), `provenance.status` `reference-match`, `reference-mismatch` or `reference-unavailable`, and `context`. A run id is computed once. |
-| `await ensure_fresh(interval)` | The last run when it is younger than `interval` seconds, otherwise a new one — for a scheduled job. |
-| `served_versions()` | `{ artifact: version or None }` from the last run, without starting one. |
-| `artifact_status(id)` · `await status()` | The served hash and versions of one artifact, or all of them with `reference`, `checked_at`, `repository` and `manifest` (the raw GitHub URL of `manifest.json`, `None` for other hosts). |
+| Call                                     | Answers                                                                                                                                                                                                                                                                                                            |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `await provide(data)`                    | One integrity record per artifact for run `data["run"]`: `hash`, `size`, `served_version`, `latest_version`, `reference` (`source: "git"`, `url`, `commit`, `manifest`, `hash`), `provenance.status` `reference-match`, `reference-mismatch` or `reference-unavailable`, and `context`. A run id is computed once. |
+| `await ensure_fresh(interval)`           | The last run when it is younger than `interval` seconds, otherwise a new one — for a scheduled job.                                                                                                                                                                                                                |
+| `served_versions()`                      | `{ artifact: version or None }` from the last run, without starting one.                                                                                                                                                                                                                                           |
+| `artifact_status(id)` · `await status()` | The served hash and versions of one artifact, or all of them with `reference`, `checked_at`, `repository` and `manifest` (the raw GitHub URL of `manifest.json`, `None` for other hosts).                                                                                                                          |
 
 An Additive that contributes these records to an integrity collector query registers `provide`
 as its handler; the Additive decides whether such a collector is enabled. The repository itself is the
@@ -472,13 +521,13 @@ Additive's: a public one, with `.gitattributes` pinning the text artifacts to LF
 An Additive is reused by people who decide whether to install it and by agents who wire it into an
 application. Each audience gets its own file, and none of them repeats another:
 
-| File               | Reader   | Holds                                                                                               |
-|--------------------|----------|-----------------------------------------------------------------------------------------------------|
-| `README.md`        | people   | The landing page: why the Additive exists, what it gives a project, install, license               |
-| `DOCS.md`          | people   | The guide a person reads before answering for the Additive: concepts, flows, every setting and what it changes, security model, operation, troubleshooting |
-| `CHANGELOG.md`     | people   | What changed per version, in plain language, with what an upgrade requires                          |
-| `.agents/CONTRACT.md` | agents | The complete integration surface: routes, signals, queries provided and consumed, config, errors  |
-| `.agents/SKILL.md` | agents   | When to use the Additive, the rules that keep an integration correct, recipes, and where to look    |
+| File                  | Reader | Holds                                                                                                                                                      |
+|-----------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `README.md`           | people | The landing page: why the Additive exists, what it gives a project, install, license                                                                       |
+| `DOCS.md`             | people | The guide a person reads before answering for the Additive: concepts, flows, every setting and what it changes, security model, operation, troubleshooting |
+| `CHANGELOG.md`        | people | What changed per version, in plain language, with what an upgrade requires                                                                                 |
+| `.agents/CONTRACT.md` | agents | The complete integration surface: routes, signals, queries provided and consumed, config, errors                                                           |
+| `.agents/SKILL.md`    | agents | When to use the Additive, the rules that keep an integration correct, recipes, and where to look                                                           |
 
 Everything addressed to agents lives in `.agents/` — the skill, the contract and, where a package
 needs them, `references/` — so an agent finds its whole share of a package in one folder and the
@@ -514,14 +563,14 @@ consumes. It never names a package, SDK or application that depends on it — an
 exception, however natural an example from a real consumer would read. The same holds for
 extensions and for SDKs, whose dependencies are their `pubspec.yaml` or `pyproject.toml`.
 
-| Situation                                          | Write                                                                 | Not                                                         |
-|----------------------------------------------------|-----------------------------------------------------------------------|-------------------------------------------------------------|
-| A feature moved into a lower package               | Its CHANGELOG describes the feature and the upgrade on its own terms  | "moved here from `users`", "the users SDK now sends …"      |
-| The consumer had to change because of it           | The consumer's CHANGELOG says so and names the lower package          | the lower package explaining its consumers' upgrade         |
-| An example payload, id, header or class            | A neutral name: `my-app`, `shop:order`, `myapp/1.0.0 (android; …)`    | the name of a real consumer                                 |
-| A collector or extension point                     | The owner documents the query; each contributor documents its answer  | the owner listing who contributes                           |
-| A requirement only some consumer has               | That consumer's README or SKILL, e.g. a platform setting               | the lower package's setup guide                             |
-| Two packages must stay aligned                     | The higher one follows the lower one's CHANGELOG                      | the lower one promising to follow its consumers             |
+| Situation                                | Write                                                                | Not                                                    |
+|------------------------------------------|----------------------------------------------------------------------|--------------------------------------------------------|
+| A feature moved into a lower package     | Its CHANGELOG describes the feature and the upgrade on its own terms | "moved here from `users`", "the users SDK now sends …" |
+| The consumer had to change because of it | The consumer's CHANGELOG says so and names the lower package         | the lower package explaining its consumers' upgrade    |
+| An example payload, id, header or class  | A neutral name: `my-app`, `shop:order`, `myapp/1.0.0 (android; …)`   | the name of a real consumer                            |
+| A collector or extension point           | The owner documents the query; each contributor documents its answer | the owner listing who contributes                      |
+| A requirement only some consumer has     | That consumer's README or SKILL, e.g. a platform setting             | the lower package's setup guide                        |
+| Two packages must stay aligned           | The higher one follows the lower one's CHANGELOG                     | the lower one promising to follow its consumers        |
 
 A lower package that seems to need a sentence about its consumers is usually missing a neutral
 concept: a role (`host`, `peer`), a generic consumer ("any route", "an Additive that integrates
@@ -564,6 +613,8 @@ installed it can run them in their own project.
 - [ ] No import of another Additive or of `fluid.*`
 - [ ] Every contract name goes through `unique_name()`
 - [ ] Every config key prefixed with the id
+- [ ] No URL built from the id: Python and templates use `additive.prefix`, the Vite `base` is
+      `<prefix>/frontend/`
 - [ ] `required_extensions` lists what the code actually uses
 - [ ] Migrations precede serving traffic; security-critical initialization propagates errors;
       only optional work is deferred, and enable hooks use the async executor

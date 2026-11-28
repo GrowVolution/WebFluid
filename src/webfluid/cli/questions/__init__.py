@@ -16,7 +16,7 @@ __all__ = [
 
     "ocean_token", "ocean_license_query", "ocean_confirm_overwrite",
     "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver", "ocean_confirm_release",
-    "ocean_price", "ocean_maintainer", "ocean_license_choice"
+    "ocean_price", "ocean_maintainer", "ocean_license_choice", "ocean_license_value"
 ]
 
 
@@ -50,7 +50,7 @@ def __getattr__(name):
     if name in {
         "ocean_token", "ocean_license_query", "ocean_confirm_overwrite",
         "ocean_confirm_overwrite_invalid", "ocean_confirm_waiver", "ocean_confirm_release",
-        "ocean_price", "ocean_maintainer", "ocean_license_choice"
+        "ocean_price", "ocean_maintainer", "ocean_license_choice", "ocean_license_value"
     }:
         from . import ocean
         return getattr(ocean, name.replace("ocean_", ""))

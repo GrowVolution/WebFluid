@@ -1,4 +1,6 @@
 from fastapi.staticfiles import StaticFiles as _StaticFiles
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from webfluid.core.constants import APP_STATIC, FRAMEWORK_STATIC
 from webfluid.core.identity import FRAMEWORK_ROOT, STATIC_MOUNT, STATIC_GLOBAL
@@ -40,3 +42,14 @@ class StaticFiles:
     def mount(self, fluid):
         for path, files, name in self._sources:
             fluid.mount(path, files, name)
+
+    def resolve(self, url):
+        path = unquote(urlsplit(url).path)
+        for prefix, files, _ in sorted(self._sources, key=lambda source: len(source[0]), reverse=True):
+            base = f"{prefix.rstrip('/')}/"
+            if not path.startswith(base): continue
+
+            root = Path(files.directory).resolve()
+            target = (root / path[len(base):]).resolve()
+            if target.is_relative_to(root) and target.is_file(): return target
+        return None

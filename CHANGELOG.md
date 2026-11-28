@@ -86,6 +86,19 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   cyclic garbage collector ran. With a short integrity interval an application
   collected dozens of idle git processes. The checkout, a fresh clone and the
   fallback commit lookup are now closed as soon as they are read.
+- **The integrity reference never updated on Windows.** `refresh` bounded
+  every clone, fetch and merge with GitPython's `kill_after_timeout`, which
+  GitPython refuses on Windows before git starts, so each run ended in
+  `REFERENCE_UPDATE_FAILED` — and the warning did not say why, because the
+  detail was dropped on the way to the log. The keyword is now passed only
+  where it is supported; on every platform git itself gives up a stalled
+  transfer after the timeout and never prompts for credentials, and the
+  warning carries the cause of a failed update or fast-forward.
+- **Mail left without `Date` and `Message-ID`.** `Mail` built messages without
+  both headers, so the relaying server had to add them (or a receiving filter
+  scored the mail as suspicious) and a resent message could not be told apart
+  from its first attempt. Every message now carries a UTC `Date` and a
+  `Message-ID` in the sender's domain.
 - **A mail with attachments was one `multipart/alternative` message.**
   `Mail` attached files next to the plain-text and HTML parts, so clients
   treated the attachments as further alternatives of the body and showed only
@@ -425,9 +438,43 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   access error. Hubs that send no `available` flag behave as before.
 - Collectors can opt into `events.request(..., return_exceptions=True)` to isolate a failing
   contributor. Default query error propagation is unchanged.
+- `webfluid.utils.countries.trusted_country(request=None)` answers the country a geolocation header
+  names only when the request reached the app through a proxy listed in `PROXY_TRUSTED_HOSTS` with
+  `PROXY_FIX` on, and `None` otherwise. With `PROXY_FIX` the proxy middleware records in the request
+  scope (`webfluid.trusted_proxy`) whether the direct peer was trusted, before it rewrites the client
+  address. `country_from_request` keeps its behaviour: it reads the header from any client and is
+  meant for a preselection the visitor can change, never for a decision.
+- **Themed mail.** `fluid.theme_variables(name=None, scheme=None)` returns the custom properties of
+  the selected theme — the named one, the session theme, `GLOBAL_THEME`, or the framework theme; the
+  global theme when there is no request — as a dict of concrete values. It reads `surfaces.css` and
+  the theme's stylesheets from the static mounts with `tinycss2`, follows the cascade of the root
+  rules, resolves `var()` chains (an unresolvable property is left out) and converts colours into
+  notations mail clients read (`#rrggbb`, `rgba()`), `color-mix()`, `oklch()`, `lab()`, `hsl()`,
+  8-digit hex and `light-dark()` included. It returns `{}` with `WF_THEMES` off and never raises.
+  The render keyword `inject_theme` (`fluid.render`, `fluid.render_string`, `additive.render`) puts
+  that dict into the template as `theme` when themes are on and `inject_theme=True`; with themes off
+  it stays an ordinary template variable. The Jinja test `dict` is registered, and `base_email.html`
+  draws its frame from the theme when `theme is dict` and keeps the static design otherwise. The
+  layout exposes a `palette` (`page`, `card`, `header`, `panel`, `heading`, `text`, `muted`,
+  `caption`, `border`, `divider`, `action`, `on_header`, `on_panel`, `on_action`, `scheme`, `font`)
+  to child templates. Text on the header, the legal panel and the action button is chosen by
+  contrast (`on_header`, `on_panel`, `on_action`), and `scheme` (`light` or `dark`, from the page
+  colour) feeds the `color-scheme` meta tags, so a light host theme stays readable. The Jinja filter
+  `contrast` (`background | contrast(preferred, …)`: the first candidate with a WCAG ratio of 4.5,
+  else the strongest) and the test `light` are registered for that.
+  `StaticFiles.resolve(url)` maps a static URL to its file. **Upgrade:** install `tinycss2` (already
+  a declared dependency) into existing environments; without it the variables are `{}` with one log
+  line and mail keeps the static design.
 
 ### Changed
 
+- **`wf ocean publish` asks for the license before it uploads.** A package without a root
+  `LICENSE`/`LICENCE`/`COPYING` file asks for the template and only the fields that template really
+  has (`Ocean.license_fields`) before its first publication, and before a release of a package that has
+  no license yet, and sends the choice with the upload (`Ocean.publish`/`Ocean.release` take `license`
+  and `prompt`); when the hub answers `LICENSE_REQUIRED` it asks and sends again. Declining uploads
+  nothing. The former choice after publishing is gone. `wf ocean install` names the license revision
+  of a `LICENSE` the hub wrote into the archive; that file is covered by the verified content digest.
 - **`wf ocean publish` uploads new releases of a published package.** When the package id exists
   on the hub and the caller may publish it, the command offers the local version as a new release
   (`POST …/packages/{ptype}/{id}/releases/upload`) instead of failing with `PACKAGE_EXISTS`;
@@ -697,6 +744,18 @@ unchanged; only `wf migrate` wants its app factory moved, as described under
   contract generically. `references/additives.md` adds the matching contract design rule and
   *Testing an Additive*: a throwaway-project harness, tables before and after startup, other
   Additives reached only through their contracts, neutral fixture names.
+- The documentation separates an Additive's `id` from its URL prefix. `additive.prefix` is a plain
+  attribute that only defaults to the id, and enabling mounts routes, `static/` and the frontend
+  from it — unchanged since the alphas — but the skill and the references called the id "the URL
+  prefix". They now say which things follow the id (directory, template namespace, route
+  names, config switch, contract and table names) and which follow the prefix (every URL), where to
+  set it, how Python, templates, a Vite frontend, a static module and a client SDK each learn it,
+  and that a changed prefix is a breaking change that needs an Upgrade note and a rebuilt frontend
+  (skill rule 20, `references/additives.md` under *Id and prefix*, the static-mount table of
+  `references/frontend.md`, the Additive pitfalls and the packaging checklist). Nothing in the
+  framework's behaviour changed; two tests now pin it: the default prefix follows the id, and a
+  reassigned prefix moves the routers, `static/` and the frontend while route names and contract
+  names keep the id.
 
 ### Tests
 
@@ -729,7 +788,15 @@ contain. Two pin the event socket's backlog — events published between two
 `listen` requests arrive in order, and the backlog keeps only the newest — and
 six the Vite watchdog: a running server left alone, a stopped one restarted
 with a warning, one that keeps dying given up, none restarted while the app
-stops, the warning without `EXT_SCHEDULING` and the job with it.
+stops, the warning without `EXT_SCHEDULING` and the job with it. Twelve cover
+themed mail: `inject_theme` left alone with themes off, consumed with `True` and
+with `False`, in string, file and Additive rendering; the session theme, the
+global theme without a request and a named theme; the cascade, schemes, `var()`
+fallbacks, cycles and colour conversion; a variables read that never raises; and
+`base_email.html` with a full, a partial and no theme. Two more cover the
+`contrast` filter and a light theme whose header keeps readable text. Two cover
+the integrity reference with updates on: clone and fast-forward on every
+platform, and a failed update that names its cause.
 
 ### Known limitations
 
@@ -1134,11 +1201,11 @@ the request path, the run and release tooling, and the stub tree.
 
 ### Breaking changes
 
-| Removed / renamed                    | Replacement                                          |
-|--------------------------------------|------------------------------------------------------|
-| `format_date(d, ftm=...)`            | `format_date(d, fmt=...)` — the typo is gone         |
-| `to_utc(dt)` stripping the offset    | `to_utc(dt)` converting to UTC first                 |
-| `parse_best_match(None, available)`  | returns `None` instead of `available[0]`             |
+| Removed / renamed                   | Replacement                                  |
+|-------------------------------------|----------------------------------------------|
+| `format_date(d, ftm=...)`           | `format_date(d, fmt=...)` — the typo is gone |
+| `to_utc(dt)` stripping the offset   | `to_utc(dt)` converting to UTC first         |
+| `parse_best_match(None, available)` | returns `None` instead of `available[0]`     |
 
 `to_utc` used to return `dt.replace(tzinfo=None)`, which keeps the wall clock and
 throws the offset away: a Berlin `12:00+02:00` came back as a naive `12:00` that

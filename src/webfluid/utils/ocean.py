@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib, httpx, io, tarfile
+import hashlib, httpx, io, json, tarfile
 
 from webfluid.core.constants import HUB_API, HUB_AUTH
 from webfluid.core.identity import CLI_NAME, HUB_NAME, HUB_TOKEN_FILE
@@ -67,6 +67,11 @@ ERROR_MESSAGES = {
     "WITHDRAWAL_PENDING": "A withdrawal of this purchase is being processed; downloads are paused.",
     "WAIVER_INCOMPLETE": "Every required download confirmation must be accepted.",
     "WAIVER_CHANGED": "The download confirmation changed meanwhile. Please try again.",
+    "LICENSE_REQUIRED": "The release ships no LICENSE file; choose the license the registry writes into its downloads.",
+    "LICENSE_VALUES_INVALID": "Every license field needs one line of at most 300 characters.",
+    "LICENSE_TEMPLATE_MISSING": "The stored license template of this package is missing or damaged.",
+    "LICENSE_UNREPRODUCIBLE": "The stored license of this package could not be reproduced; nothing was delivered.",
+    "LICENSE_RECORD_INVALID": "The stored license data of this package is unreadable.",
     "UNKNOWN_ERROR": "An unknown error occurred."
 }
 
@@ -205,10 +210,17 @@ class Ocean:
     def maintainers(self):
         return self._request("GET", "/enroll")
 
-    def publish(self, ptype, data, checksum, orga=None, price=None):
+    @staticmethod
+    def _license_params(params, license, prompt):
+        if license is not None: params["license"] = json.dumps(license, ensure_ascii=False, separators=(",", ":"))
+        if prompt: params["license_prompt"] = "true"
+        return params
+
+    def publish(self, ptype, data, checksum, orga=None, price=None, license=None, prompt=False):
         params = {}
         if orga is not None: params["orga"] = orga
         if price is not None: params["price"] = price
+        self._license_params(params, license, prompt)
         return self._request(
             "POST", f"/publish/{ptype}/upload",
             params=params, content=data,
@@ -221,10 +233,11 @@ class Ocean:
     def package(self, ptype, package_id):
         return self._request("GET", f"/packages/{ptype}/{package_id}")
 
-    def release(self, ptype, package_id, data, checksum, security=False):
+    def release(self, ptype, package_id, data, checksum, security=False, license=None, prompt=False):
+        params = self._license_params({"security": "true" if security else "false"}, license, prompt)
         return self._request(
             "POST", f"/packages/{ptype}/{package_id}/releases/upload",
-            params={"security": "true" if security else "false"}, content=data,
+            params=params, content=data,
             headers={
                 "Content-Type": "application/octet-stream",
                 "X-Content-SHA256": checksum
@@ -233,6 +246,11 @@ class Ocean:
 
     def license_search(self, q=""):
         return self._request("GET", "/licenses", params={"q": q})
+
+    def license_fields(self, license_id, software="", orga=None):
+        params = {"software": software}
+        if orga is not None: params["orga"] = orga
+        return self._request("GET", f"/licenses/{license_id}/fields", params=params)
 
     def license_placeholders(self, ptype, package_id, license_id):
         return self._request(

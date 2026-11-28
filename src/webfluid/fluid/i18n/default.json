@@ -9,80 +9,80 @@
     "Fehler"
   ],
   "ERROR_TITLE": [
-    "Internal Server Error",
-    "Interner Serverfehler"
+    "This page could not be loaded",
+    "Diese Seite konnte nicht geladen werden"
   ],
   "ERROR_MSG": [
-    "Something went wrong, please try again later.",
-    "Etwas ist schiefgelaufen, bitte versuche es später erneut."
+    "The server ran into an error while answering. Try again in a few minutes; if it keeps happening, contact the operator of this site.",
+    "Beim Beantworten ist auf dem Server ein Fehler aufgetreten. Versuche es in ein paar Minuten erneut; wenn es weiter passiert, wende dich an den Betreiber dieser Website."
   ],
   "NOT_FOUND_TITLE": [
-    "Not Found",
-    "Nicht gefunden"
+    "Page not found",
+    "Seite nicht gefunden"
   ],
   "NOT_FOUND_MSG": [
-    "The page you are looking for is not available.",
-    "Die angefragte Seite konnte nicht gefunden werden."
+    "The address may be mistyped, or the page has moved or been removed.",
+    "Die Adresse ist vielleicht falsch geschrieben, oder die Seite wurde verschoben oder entfernt."
   ],
   "FORBIDDEN_TITLE": [
-    "Forbidden",
-    "Gesperrt"
+    "No access",
+    "Kein Zugriff"
   ],
   "FORBIDDEN_MSG": [
-    "You are not authorized to access this page.",
-    "Du bist nicht berechtigt, auf diese Seite zuzugreifen."
+    "Your account has no access to this page. If you need it, ask the operator of this site.",
+    "Dein Konto hat keinen Zugriff auf diese Seite. Wenn du ihn brauchst, wende dich an den Betreiber dieser Website."
   ],
   "BACK_HOME": [
-    "Back Home",
+    "Go to the start page",
     "Zur Startseite"
   ],
   "BAD_REQUEST_TITLE": [
-    "Bad Request",
-    "Ungültige Anfrage"
+    "Request not processed",
+    "Anfrage nicht verarbeitet"
   ],
   "BAD_REQUEST_MSG": [
-    "The request could not be understood by the server.",
-    "Die Anfrage konnte vom Server nicht verarbeitet werden."
+    "The server could not read what was sent, for example from an outdated link or form. Reload the page and try again.",
+    "Der Server konnte die gesendeten Daten nicht lesen, etwa wegen eines veralteten Links oder Formulars. Lade die Seite neu und versuche es noch einmal."
   ],
   "UNAUTHORIZED_TITLE": [
-    "Unauthorized",
-    "Nicht angemeldet"
+    "Sign-in required",
+    "Anmeldung erforderlich"
   ],
   "UNAUTHORIZED_MSG": [
-    "You need to sign in to access this page.",
-    "Du musst dich anmelden, um auf diese Seite zuzugreifen."
+    "You need to sign in to open this page.",
+    "Du musst dich anmelden, um diese Seite zu öffnen."
   ],
   "NOT_ALLOWED_TITLE": [
-    "Method Not Allowed",
-    "Methode nicht erlaubt"
+    "Not possible here",
+    "Hier nicht möglich"
   ],
   "NOT_ALLOWED_MSG": [
-    "This method is not allowed on the requested resource.",
-    "Diese Methode ist für die angefragte Ressource nicht erlaubt."
+    "This address does not accept that kind of request. Use the buttons and links on the page instead.",
+    "Diese Adresse nimmt diese Art von Anfrage nicht an. Nutze stattdessen die Schaltflächen und Links der Seite."
   ],
   "TOO_MANY_TITLE": [
-    "Too Many Requests",
+    "Too many requests",
     "Zu viele Anfragen"
   ],
   "TOO_MANY_MSG": [
-    "You are sending requests too quickly, please slow down.",
-    "Du sendest zu viele Anfragen, bitte verlangsame das Tempo."
+    "You sent many requests in a short time. Wait a moment, then try again.",
+    "Du hast in kurzer Zeit viele Anfragen gesendet. Warte einen Moment und versuche es dann erneut."
   ],
   "BAD_GATEWAY_TITLE": [
-    "Bad Gateway",
-    "Ungültiges Gateway"
+    "Connection problem",
+    "Verbindungsproblem"
   ],
   "BAD_GATEWAY_MSG": [
-    "The upstream server sent an invalid response.",
-    "Der vorgelagerte Server hat eine ungültige Antwort gesendet."
+    "A server behind this site did not answer correctly. Try again in a few minutes.",
+    "Ein Server hinter dieser Website hat nicht richtig geantwortet. Versuche es in ein paar Minuten erneut."
   ],
   "UNAVAILABLE_TITLE": [
-    "Service Unavailable",
-    "Dienst nicht verfügbar"
+    "Temporarily unavailable",
+    "Vorübergehend nicht erreichbar"
   ],
   "UNAVAILABLE_MSG": [
-    "The service is temporarily unavailable, please try again later.",
-    "Der Dienst ist vorübergehend nicht verfügbar, bitte versuche es später erneut."
+    "This site is being maintained or is under heavy load. Try again in a few minutes.",
+    "Diese Website wird gerade gewartet oder ist stark ausgelastet. Versuche es in ein paar Minuten erneut."
   ],
   "TOKEN_EXPIRED": [
     "Token expired",

@@ -99,15 +99,28 @@ def test_a_pending_withdrawal_pauses_exactly_what_the_registry_pauses(monkeypatc
 
 
 class _Publisher:
-    def __init__(self, error=None):
+    def __init__(self, error=None, required=False):
         self.error = error
+        self.required = required
         self.released = None
+        self.calls = []
+        self.fields = []
 
-    def release(self, ptype, package_id, data, checksum, security=False):
+    def release(self, ptype, package_id, data, checksum, security=False, license=None, prompt=False):
         if self.error: raise self.error
         assert checksum == hashlib.sha256(data).hexdigest()
+        self.calls.append((license, prompt))
+        if self.required and prompt and license is None: raise OceanError(422, "LICENSE_REQUIRED")
         self.released = (ptype, package_id, security)
         return {"id": package_id, "review_status": None}
+
+    def license_search(self, query):
+        return [{"license_id": "MIT", "name": "MIT License"}]
+
+    def license_fields(self, license_id, software, orga):
+        self.fields.append((license_id, software, orga))
+        return {"fields": [{"key": "year", "label": "Year", "default": "2026"},
+                           {"key": "copyright_holder", "label": "Copyright holder", "default": "Maker"}]}
 
 
 def _confirm(monkeypatch, value=True):
@@ -142,3 +155,61 @@ def test_a_refused_release_reports_the_registry_reason(monkeypatch, capsys):
         publish._release(hub, "additives", "demo", {"actions": ["publish"], "releases": []}, data,
                          hashlib.sha256(data).hexdigest(), "1.1", False)
     assert "under review" in capsys.readouterr().out
+
+
+def _license_answers(monkeypatch, values):
+    queue = list(values)
+    monkeypatch.setitem(publish.questions.__dict__, "ocean_license_query", SimpleNamespace(ask=lambda: "mit"))
+    monkeypatch.setitem(publish.questions.__dict__, "ocean_license_choice",
+                        lambda _matches: SimpleNamespace(ask=lambda: "MIT"))
+    monkeypatch.setitem(publish.questions.__dict__, "ocean_license_value",
+                        lambda _label, default: SimpleNamespace(ask=lambda: queue.pop(0) if queue else default))
+
+
+def test_a_release_with_its_own_license_is_never_asked_for_one(monkeypatch):
+    _confirm(monkeypatch)
+    hub, data = _Publisher(), _archive()
+    package = {"actions": ["publish"], "releases": [], "license_missing": True}
+    publish._release(hub, "additives", "demo", package, data, hashlib.sha256(data).hexdigest(), "1.1", False, True)
+    assert hub.calls == [(None, False)] and hub.fields == []
+
+
+def test_a_release_without_license_of_an_unlicensed_package_asks_first(monkeypatch):
+    _confirm(monkeypatch)
+    _license_answers(monkeypatch, ["2025", " ACME "])
+    hub, data = _Publisher(), _archive()
+    package = {"actions": ["publish"], "releases": [], "license_missing": True, "oid": 4}
+    publish._release(hub, "additives", "demo", package, data, hashlib.sha256(data).hexdigest(), "1.1", False, False)
+    assert hub.fields == [("MIT", "demo", 4)]
+    assert hub.calls == [({"license_id": "MIT", "values": {"year": "2025", "copyright_holder": "ACME"}}, True)]
+
+
+def test_a_release_the_registry_refuses_without_license_asks_and_retries(monkeypatch):
+    _confirm(monkeypatch)
+    _license_answers(monkeypatch, [])
+    hub, data = _Publisher(required=True), _archive()
+    package = {"actions": ["publish"], "releases": [], "license_missing": False}
+    publish._release(hub, "additives", "demo", package, data, hashlib.sha256(data).hexdigest(), "1.1", False, False)
+    assert hub.calls[0] == (None, True)
+    assert hub.calls[1] == ({"license_id": "MIT", "values": {"year": "2026", "copyright_holder": "Maker"}}, True)
+    assert hub.released == ("additives", "demo", False)
+
+
+def test_a_declined_license_choice_uploads_nothing(monkeypatch):
+    _confirm(monkeypatch)
+    monkeypatch.setitem(publish.questions.__dict__, "ocean_license_query", SimpleNamespace(ask=lambda: None))
+    hub, data = _Publisher(), _archive()
+    package = {"actions": ["publish"], "releases": [], "license_missing": True}
+    with pytest.raises(typer.Exit):
+        publish._release(hub, "additives", "demo", package, data, hashlib.sha256(data).hexdigest(), "1.1", False,
+                         False)
+    assert hub.calls == []
+
+
+@pytest.mark.parametrize("selected,ships", [
+    (["LICENSE", "manifest.json"], True), (["COPYING.txt"], True), (["licence.md"], True),
+    (["docs/LICENSE", "manifest.json"], False), (["manifest.json"], False)
+])
+def test_only_a_root_license_file_counts_as_shipped(selected, ships):
+    assert publish._ships_license(selected) is ships
+

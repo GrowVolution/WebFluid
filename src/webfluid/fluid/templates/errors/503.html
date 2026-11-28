@@ -1,8 +1,14 @@
 {% extends "base_error.html" %}
 
-{% block accent %}danger{% endblock %}
+{% block accent %}warning{% endblock %}
 {% block code %}503{% endblock %}
-{% block icon %}🛠️{% endblock %}
+{% block icon %}
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 7v5l3 2"/>
+</svg>
+{% endblock %}
 
 {% block heading %}{{ _('UNAVAILABLE_TITLE') }}{% endblock %}
 {% block message %}{{ _('UNAVAILABLE_MSG') }}{% endblock %}

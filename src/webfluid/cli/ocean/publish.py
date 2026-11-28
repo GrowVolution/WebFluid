@@ -7,6 +7,8 @@ from webfluid.core.identity import CLI_NAME, HUB_NAME
 from webfluid.exceptions import OceanError
 from webfluid.utils.ocean import RESERVED_FILES, Ocean, humanize_error
 
+_license_names = ("LICENSE", "LICENCE", "COPYING")
+
 
 def _detect_package(root):
     manifest = root / "manifest.json"
@@ -65,51 +67,57 @@ def _choose_price(ptype):
     return float(answer) if answer else None
 
 
-def _select_license(ocean, ptype, package_id):
-    typer.secho("This package has no license yet. Let's pick one.", bold=True)
+def _ships_license(selected):
+    return any("/" not in rel and rel.upper().split(".")[0] in _license_names for rel in selected)
 
-    license_id = None
-    while license_id is None:
+
+def _search_license(ocean):
+    while True:
         query = questions.ocean_license_query.ask()
-        if query is None:
-            typer.secho("Skipped license selection.", fg=typer.colors.YELLOW)
-            return
-
+        if query is None: return None
         try: matches = ocean.license_search(query)
         except OceanError as e:
-            typer.secho(f"License search failed: {humanize_error(e.detail)}",
-                        fg=typer.colors.RED)
+            typer.secho(f"License search failed: {humanize_error(e.detail)}", fg=typer.colors.RED)
             continue
         if not matches:
-            typer.secho("No licenses found. Try another query.",
-                        fg=typer.colors.YELLOW)
+            typer.secho("No licenses found. Try another query.", fg=typer.colors.YELLOW)
             continue
-
         choice = questions.ocean_license_choice(matches[:10]).ask()
-        if choice is None:
-            typer.secho("Skipped license selection.", fg=typer.colors.YELLOW)
-            return
-        if choice == "__search__": continue
-        license_id = choice
+        if choice != "__search__": return choice
 
-    try: fields = ocean.license_placeholders(ptype, package_id, license_id)
+
+def _ask_license(ocean, software, orga):
+    typer.secho(f"The package ships no LICENSE file. Choose the license the {HUB_NAME} writes into its downloads.",
+                bold=True)
+    license_id = _search_license(ocean)
+    if license_id is None: return None
+    try: fields = ocean.license_fields(license_id, software, orga).get("fields", [])
     except OceanError as e:
-        typer.secho(f"Could not load license fields: {humanize_error(e.detail)}",
-                    fg=typer.colors.RED)
-        return
-
+        typer.secho(f"Could not load license fields: {humanize_error(e.detail)}", fg=typer.colors.RED)
+        return None
+    if not fields:
+        typer.secho(f"{license_id} has no fields to fill in; its text is delivered unchanged.")
     values = {}
-    for field in fields.get("fields", []):
-        default = field.get("default", "")
-        answer = questions.text(f"{field['label']}:", default=default).ask()
-        values[field["placeholder"]] = answer if answer is not None else default
+    for field in fields:
+        answer = questions.ocean_license_value(field.get("label") or field["key"], field.get("default") or "").ask()
+        if answer is None: return None
+        values[field["key"]] = answer.strip()
+    return {"license_id": license_id, "values": values}
 
-    try:
-        ocean.select_license(ptype, package_id, license_id, values)
-        typer.secho(f"License '{license_id}' applied.", fg=typer.colors.GREEN)
+
+def _require_license(ocean, software, orga):
+    license = _ask_license(ocean, software, orga)
+    if license is None:
+        typer.secho("A release without a LICENSE file needs a license. Nothing was uploaded.", fg=typer.colors.YELLOW)
+        raise typer.Exit()
+    return license
+
+
+def _send(call, license, ocean, software, orga):
+    try: return call(license)
     except OceanError as e:
-        typer.secho(f"Could not apply license: {humanize_error(e.detail)}",
-                    fg=typer.colors.RED)
+        if e.detail != "LICENSE_REQUIRED" or license is not None: raise
+    return call(_require_license(ocean, software, orga))
 
 
 def _detect_version(root, ptype):
@@ -151,7 +159,7 @@ def _review_notice(package):
         )
 
 
-def _release(ocean, ptype, package_id, package, data, checksum, version, security):
+def _release(ocean, ptype, package_id, package, data, checksum, version, security, ships=True):
     if "publish" not in (package.get("actions") or []):
         typer.secho(f"'{package_id}' exists and you may not publish releases of it.", fg=typer.colors.RED)
         raise typer.Exit(1)
@@ -163,7 +171,12 @@ def _release(ocean, ptype, package_id, package, data, checksum, version, securit
     if not questions.ocean_confirm_release(package_id, version or "?", security).ask():
         typer.secho("Aborted.", fg=typer.colors.YELLOW)
         raise typer.Exit()
-    try: updated = ocean.release(ptype, package_id, data, checksum, security=security)
+    orga = package.get("oid")
+    license = None if ships or not package.get("license_missing") else _require_license(ocean, package_id, orga)
+    try:
+        updated = _send(lambda choice: ocean.release(ptype, package_id, data, checksum, security=security,
+                                                     license=choice, prompt=not ships),
+                        license, ocean, package_id, orga)
     except OceanError as e:
         typer.secho(f"Release failed: {humanize_error(e.detail)}", fg=typer.colors.RED)
         raise typer.Exit(1)
@@ -219,7 +232,7 @@ def publish(
         typer.secho("Building package archive...", bold=True)
         data = build_archive(project_root, selected)
         _release(ocean, ptype, package_id, existing, data, sha256_hex(data),
-                 _detect_version(project_root, ptype), security)
+                 _detect_version(project_root, ptype), security, _ships_license(selected))
         return
     if security:
         typer.secho("--security only applies to new releases of a published package; ignoring it.",
@@ -237,12 +250,17 @@ def publish(
 
     orga = _choose_maintainer(status)
     price = _choose_price(ptype)
+    ships = _ships_license(selected)
+    license = None if ships else _require_license(ocean, package_id, orga)
 
     typer.secho("Building package archive...", bold=True)
     data = build_archive(project_root, selected)
     checksum = sha256_hex(data)
 
-    try: pkg = ocean.publish(ptype, data, checksum, orga=orga, price=price)
+    try:
+        pkg = _send(lambda choice: ocean.publish(ptype, data, checksum, orga=orga, price=price, license=choice,
+                                                 prompt=not ships),
+                    license, ocean, package_id, orga)
     except OceanError as e:
         typer.secho(f"Publish failed: {humanize_error(e.detail)}",
                     fg=typer.colors.RED)
@@ -250,6 +268,3 @@ def publish(
 
     typer.secho(f"Published '{pkg['id']}'.", fg=typer.colors.GREEN, bold=True)
     _review_notice(pkg)
-
-    if pkg.get("license_missing"):
-        _select_license(ocean, ptype, pkg["id"])

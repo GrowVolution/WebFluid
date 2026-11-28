@@ -19,7 +19,7 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `312-321` Reading config
 - `322-343` **One project, many apps**
 - `344-373` **`wf run` and deployment**
-- `374-419` **Ocean**
+- `374-421` **Ocean**
 <!-- /index -->
 
 ## The command tree
@@ -85,7 +85,7 @@ The split is load-bearing:
 
 | Directory           | Why it matters                                                    |
 |---------------------|-------------------------------------------------------------------|
-| `fluid/__init__.py` | Holds `prepare_fluid()`; `wf migrate` imports `fluid` **by name**  |
+| `fluid/__init__.py` | Holds `prepare_fluid()`; `wf migrate` imports `fluid` **by name** |
 | `fluid/api`         | Mounted under `/api`; JSON default response class                 |
 | `fluid/app`         | Router created with `default_response_class=HTMLResponse`         |
 | `fluid/models`      | The generated Alembic `env.py` imports `fluid.models` **by name** |
@@ -272,11 +272,11 @@ repository**. That difference is the entire rule.
 **`app_configs/<app>.ini` — secret, or potentially secret.**
 
 | Put here                     | Examples                                                                         |
-|------------------------------|-----------------------------------------------------------------------------------|
-| Credentials                  | `SECRET_KEY`, `SECURITY_SECRET`, `MAIL_PASSWORD`, OAuth client secrets, API keys  |
-| Anything that *can* hold one | `DATABASE_URI`, `REDIS_URI`, `RATELIMIT_STORAGE_URI`, any other connection URI    |
-| Per-deployment values        | Hosts, ports, bucket names, the `[dev]` overrides                                 |
-| What this app *is*           | `EXT_*`, `WF_*`, `[additives]`                                                    |
+|------------------------------|----------------------------------------------------------------------------------|
+| Credentials                  | `SECRET_KEY`, `SECURITY_SECRET`, `MAIL_PASSWORD`, OAuth client secrets, API keys |
+| Anything that *can* hold one | `DATABASE_URI`, `REDIS_URI`, `RATELIMIT_STORAGE_URI`, any other connection URI   |
+| Per-deployment values        | Hosts, ports, bucket names, the `[dev]` overrides                                |
+| What this app *is*           | `EXT_*`, `WF_*`, `[additives]`                                                   |
 
 "Potentially secret" is the part that gets missed. `DATABASE_URI = sqlite:///app.db` carries no
 credential today, but the same key in production is `postgresql://app:hunter2@db.internal/app` — a
@@ -287,11 +287,11 @@ inside your network: a name worth keeping out of a public repository is worth pu
 **`fluid/config.py` — non-secret, and everything the repository should show.**
 
 | Put here                       | Examples                                                                                       |
-|--------------------------------|-------------------------------------------------------------------------------------------------|
-| Application shape              | `APP_CONFIG`, `APP_FRONTEND`, `BASE_URL`, `GLOBAL_THEME`                                        |
-| Policy every deployment shares | Cookie flags, `RATELIMIT_DEFAULT`, `SECURITY_PASSWORD_REQUIREMENTS`, `BABEL_SUPPORTED_LOCALES`  |
-| Your own keys                  | `MYAPP_*`, `<ADDITIVE_ID>_*`                                                                    |
-| Every structured value         | `SQLALCHEMY_BINDS`, `SQLALCHEMY_ENGINE_OPTIONS`, `JWT_AUDIENCES`, any dict, list or tuple       |
+|--------------------------------|------------------------------------------------------------------------------------------------|
+| Application shape              | `APP_CONFIG`, `APP_FRONTEND`, `BASE_URL`, `GLOBAL_THEME`                                       |
+| Policy every deployment shares | Cookie flags, `RATELIMIT_DEFAULT`, `SECURITY_PASSWORD_REQUIREMENTS`, `BABEL_SUPPORTED_LOCALES` |
+| Your own keys                  | `MYAPP_*`, `<ADDITIVE_ID>_*`                                                                   |
+| Every structured value         | `SQLALCHEMY_BINDS`, `SQLALCHEMY_ENGINE_OPTIONS`, `JWT_AUDIENCES`, any dict, list or tuple      |
 
 The last row is not a preference. The `.ini` is a flat string→string map, so a dict, a list, a tuple
 or a real boolean has nowhere else to go — `APP_FRONTEND = {"type": "vite"}` in an `.ini` reaches
@@ -416,4 +416,6 @@ ensure `WF_ADDITIVES = 1`, and re-run the migration cycle if it brings models.
 The archive is the working directory minus `.git`, `__pycache__`, `node_modules`, editor folders,
 compiled files **and** everything `.gitignore` excludes (nested files included, negations honoured).
 Check that file before publishing: a gitignored secret is not shipped, an untracked build artefact
-is. `publish` refuses a package that has one of the four license documents above at its root.
+is. `publish` refuses a package that has one of the four license documents above at its root. A
+package without its own root `LICENSE` is asked for a license template and its fields before the upload;
+the hub then writes that `LICENSE` into every download, covered by the verified digest.

@@ -27,10 +27,10 @@ tool's `offset`/`limit`, or `sed -n 'first,lastp'`.
   - `528-537` Delivery semantics
   - `538-588` On the client
 - `589-640` **Cache — `EXT_CACHE`**
-- `641-687` **Mail — `EXT_MAIL`**
-  - `666-687` Batching
-- `688-727` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
-- `728-759` **Scheduling — `EXT_SCHEDULING`**
+- `641-700` **Mail — `EXT_MAIL`**
+  - `666-700` Batching
+- `701-740` **JWT — `EXT_JWT` (requires `EXT_SCHEDULING` **and** `EXT_CACHE`)**
+- `741-772` **Scheduling — `EXT_SCHEDULING`**
 <!-- /index -->
 
 All eight are reached through `webfluid.core.ext`, which creates each instance lazily on first
@@ -682,6 +682,19 @@ surface as exceptions you can handle instead of dying in a detached thread. Both
 failures into `FrameworkException`.
 
 For local development: `python -m aiosmtpd -n -l localhost:1025`.
+
+**Themed mail.** Render the HTML part with `inject_theme=True` and extend `base_email.html`. With
+`WF_THEMES` on, `theme` is then the variables dict of the selected theme (the app's global theme in a
+job without a request) and the layout derives a `palette` of concrete inline colours from it — `page`,
+`card`, `header`, `panel`, `heading`, `text`, `muted`, `caption`, `border`, `divider`, `action`,
+`on_header`, `on_panel`, `on_action`, `scheme`, `font` — each read through
+`theme.get("--…", "#fallback")`. Use `heading`, `text`, `muted` and `caption` on `page` and `card`;
+text on `header`, `panel` and `action` takes the matching `on_…` colour, which the layout picks by
+contrast (`{{ palette.header | contrast(palette.heading, "#ffffff", "#10222f") }}`), so a light host
+theme stays readable. `scheme` is `light` or `dark` after the page colour. Without themes `palette`
+holds the static design. `palette` is set at the layout's top level, so a child template's blocks
+read it directly; an imported macro does not see it — pass it as an argument
+(`{{ button(link, label, palette) }}`).
 
 ---
 

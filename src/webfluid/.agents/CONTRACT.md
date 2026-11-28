@@ -17,13 +17,13 @@ The linked references ship inside this package and provide the detailed contract
 
 ## Application boundary
 
-| Surface | Contract |
-|---------|----------|
-| `from webfluid import Fluid, Additive, Manifest, version` | Public application, module and manifest entry points; `version()` reports the installed version. |
-| `fluid.prepare_fluid()` | Application-owned factory returning an assembled `Fluid`; migration tooling imports it. |
-| `wf run <app>` / `fluid.mix()` | Framework startup and shutdown, including enabled extensions and Additives. An external ASGI server does not run this lifecycle. |
-| `app_configs/<app>.ini` | Runtime switches and secrets; keep it out of version control. |
-| `fluid/config.py` | Non-secret application configuration and structured values. |
+| Surface                                                   | Contract                                                                                                                         |
+|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `from webfluid import Fluid, Additive, Manifest, version` | Public application, module and manifest entry points; `version()` reports the installed version.                                 |
+| `fluid.prepare_fluid()`                                   | Application-owned factory returning an assembled `Fluid`; migration tooling imports it.                                          |
+| `wf run <app>` / `fluid.mix()`                            | Framework startup and shutdown, including enabled extensions and Additives. An external ASGI server does not run this lifecycle. |
+| `app_configs/<app>.ini`                                   | Runtime switches and secrets; keep it out of version control.                                                                    |
+| `fluid/config.py`                                         | Non-secret application configuration and structured values.                                                                      |
 
 See [project setup](references/project-setup.md) for CLI and configuration,
 and [runtime](references/runtime.md) for hooks, context and request processing.
@@ -50,6 +50,12 @@ An Additive owns its manifest, routes, models, services and documentation. Decla
 in `manifest.json`; communicate through documented routes and id-scoped events or queries.
 Importing another Additive's implementation or a host application's `fluid.*` ties the package
 to that checkout and is unsupported as a reusable integration.
+
+The manifest `id` is an Additive's identity: its directory, template namespace, static and frontend
+route names, config switch and the names of its events, queries and tables follow it. Its address
+is `additive.prefix`: routes, `static/` and the frontend are mounted under it. The prefix defaults
+to `"/" + id.replace("_", "-")` and may be reassigned at module level before the Additive is
+enabled. It is part of the package's public HTTP contract; URLs are built from it, never from the id.
 
 Each reusable package carries its own `.agents/CONTRACT.md` and `.agents/SKILL.md`; `DOCS.md` explains
 setup and operation for people. Contracts state what the package provides and consumes;

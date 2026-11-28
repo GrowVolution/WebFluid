@@ -2,8 +2,14 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid, parseaddr
 
 from webfluid.exceptions import FrameworkException
+
+
+def _domain(sender) -> str:
+    address = parseaddr(str(sender or ""))[1]
+    return address.rpartition("@")[2] or "localhost"
 
 
 def make_message(default_sender, to, subject, body,
@@ -24,6 +30,8 @@ def make_message(default_sender, to, subject, body,
         if cc: msg["Cc"] = ", ".join(cc)
         if bcc: msg["Bcc"] = ", ".join(bcc)
         msg["Subject"] = subject
+        msg["Date"] = formatdate(localtime=False, usegmt=True)
+        msg["Message-ID"] = make_msgid(domain=_domain(msg["From"]))
 
         if attachments:
             for attachment in attachments:

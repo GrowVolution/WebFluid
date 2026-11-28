@@ -2,7 +2,15 @@
 
 {% block accent %}warning{% endblock %}
 {% block code %}429{% endblock %}
-{% block icon %}⏳{% endblock %}
+{% block icon %}
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 3h11"/>
+    <path d="M6.5 21h11"/>
+    <path d="M7.5 3v3.2a4 4 0 0 0 1.6 3.2L12 12l2.9-2.6a4 4 0 0 0 1.6-3.2V3"/>
+    <path d="M7.5 21v-3.2a4 4 0 0 1 1.6-3.2L12 12l2.9 2.6a4 4 0 0 1 1.6 3.2V21"/>
+</svg>
+{% endblock %}
 
 {% block heading %}{{ _('TOO_MANY_TITLE') }}{% endblock %}
 {% block message %}{{ _('TOO_MANY_MSG') }}{% endblock %}

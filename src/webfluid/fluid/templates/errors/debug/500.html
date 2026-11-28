@@ -7,7 +7,7 @@
 
     <div class="trace-head wf-rise">
         <span class="trace-badge">
-            <span class="trace-badge-dot"></span>
+            <span class="trace-badge-dot" aria-hidden="true"></span>
             500 · Debug
         </span>
 
@@ -21,10 +21,10 @@
     </div>
 
     <div class="trace-frame wf-rise wf-d1">
-        <div class="trace-bar">
-            <span class="trace-dot" style="background:#ff5f57"></span>
-            <span class="trace-dot" style="background:#febc2e"></span>
-            <span class="trace-dot" style="background:#28c840"></span>
+        <div class="trace-bar" aria-hidden="true">
+            <span class="trace-dot"></span>
+            <span class="trace-dot"></span>
+            <span class="trace-dot"></span>
             <span class="trace-bar-label">traceback</span>
         </div>
         <pre class="trace-body"><code>{{ traceback | e }}</code></pre>

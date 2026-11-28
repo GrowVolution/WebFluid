@@ -1,38 +1,88 @@
+{%- if theme is dict -%}
+{%- set palette = {
+    "page": theme.get("--wf-page", theme.get("--primary-5", "#10222f")),
+    "card": theme.get("--wf-panel", theme.get("--primary-5", "#1c3240")),
+    "header": theme.get("--primary-4", "#213646"),
+    "panel": theme.get("--secondary-5", theme.get("--primary-5", "#182c39")),
+    "heading": theme.get("--wf-text", "#ffffff"),
+    "text": theme.get("--wf-muted", theme.get("--wf-text", "#cdd9ec")),
+    "muted": theme.get("--wf-caption", theme.get("--default-1", "#8aa0bd")),
+    "caption": theme.get("--wf-caption", theme.get("--default-1", "#a6b8c5")),
+    "border": theme.get("--wf-line", "rgba(255,255,255,0.08)"),
+    "divider": theme.get("--wf-line", "rgba(255,255,255,0.06)"),
+    "action": theme.get("--tertiary-3", theme.get("--tertiary-2", "#143153")),
+    "font": theme.get("--body", "'Inter',Arial,sans-serif")
+} -%}
+{%- set palette = dict(palette,
+    on_header=palette.header | contrast(palette.heading, "#ffffff", "#10222f"),
+    on_panel=palette.panel | contrast(palette.muted, "#c8d4de", "#33444f"),
+    on_action=palette.action | contrast(palette.heading, "#ffffff", "#10222f"),
+    scheme="light" if palette.page is light else "dark"
+) -%}
+{%- else -%}
+{%- set palette = {
+    "page": "#10222f",
+    "card": "#1c3240",
+    "header": "#213646",
+    "panel": "#182c39",
+    "heading": "#ffffff",
+    "text": "#cdd9ec",
+    "muted": "#8aa0bd",
+    "caption": "#a6b8c5",
+    "border": "rgba(255,255,255,0.08)",
+    "divider": "rgba(255,255,255,0.06)",
+    "action": "#143153",
+    "on_header": "#ffffff",
+    "on_panel": "#8aa0bd",
+    "on_action": "#ffffff",
+    "scheme": "dark",
+    "font": "'Inter',Arial,sans-serif"
+} -%}
+{%- endif -%}
 <!DOCTYPE html>
 <html lang="{{ LANG }}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width">
-  <meta name="color-scheme" content="dark">
-  <meta name="supported-color-schemes" content="dark">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="{{ palette.scheme }}">
+  <meta name="supported-color-schemes" content="{{ palette.scheme }}">
+  <style>
+    @media only screen and (max-width:480px) {
+      .wf-mail-frame { padding:12px 6px !important; }
+      .wf-mail-section { padding:20px 16px !important; }
+      .wf-mail-legal { padding:16px !important; }
+      .wf-mail-detail td { display:block !important; padding:4px 0 !important; }
+      .wf-mail-detail td:first-child { padding-top:10px !important; border:0 !important; }
+    }
+  </style>
 </head>
 
-<body style="margin:0;padding:0;background-color:#10222f;">
+<body style="margin:0;padding:0;background-color:{{ palette.page }};">
 
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#10222f;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:{{ palette.page }};">
   <tr>
-    <td align="center" style="padding:24px 12px;">
+    <td class="wf-mail-frame" align="center" style="padding:24px 12px;">
 
       <table width="600" cellpadding="0" cellspacing="0" role="presentation"
-             style="max-width:600px;width:100%;background-color:#1c3240;font-family:'Inter',Arial,sans-serif;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+             style="max-width:600px;width:100%;table-layout:fixed;background-color:{{ palette.card }};font-family:{{ palette.font }};border:1px solid {{ palette.border }};border-radius:16px;overflow:hidden;">
 
         <tr>
-          <td style="background-color:#213646;color:#ffffff;padding:24px 32px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08);">
+          <td class="wf-mail-section" style="background-color:{{ palette.header }};color:{{ palette.on_header }};padding:24px 32px;text-align:left;border-bottom:1px solid {{ palette.border }};">
             {% block brand %}
-            <strong style="font-size:18px;letter-spacing:-0.01em;color:#ffffff;">{{ _('BRAND') }}</strong>
+            <strong style="font-size:18px;letter-spacing:-0.01em;color:{{ palette.on_header }};">{{ _('BRAND') }}</strong>
             {% endblock %}
           </td>
         </tr>
 
         <tr>
-          <td style="background-color:#1c3240;padding:32px;color:#cdd9ec;font-size:15px;line-height:1.7;">
+          <td class="wf-mail-section" style="background-color:{{ palette.card }};padding:32px;color:{{ palette.text }};font-size:16px;line-height:1.6;overflow-wrap:anywhere;">
             {% block content %}{% endblock %}
           </td>
         </tr>
 
         {% if with_legal %}
         <tr>
-          <td style="background-color:#182c39;padding:20px 32px;font-size:12px;color:#8aa0bd;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
+          <td class="wf-mail-legal" style="background-color:{{ palette.panel }};padding:20px 32px;font-size:13px;line-height:1.55;color:{{ palette.on_panel }};text-align:left;border-top:1px solid {{ palette.divider }};">
             {% block legal %}{% endblock %}
           </td>
         </tr>
@@ -40,14 +90,14 @@
 
         {% if with_socials %}
         <tr>
-          <td style="background-color:#182c39;padding:12px;text-align:center;">
+          <td style="background-color:{{ palette.panel }};padding:12px;text-align:center;">
             {% block socials %}{% endblock %}
           </td>
         </tr>
         {% endif %}
 
         <tr>
-          <td style="background-color:#10222f;color:#a6b8c5;padding:16px;text-align:center;font-size:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="background-color:{{ palette.page }};color:{{ palette.caption }};padding:16px;text-align:center;font-size:12px;border-top:1px solid {{ palette.divider }};">
             {% block copy %}
             &copy; {{ YEAR | default(2026) }} GrowVolution e.V. – MIT License
             {% endblock %}

@@ -71,6 +71,9 @@
             mobile.addEventListener("click", event => {
                 if (event.target.closest("a")) setMobile(false)
             })
+            window.matchMedia("(min-width: 768px)").addEventListener("change", event => {
+                if (event.matches) setMobile(false)
+            })
             document.addEventListener("keydown", event => {
                 if (event.key === "Escape" && !mobile.inert) {
                     setMobile(false)
@@ -82,6 +85,7 @@
         document.querySelectorAll("[data-dropdown]").forEach(drop => {
             const btn = drop.querySelector("[data-dropdown-btn]")
             const menu = drop.querySelector("[data-dropdown-menu]")
+            if (!btn || !menu) return
 
             btn.addEventListener("click", (e) => {
                 e.stopPropagation()

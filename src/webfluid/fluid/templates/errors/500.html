@@ -2,7 +2,14 @@
 
 {% block accent %}danger{% endblock %}
 {% block code %}500{% endblock %}
-{% block icon %}⚠️{% endblock %}
+{% block icon %}
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.2 2.5h7.6l5.7 5.7v7.6l-5.7 5.7H8.2l-5.7-5.7V8.2Z"/>
+    <path d="M12 7.5v5"/>
+    <path d="M12 16h.01"/>
+</svg>
+{% endblock %}
 
 {% block heading %}{{ _('ERROR_TITLE') }}{% endblock %}
 {% block message %}{{ _('ERROR_MSG') }}{% endblock %}

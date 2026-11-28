@@ -130,22 +130,22 @@ installed package is newer, the package's own `CHANGELOG.md` is the authority on
 
 ## Fixed in `1.0.0rc1`
 
-| The `1.0.0b3` docs say                                                | `1.0.0rc1`                                                                       |
-|-----------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| An Additive's `url_for` only ever reverses that Additive's own routes | The scoped name is tried first and the plain name is the fallback, on and off request |
-| `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                               |
-| Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX |
-| Events published between two `listen` requests of a socket are lost  | Each subscription keeps a backlog (`EVENTS_SOCKET_BACKLOG`) that answers the next `listen` |
-| `EventBus` stops for good after the socket reconnects             | Its loops subscribe again with a backoff; `listen` no longer times out                   |
-| A crashed Vite dev server goes unnoticed                              | With `EXT_SCHEDULING` a watchdog restarts it with a warning; without, start-up warns once |
-| An Additive's enable hook can fail silently                           | `before_enable` and `after_enable` propagate; a failing hook fails that Additive's registration, loudly |
-| `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventBus`; the other registry methods stay internal                     |
-| An unreadable password hash answers 500 out of the sign-in handler    | Every argon2 verification failure answers `False`                                                  |
-| A requirement with an empty `roles` / `permissions` list answers 500  | Refused as malformed (`ValueError`), checked before the admin shortcut; anonymous callers get `False` |
-| The request logger answers 500 when the scope carries no client       | An unknown peer is logged as `unknown`                                                             |
+| The `1.0.0b3` docs say                                                | `1.0.0rc1`                                                                                                    |
+|-----------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| An Additive's `url_for` only ever reverses that Additive's own routes | The scoped name is tried first and the plain name is the fallback, on and off request                         |
+| `RATELIMIT_STORAGE_URI` defaults to Redis on localhost                | It defaults to `memory://` unless `REDIS_URI` is set                                                          |
+| Killing the app without a signal orphans the Vite dev server          | Node processes are tied to the app process by a job object on Windows, by process group on POSIX              |
+| Events published between two `listen` requests of a socket are lost   | Each subscription keeps a backlog (`EVENTS_SOCKET_BACKLOG`) that answers the next `listen`                    |
+| `EventBus` stops for good after the socket reconnects                 | Its loops subscribe again with a backoff; `listen` no longer times out                                        |
+| A crashed Vite dev server goes unnoticed                              | With `EXT_SCHEDULING` a watchdog restarts it with a warning; without, start-up warns once                     |
+| An Additive's enable hook can fail silently                           | `before_enable` and `after_enable` propagate; a failing hook fails that Additive's registration, loudly       |
+| `events.has_event` / `events.has_query` are documented but missing    | Both are delegated by `EventBus`; the other registry methods stay internal                                    |
+| An unreadable password hash answers 500 out of the sign-in handler    | Every argon2 verification failure answers `False`                                                             |
+| A requirement with an empty `roles` / `permissions` list answers 500  | Refused as malformed (`ValueError`), checked before the admin shortcut; anonymous callers get `False`         |
+| The request logger answers 500 when the scope carries no client       | An unknown peer is logged as `unknown`                                                                        |
 | The HTTP proxy forwards the client's hop-by-hop headers upstream      | `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade` and `Expect` are dropped |
-| `wf ocean install` joins a package id onto a path unchecked           | An id that cannot be a single directory name is refused before anything is downloaded              |
-| The Ocean token file is written with the process umask                | Created and kept at mode `600`                                                                     |
+| `wf ocean install` joins a package id onto a path unchecked           | An id that cannot be a single directory name is refused before anything is downloaded                         |
+| The Ocean token file is written with the process umask                | Created and kept at mode `600`                                                                                |
 
 ## Fixed in `1.0.0b3` — the published `1.0.0b2` docs are stale here
 
@@ -154,15 +154,15 @@ Everything in this section is the shipped behaviour; the *Live defects* list abo
 
 ### Security fixes — assume the old behaviour is what an attacker still tries
 
-| Was                                                                                | `1.0.0b3`                                                                                           |
-|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
-| Template values were interpolated verbatim                                         | Autoescape is on for html/xml suffixes and `render_string`                                          |
-| The `vite_ns` cookie was joined onto `project_root` unchecked                      | Only registered frontend namespaces are accepted, and the resolved file must stay under the root    |
-| A token's `kid` was interpolated into the cache key as-is                          | A `kid` that is not 32 lowercase hex characters is rejected before any lookup                       |
-| The rate limiter keyed on a client-supplied forwarded header                       | Keys on `request.client`; use `PROXY_FIX` + `PROXY_TRUSTED_HOSTS` behind a proxy                    |
-| `?redirect=` was replayed after OAuth as given                                     | Only same-site absolute paths survive; anything else becomes `/`                                    |
-| A malformed websocket frame tore down the connection                               | Answered as an error; the socket stays usable                                                       |
-| A disconnect left its subscriptions in `SocketManager`                             | `leave()` drops them, so the registry cannot grow across reconnects                                 |
+| Was                                                           | `1.0.0b3`                                                                                        |
+|---------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Template values were interpolated verbatim                    | Autoescape is on for html/xml suffixes and `render_string`                                       |
+| The `vite_ns` cookie was joined onto `project_root` unchecked | Only registered frontend namespaces are accepted, and the resolved file must stay under the root |
+| A token's `kid` was interpolated into the cache key as-is     | A `kid` that is not 32 lowercase hex characters is rejected before any lookup                    |
+| The rate limiter keyed on a client-supplied forwarded header  | Keys on `request.client`; use `PROXY_FIX` + `PROXY_TRUSTED_HOSTS` behind a proxy                 |
+| `?redirect=` was replayed after OAuth as given                | Only same-site absolute paths survive; anything else becomes `/`                                 |
+| A malformed websocket frame tore down the connection          | Answered as an error; the socket stays usable                                                    |
+| A disconnect left its subscriptions in `SocketManager`        | `leave()` drops them, so the registry cannot grow across reconnects                              |
 
 ### Correctness fixes
 
@@ -278,6 +278,10 @@ These are correct behaviour that reliably produces wrong code when assumed away.
 - **A top-level `from .. import additive` in a handler module is a circular import.** Import inside
   the handler function.
 - **Routes registered after `before_enable` are never mounted.**
+- **The id is not the URL.** `additive.prefix` defaults to the id and an Additive may set another
+  one. A path written as `/<id>/…` — in Python, a template, a frontend constant, a test — works
+  until the prefix moves. A changed prefix also needs the Vite `base` changed and the frontend
+  rebuilt; the old `dist` keeps asking for its assets under the old path.
 - **A base may be extended by exactly one Additive at a time.** If two enabled Additives extend the
   same base, enabling the second fails. Need a shared service? Write an extension.
 - **Installing does not enable.** Add the id to `[additives]` and set `WF_ADDITIVES = 1`.

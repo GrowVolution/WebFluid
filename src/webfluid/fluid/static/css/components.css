@@ -71,22 +71,40 @@
     ::selection { @apply bg-tertiary-2 text-white; }
 
     main { @apply flex-1; }
+
+    :focus-visible { outline: 2px solid var(--tertiary-1); outline-offset: 3px; }
+
+    main { min-width: 0; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
 }
 
 @layer components {
     .btn {
-        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-transparent px-5 py-2.5 text-sm font-semibold transition-colors cursor-pointer;
+    }
+    .btn:disabled {
+        @apply opacity-50 cursor-not-allowed;
+    }
+    .btn[aria-disabled="true"] {
+        @apply opacity-50 cursor-not-allowed pointer-events-none;
     }
     .btn-primary {
         @apply bg-tertiary-1 text-primary-5;
     }
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
         background: color-mix(in srgb, var(--tertiary-1) 86%, white);
     }
     .btn-ghost {
         @apply text-wf-text bg-white/5 border border-wf-line;
     }
-    .btn-ghost:hover {
+    .btn-ghost:hover:not(:disabled) {
         @apply bg-white/10;
     }
     .btn-soft {
@@ -94,62 +112,77 @@
         background: color-mix(in srgb, var(--tertiary-3) 30%, transparent);
         border: 1px solid color-mix(in srgb, var(--tertiary-1) 35%, transparent);
     }
-    .btn-soft:hover {
+    .btn-soft:hover:not(:disabled) {
         background: color-mix(in srgb, var(--tertiary-3) 45%, transparent);
     }
 
 
     body > header > nav {
-        @apply sticky top-0 z-50 border-b border-wf-line;
+        @apply sticky top-0 z-40 border-b border-wf-line;
         background: color-mix(in srgb, var(--wf-blend) 98%, transparent);
-
     }
     .navbar {
         @apply flex items-center justify-between gap-4 max-w-7xl mx-auto px-6 h-16;
     }
     .nav-brand {
-        @apply flex items-center gap-2.5;
+        @apply flex min-w-0 items-center gap-2.5 rounded-lg;
     }
     .nav-logo {
-        @apply w-8 h-8 object-contain transition;
+        @apply w-8 h-8 shrink-0 object-contain transition-opacity;
     }
     .nav-brand:hover .nav-logo-glow {
         opacity: .88;
     }
     .nav-title {
-        @apply font-display font-bold text-base tracking-tight text-wf-text;
+        @apply font-display font-bold text-base tracking-tight text-wf-text truncate;
     }
     .nav-links {
         @apply items-center gap-1;
     }
     .nav-link {
-        @apply px-3.5 py-2 rounded-lg text-sm font-medium text-wf-muted transition hover:text-wf-text hover:bg-white/5;
+        @apply inline-flex min-h-11 items-center px-3.5 py-2 rounded-lg text-sm font-medium text-wf-muted transition-colors hover:text-wf-text hover:bg-white/5;
     }
-    .nav-link-active {
-        @apply text-white bg-white/5;
+    .nav-link-active,
+    .nav-link[aria-current="page"] {
+        @apply text-wf-text bg-white/5;
         box-shadow: inset 0 -2px 0 var(--tertiary-1);
     }
     .nav-dropdown { @apply relative; }
     .nav-dropdown-button {
-        @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-wf-muted cursor-pointer transition hover:text-wf-text hover:bg-white/5;
+        @apply inline-flex min-h-11 items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-wf-muted cursor-pointer transition-colors hover:text-wf-text hover:bg-white/5;
+    }
+    .nav-dropdown-button[aria-expanded="true"] {
+        @apply text-wf-text bg-white/5;
     }
     .nav-dropdown-menu {
         @apply absolute right-0 mt-2 min-w-44 p-1.5 rounded-xl flex flex-col gap-0.5 border border-wf-line;
         background: var(--wf-veil);
-
         box-shadow: var(--wf-shadow);
     }
+    .nav-dropdown-menu.hidden { display: none; }
     .nav-dropdown-item {
-        @apply px-3 py-2 rounded-lg text-sm text-wf-muted transition hover:text-wf-text hover:bg-white/5;
+        @apply inline-flex min-h-11 items-center px-3 py-2 rounded-lg text-sm text-wf-muted transition-colors hover:text-wf-text hover:bg-white/5;
     }
     .nav-toggle {
-        @apply md:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg text-xl text-wf-text bg-white/5 border border-wf-line cursor-pointer transition hover:bg-white/10;
+        @apply md:hidden inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-xl leading-none text-wf-text bg-white/5 border border-wf-line cursor-pointer transition-colors hover:bg-white/10;
     }
+    .nav-toggle[aria-expanded="true"] {
+        @apply bg-white/10;
+        border-color: color-mix(in srgb, var(--tertiary-1) 45%, transparent);
+    }
+    .nav-toggle svg { @apply w-5 h-5; }
     .nav-mobile {
-        @apply md:hidden overflow-hidden max-w-7xl mx-auto transition-all duration-300;
+        @apply md:hidden overflow-hidden max-w-7xl mx-auto transition-[max-height] duration-200 ease-out;
     }
     .nav-mobile-inner {
-        @apply flex flex-col gap-1 px-6 pb-4;
+        @apply flex flex-col gap-1 px-6 pt-3 pb-4 border-t border-wf-line;
+    }
+    .nav-mobile-inner .nav-link {
+        @apply w-full text-base;
+    }
+    .nav-mobile-inner .nav-link-active,
+    .nav-mobile-inner .nav-link[aria-current="page"] {
+        box-shadow: inset 3px 0 0 var(--tertiary-1);
     }
 
 
@@ -158,11 +191,11 @@
         background: var(--wf-sunk);
     }
     .footer {
-        @apply max-w-7xl mx-auto px-6 py-8 flex flex-wrap gap-4 items-center justify-between;
+        @apply max-w-7xl mx-auto px-6 py-8 flex flex-wrap gap-x-6 gap-y-3 items-center justify-between;
     }
-    .footer-text { @apply text-sm text-wf-muted; }
-    .footer-links { @apply flex gap-5; }
-    .footer-link { @apply text-sm text-wf-muted transition hover:text-wf-text; }
+    .footer-text { @apply min-w-0 text-sm text-wf-muted; }
+    .footer-links { @apply flex flex-wrap gap-x-5 gap-y-1; }
+    .footer-link { @apply inline-flex min-h-11 items-center text-sm text-wf-muted transition-colors hover:text-wf-text; }
 
 
     .hero { @apply relative overflow-hidden; }
@@ -232,36 +265,40 @@
     }
     .page-divider {
         @apply h-px my-6;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
+        background: var(--wf-line);
     }
 
 
     .error-layout {
-        @apply relative flex items-center justify-center px-6 overflow-hidden;
+        @apply relative flex items-center justify-center px-4 sm:px-6 overflow-hidden;
         min-height: calc(100dvh - 4rem - 6rem);
+        padding-block: clamp(2.5rem, 6vw, 4.5rem);
         background: var(--wf-page);
     }
     .error-container {
         @apply relative w-full max-w-lg;
         z-index: 1;
     }
-    .error-frame {
-        border-inline-start: 3px solid var(--error-accent);
-    }
-    .error-danger  { --error-accent: var(--danger-2); }
-    .error-warning { --error-accent: var(--warning-2); }
-    .error-info    { --error-accent: var(--info-2); }
+    .error-frame { @apply block; }
+    .error-danger  { --error-accent: var(--danger-1); --error-tint: var(--danger-5); --error-edge: var(--danger-3); }
+    .error-warning { --error-accent: var(--warning-1); --error-tint: var(--warning-5); --error-edge: var(--warning-3); }
+    .error-info    { --error-accent: var(--info-1); --error-tint: var(--info-5); --error-edge: var(--info-3); }
     .error-card {
-        @apply relative flex flex-col items-start gap-4 rounded-r-xl p-6 sm:p-10;
+        @apply relative flex flex-col items-start gap-4 rounded-2xl border border-wf-line p-6 sm:p-10;
         background: var(--wf-panel);
     }
+    .error-head {
+        @apply flex w-full flex-wrap items-center justify-between gap-3;
+    }
     .error-badge {
-        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-xs font-medium tracking-widest text-wf-muted border border-wf-line;
-        background: color-mix(in srgb, var(--error-accent, var(--danger-2)) 14%, transparent);
+        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full border font-mono text-xs font-semibold tracking-widest;
+        color: var(--error-accent, var(--wf-muted));
+        background: color-mix(in srgb, var(--error-tint, var(--default-5)) 40%, transparent);
+        border-color: color-mix(in srgb, var(--error-edge, var(--default-3)) 40%, transparent);
     }
     .error-badge-dot {
-        @apply w-2 h-2 rounded-full;
-        background: var(--error-accent);
+        @apply w-1.5 h-1.5 shrink-0 rounded-full;
+        background: currentColor;
     }
     @keyframes error-pulse {
         0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--error-accent, var(--danger-1)) 55%, transparent); }
@@ -269,40 +306,48 @@
         100% { box-shadow: 0 0 0 0 transparent; }
     }
     .error-icon {
-        @apply text-2xl;
+        @apply inline-flex w-12 h-12 shrink-0 items-center justify-center rounded-xl border text-2xl leading-none;
+        color: var(--error-accent, var(--tertiary-1));
+        background: color-mix(in srgb, var(--error-tint, var(--tertiary-5)) 40%, transparent);
+        border-color: color-mix(in srgb, var(--error-edge, var(--tertiary-3)) 35%, transparent);
     }
-    @keyframes icon-float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-9px); }
+    .error-icon > svg {
+        @apply w-6 h-6;
     }
     .error-title {
-        @apply font-display font-bold tracking-tight;
-        font-size: clamp(1.6rem, 4vw, 2.2rem);
+        @apply font-display text-2xl font-bold tracking-tight text-wf-text;
+        text-wrap: balance;
     }
     .error-text {
-        @apply max-w-sm leading-relaxed text-wf-muted;
+        @apply max-w-md text-base leading-relaxed text-wf-muted;
+    }
+    .error-actions {
+        @apply mt-2 flex w-full flex-col-reverse gap-3 sm:w-auto sm:flex-row;
     }
     .error-action {
-        @apply inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2.5 font-semibold text-sm text-primary-5 bg-tertiary-1;
+        @apply inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-transparent px-5 py-2.5 text-sm font-semibold text-primary-5 bg-tertiary-1 transition-colors sm:w-auto;
     }
     .error-action:hover {
         background: color-mix(in srgb, var(--tertiary-1) 86%, white);
     }
+    .error-action > svg {
+        @apply w-4 h-4 shrink-0;
+    }
 
 
     .trace-layout {
-        @apply max-w-5xl mx-auto px-6 flex flex-col gap-6;
+        @apply max-w-5xl mx-auto px-4 sm:px-6 flex flex-col gap-6;
         padding-top: clamp(2.5rem, 5vw, 4rem);
         padding-bottom: clamp(2.5rem, 5vw, 4rem);
     }
     .trace-badge {
-        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-xs font-medium tracking-widest text-danger-1 border border-wf-line w-fit;
-        background: color-mix(in srgb, var(--danger-2) 14%, transparent);
+        @apply inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-xs font-semibold tracking-widest text-danger-1 border w-fit;
+        background: color-mix(in srgb, var(--danger-5) 40%, transparent);
+        border-color: color-mix(in srgb, var(--danger-3) 40%, transparent);
     }
     .trace-badge-dot {
-        @apply w-2 h-2 rounded-full;
-        background: var(--danger-1);
-        animation: error-pulse 2s ease-out infinite;
+        @apply w-1.5 h-1.5 shrink-0 rounded-full;
+        background: currentColor;
     }
     .trace-title {
         @apply font-mono font-bold tracking-tight text-danger-1 mt-4 break-words;
@@ -319,20 +364,23 @@
         background: color-mix(in srgb, var(--tertiary-3) 22%, transparent);
     }
     .trace-path {
-        @apply font-mono text-wf-muted break-all;
+        @apply min-w-0 font-mono text-wf-muted break-all;
     }
     .trace-frame {
         @apply rounded-2xl overflow-hidden border border-wf-line;
         background: var(--wf-veil);
-        box-shadow: 0 30px 70px rgba(0, 0, 0, .45);
     }
     .trace-bar {
         @apply flex items-center gap-2 px-4 py-3 border-b border-wf-line;
         background: var(--wf-sunk);
     }
     .trace-dot {
-        @apply w-3 h-3 rounded-full;
+        @apply w-3 h-3 shrink-0 rounded-full;
+        background: var(--wf-line);
     }
+    .trace-dot:nth-child(1) { background: color-mix(in srgb, var(--danger-2) 80%, transparent); }
+    .trace-dot:nth-child(2) { background: color-mix(in srgb, var(--warning-2) 80%, transparent); }
+    .trace-dot:nth-child(3) { background: color-mix(in srgb, var(--success-2) 80%, transparent); }
     .trace-bar-label {
         @apply ml-2 font-mono text-xs tracking-widest text-wf-caption;
     }
@@ -346,42 +394,27 @@
     code {
         @apply font-mono text-tertiary-1;
         font-size: .9em;
+        overflow-wrap: anywhere;
     }
 
 
     .wf-rise {
-        animation: wf-rise .22s ease-out both;
+        animation: wf-rise .2s ease-out both;
     }
-    .wf-d1 { animation-delay: .08s; }
-    .wf-d2 { animation-delay: .16s; }
-    .wf-d3 { animation-delay: .24s; }
+    .wf-d1 { animation-delay: .06s; }
+    .wf-d2 { animation-delay: .12s; }
+    .wf-d3 { animation-delay: .18s; }
     @keyframes wf-rise {
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: translateY(0); }
     }
-}
-@layer base {
-    :focus-visible { outline: 2px solid var(--tertiary-1); outline-offset: 3px; }
-    main { min-width: 0; }
-    @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-        }
-    }
-}
-@layer components {
-    .nav-link, .nav-dropdown-button, .nav-dropdown-item { @apply min-h-11 inline-flex items-center; }
-    .nav-dropdown-menu { border-color: var(--wf-line); background: var(--wf-panel); box-shadow: var(--wf-shadow); }
-    .nav-dropdown-menu.hidden { display: none; }
-    .footer-links { @apply flex-wrap; }
-}
 
-@layer components {
+
     .wf-skip-link {
         @apply fixed left-4 top-4 z-[200] px-4 py-3 rounded-xl text-primary-5 bg-tertiary-1 font-semibold;
+        box-shadow: var(--wf-shadow);
         transform: translateY(-200%);
+        transition: transform .15s ease-out;
     }
     .wf-skip-link:focus { transform: translateY(0); }
 }

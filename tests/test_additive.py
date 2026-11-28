@@ -45,6 +45,56 @@ def build(additives, aid, **kwargs):
     return Additive(f"additives.{aid}")
 
 
+class Mounts:
+    def __init__(self, additive_root):
+        self.additive_root = additive_root
+        self.routers = []
+        self.static = []
+        self.static_prefixes = set()
+        self.static_files = self
+
+    def include_router(self, router, prefix=""): self.routers.append(prefix)
+
+    def add_template_loader(self, loader): pass
+
+    def add(self, prefix, path, name): self.static.append((prefix, name))
+
+
+def enable(additives, additive):
+    from webfluid.core.additive.lifecycle.enable import _enable
+
+    (additive.root_path / "static").mkdir()
+    mounts = Mounts(additives)
+    _enable(additive, mounts)
+    return mounts
+
+
+def test_prefix_defaults_to_the_id(additives):
+    additive = build(additives, "core_feature")
+
+    assert additive.prefix == "/core-feature"
+
+    mounts = enable(additives, additive)
+
+    assert mounts.routers == ["/core-feature"] * 3
+    assert mounts.static == [("/core-feature/static", "core_feature_static")]
+    assert additive.frontend.prefix == "/core-feature/frontend"
+
+
+def test_reassigned_prefix_moves_every_mount_and_keeps_the_id(additives):
+    additive = build(additives, "demo")
+    additive.prefix = "/portal"
+
+    mounts = enable(additives, additive)
+
+    assert mounts.routers == ["/portal"] * 3
+    assert mounts.static == [("/portal/static", "demo_static")]
+    assert additive.frontend.prefix == "/portal/frontend"
+    assert mounts.static_prefixes == { "/portal/static", "/portal/frontend" }
+    assert additive.jinja_context["id"] == "demo"
+    assert additive.unique_name("event") == "demo_event"
+
+
 def test_request_hooks_are_registrable(additives):
     additive = build(additives, "demo")
 

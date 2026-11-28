@@ -93,6 +93,41 @@ async def test_empty_repository_is_unconfigured(reference, monkeypatch):
     assert records[0]["reference"]["url"] is None and records[0]["reference"]["manifest"] is None
 
 
+def _commit(origin, name: str) -> str:
+    from git import Repo
+    (origin / name).write_text(name, encoding="utf-8")
+    with (Repo(origin) if (origin / ".git").exists() else Repo.init(origin, initial_branch="main")) as repo:
+        repo.index.add([name])
+        return repo.index.commit(name).hexsha
+
+
+def test_update_clones_and_fast_forwards_on_every_platform(tmp_path):
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    first = _commit(origin, "one.txt")
+
+    class Reference(IntegrityReference):
+        pass
+
+    Reference.setup("thing", str(origin), "clone", [], tmp_path, update=True, timeout=20)
+    state = Reference.refresh()
+    assert state["error"] is None and state["updated"] and state["commit"] == first
+
+    second = _commit(origin, "two.txt")
+    state = Reference.refresh()
+    assert state["error"] is None and state["updated"] and state["commit"] == second
+
+
+async def test_failed_update_names_its_cause(tmp_path):
+    class Reference(IntegrityReference):
+        pass
+
+    Reference.setup("thing", str(tmp_path / "absent"), "clone", [], tmp_path, update=True, timeout=20)
+    reference = await Reference.compute("broken")
+    assert reference["status"] == "unavailable" and reference["error"] == "REFERENCE_UPDATE_FAILED"
+    assert reference["detail"] and "kill_after_timeout" not in reference["detail"]
+
+
 def test_refresh_closes_every_repository_it_opens(reference, monkeypatch):
     import gc
     from git import Repo

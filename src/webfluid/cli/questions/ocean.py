@@ -11,6 +11,14 @@ license_query = text(
 )
 
 
+def _valid_license_value(value):
+    value = value.strip()
+    if not value: return "This field is required."
+    if len(value) > 300: return "Use at most 300 characters."
+    if any(ord(char) < 32 or ord(char) == 127 for char in value): return "Use a single line."
+    return True
+
+
 def _valid_price(value, required):
     value = value.strip()
     if not value:
@@ -61,6 +69,10 @@ def maintainer(options):
         "Publish as:",
         choices=[fixed_choice(label, value) for label, value in options]
     )
+
+
+def license_value(label, default):
+    return text(f"{label}:", default=default, validate=_valid_license_value)
 
 
 def license_choice(matches):

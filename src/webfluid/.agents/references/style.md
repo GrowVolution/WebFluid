@@ -31,20 +31,20 @@ the parts you touch into line — do not restyle unrelated files in the same cha
 
 An Additive or an application package uses these modules. Create only the ones the package needs.
 
-| Module           | Holds                                                                                      |
-|------------------|--------------------------------------------------------------------------------------------|
-| `__init__.py`    | The `additive` object and its lifecycle hooks — or, for any other package, the bundling of its submodules |
-| `config.py`      | The config class, the secret gate, the `setup` questions of `wf create app`                |
-| `api/`           | JSON handlers, one module per resource; `api/v1/__init__.py` assembles the router          |
-| `app/`           | HTML handlers                                                                              |
-| `events/`        | Signal, event and query handlers, registered from a hook                                   |
-| `models/`        | `db.Model` subclasses — nothing else                                                       |
-| `schemas/`       | Pydantic models — nothing else, and no Pydantic model anywhere else                        |
-| `services/`      | Business logic: one service class per module, exported from `services/__init__.py`        |
-| `utils/`         | Stateless helpers that need neither the database nor the request                           |
-| `exceptions.py`  | Every exception class of the package                                                       |
-| `jobs.py`        | Scheduled jobs that stand on their own                                                     |
-| `i18n/`          | `default.json` and the translation resolver                                                |
+| Module          | Holds                                                                                                     |
+|-----------------|-----------------------------------------------------------------------------------------------------------|
+| `__init__.py`   | The `additive` object and its lifecycle hooks — or, for any other package, the bundling of its submodules |
+| `config.py`     | The config class, the secret gate, the `setup` questions of `wf create app`                               |
+| `api/`          | JSON handlers, one module per resource; `api/v1/__init__.py` assembles the router                         |
+| `app/`          | HTML handlers                                                                                             |
+| `events/`       | Signal, event and query handlers, registered from a hook                                                  |
+| `models/`       | `db.Model` subclasses — nothing else                                                                      |
+| `schemas/`      | Pydantic models — nothing else, and no Pydantic model anywhere else                                       |
+| `services/`     | Business logic: one service class per module, exported from `services/__init__.py`                        |
+| `utils/`        | Stateless helpers that need neither the database nor the request                                          |
+| `exceptions.py` | Every exception class of the package                                                                      |
+| `jobs.py`       | Scheduled jobs that stand on their own                                                                    |
+| `i18n/`         | `default.json` and the translation resolver                                                               |
 
 ### Services are classes
 

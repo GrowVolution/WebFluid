@@ -87,6 +87,23 @@ def options(locale=None):
     return entries
 
 
+def trusted_country(request=None):
+    from webfluid.core.fluid.middleware.proxy_headers import TRUSTED_PROXY
+
+    if request is None:
+        ctx = FluidContext.try_current()
+        request = ctx.request if ctx is not None else None
+    if request is None or request.scope.get(TRUSTED_PROXY) is not True: return None
+
+    for header in _GEO_HEADERS:
+        value = request.headers.get(header)
+        if not value: continue
+        candidate = value.strip().upper()
+        if candidate in _GEO_IGNORED: continue
+        if candidate in _CODE_SET: return candidate
+    return None
+
+
 def country_from_request(request=None, fallback=DEFAULT_COUNTRY):
     if request is None:
         ctx = FluidContext.try_current()

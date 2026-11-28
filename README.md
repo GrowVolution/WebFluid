@@ -94,7 +94,9 @@ manifest.
 
 - **Routers** — every additive exposes an `api` router (JSON, under `/api`), an
   `app` router (HTML pages), and a `ws` router (WebSockets). They are mounted
-  under the additive's own prefix so features never collide.
+  under the additive's own prefix so features never collide. The prefix is
+  `additive.prefix`: it defaults to the additive's id and can be set to any
+  other path, while templates, config and contracts keep the id.
 - **Base and default additives** — a *base* additive provides shared building
   blocks with no frontend of its own; a *default* additive can optionally
   *extend* a base to build on top of it. This lets a family of related features
@@ -120,17 +122,17 @@ its maintainer.
 Extensions are the "batteries." Each one is optional and enabled per app through
 an `EXT_*` flag, so an app only pays for what it uses.
 
-| Extension      | Purpose                                                               |
-|----------------|-----------------------------------------------------------------------|
+| Extension      | Purpose                                                                                                              |
+|----------------|----------------------------------------------------------------------------------------------------------------------|
 | **SQLAlchemy** | Async database access against PostgreSQL or SQLite; MySQL is wired but see *Known limitations* in the release notes. |
-| **Migrate**    | Alembic-based schema migrations.                                      |
-| **Babel**      | Internationalisation and localisation of text, dates, and numbers.    |
-| **Security**   | Sessions, roles, and request protection primitives.                   |
-| **Events**     | An in-application event bus for decoupling features.                  |
-| **Cache**      | Caching backed by Redis or an in-memory store.                        |
-| **Mail**       | Asynchronous SMTP email delivery.                                     |
-| **JWT**        | Signing and verification of JSON Web Tokens.                          |
-| **Scheduling** | Cron and interval background jobs via APScheduler.                    |
+| **Migrate**    | Alembic-based schema migrations.                                                                                     |
+| **Babel**      | Internationalisation and localisation of text, dates, and numbers.                                                   |
+| **Security**   | Sessions, roles, and request protection primitives.                                                                  |
+| **Events**     | An in-application event bus for decoupling features.                                                                 |
+| **Cache**      | Caching backed by Redis or an in-memory store.                                                                       |
+| **Mail**       | Asynchronous SMTP email delivery.                                                                                    |
+| **JWT**        | Signing and verification of JSON Web Tokens.                                                                         |
+| **Scheduling** | Cron and interval background jobs via APScheduler.                                                                   |
 
 Extensions plug their own subcommands into the CLI through the
 `webfluid.extensions` entry point group — that is how Babel adds its catalog

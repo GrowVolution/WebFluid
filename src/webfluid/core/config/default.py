@@ -69,7 +69,7 @@ class DefaultConfig:
 
     SECURITY_SECRET = os.getenv("SECURITY_SECRET")
     SECURITY_CSRF_COOKIE_NAME = "csrf_token"
-    SECURITY_CSRF_COOKIE_SECURE = True
+    SECURITY_CSRF_COOKIE_SECURE = not DEBUG
     SECURITY_PASSWORD_REQUIREMENTS = {
         "lower": 1,
         "upper": 1,
